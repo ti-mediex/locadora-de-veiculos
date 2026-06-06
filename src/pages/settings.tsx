@@ -138,7 +138,7 @@ export default function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p><strong className="text-foreground">FrotaGest</strong> · v1.0</p>
+            <p><strong className="text-foreground">VIP CARS</strong> · v1.0</p>
             <p>Gestão financeira de frota para locação de veículos a motoristas de aplicativo.</p>
             <p>Ciclo de cobrança padrão: <strong className="text-foreground">semanal</strong>.</p>
             <p>Backend: Supabase (PostgreSQL, Auth, Storage). Frontend: React + Vite.</p>

@@ -289,7 +289,7 @@ export default function ImportPage() {
     <div className="space-y-6">
       <PageHeader
         title="Importar dados (migração)"
-        description="Migre os dados do Blue Fleet (ou planilhas) para o FrotaGest via CSV"
+        description="Migre os dados do Blue Fleet (ou planilhas) para o VIP CARS via CSV"
       />
 
       <Card>

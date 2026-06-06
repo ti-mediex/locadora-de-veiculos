@@ -45,7 +45,7 @@ interface Props {
   empresa?: string;
 }
 
-function ContractDocument({ contract, vehicle, renter, empresa = "FrotaGest Locadora" }: Props) {
+function ContractDocument({ contract, vehicle, renter, empresa = "VIP CARS Locadora" }: Props) {
   const ciclo = CYCLE_LABEL[contract.ciclo_cobranca] ?? contract.ciclo_cobranca;
   return (
     <Document>
@@ -107,7 +107,7 @@ function ContractDocument({ contract, vehicle, renter, empresa = "FrotaGest Loca
         </View>
 
         <Text style={styles.footer}>
-          Documento gerado eletronicamente pelo FrotaGest — sem validade jurídica até assinatura das partes.
+          Documento gerado eletronicamente pelo VIP CARS — sem validade jurídica até assinatura das partes.
         </Text>
       </Page>
     </Document>

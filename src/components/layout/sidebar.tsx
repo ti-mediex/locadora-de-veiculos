@@ -24,6 +24,7 @@ import {
   KanbanSquare,
   Landmark,
   ArrowLeftRight,
+  ShieldAlert,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ const NAV: {
   { to: "/manutencoes", label: "Manutenções", icon: Wrench, roles: ALL },
   { to: "/manutencao-kanban", label: "Dashboard Manutenção", icon: KanbanSquare, roles: ALL },
   { to: "/multas", label: "Multas", icon: AlertTriangle, roles: ALL },
+  { to: "/sinistros-kanban", label: "Dashboard Sinistro", icon: ShieldAlert, roles: ALL },
   { to: "/ocorrencias", label: "Ocorrências", icon: ClipboardList, roles: ALL },
   { to: "/vistorias", label: "Vistorias", icon: ClipboardCheck, roles: ALL },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3, roles: ["admin", "financeiro"] },
@@ -95,7 +97,7 @@ export function Sidebar({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Car className="h-5 w-5" />
             </div>
-            <span className="text-lg font-bold">FrotaGest</span>
+            <span className="text-lg font-bold">VIP CARS</span>
           </div>
           <button className="lg:hidden" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -123,7 +125,7 @@ export function Sidebar({
           ))}
         </nav>
         <div className="border-t p-4 text-xs text-muted-foreground">
-          FrotaGest · v1.0
+          VIP CARS · v1.0
         </div>
       </aside>
     </>

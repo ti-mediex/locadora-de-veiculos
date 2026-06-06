@@ -59,7 +59,7 @@ export default function LoginPage() {
             <Car className="h-8 w-8" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">FrotaGest</h1>
+            <h1 className="text-2xl font-bold">VIP CARS</h1>
             <p className="text-sm text-muted-foreground">
               Gestão financeira da sua locadora de veículos
             </p>

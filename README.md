@@ -1,4 +1,4 @@
-# FrotaGest — Gestão Financeira de Locadora de Veículos
+# VIP CARS — Gestão Financeira de Locadora de Veículos
 
 Sistema web para gestão financeira completa de uma frota locada a **motoristas de aplicativo** (Uber, 99, etc.). Cadastro de veículos e locatários, contratos com geração de PDF, motor de cobranças recorrentes (aluguel **semanal** por padrão), controle de manutenções, multas, despesas e um **dashboard** gerencial.
 
@@ -21,12 +21,12 @@ Sistema web para gestão financeira completa de uma frota locada a **motoristas 
 - **Importação / Migração** — importador CSV com mapeamento de colunas para migrar dados do Blue Fleet (ou planilhas) para o app.
 - **Configurações** — gestão de usuários e papéis (admin / financeiro / operador).
 
-## 🔄 Migração de dados (Blue Fleet → FrotaGest)
+## 🔄 Migração de dados (Blue Fleet → VIP CARS)
 
 Como o Blue Fleet não expõe API pública, a migração é feita por **exportação CSV + importação assistida**:
 
 1. No Blue Fleet, **exporte** cada conjunto de dados (veículos, condutores/locatários, contratos, ocorrências, despesas) em **CSV** (ou salve o Excel como `.csv`).
-2. No FrotaGest, acesse **Importar dados** (menu lateral, perfil admin).
+2. No VIP CARS, acesse **Importar dados** (menu lateral, perfil admin).
 3. Escolha o tipo de dado, **envie o CSV** — o sistema detecta as colunas e faz o mapeamento automático (ajustável).
 4. Confira a **prévia** e clique em importar. Veículos e locatários usam *upsert* por **placa**/**CPF** (não duplica em reimportações). Manutenções, despesas e ocorrências vinculam-se ao veículo pela **placa**.
 

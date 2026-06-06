@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ListChecks, Wrench } from "lucide-react";
+import { ChevronRight, ListChecks, Wrench, MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { useUpdateMaintenanceStage } from "@/hooks/use-maintenance-items";
 import { MaintenanceItemsDialog } from "@/components/maintenance/items-dialog";
 import { MAINTENANCE_STAGE } from "@/lib/options";
+import { whatsappLink } from "@/lib/whatsapp";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 interface KanbanCard {
@@ -21,7 +22,7 @@ interface KanbanCard {
   agendamento: string | null;
   data: string;
   vehicles: { placa: string } | null;
-  suppliers: { nome_fantasia: string } | null;
+  suppliers: { nome_fantasia: string; telefone: string | null } | null;
 }
 
 const ORDER = MAINTENANCE_STAGE.filter((s) => s.value !== "cancelada");
@@ -32,7 +33,7 @@ function useKanban() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("maintenances")
-        .select("id, etapa, motivo, descricao, oficina, valor, agendamento, data, vehicles(placa), suppliers(nome_fantasia)")
+        .select("id, etapa, motivo, descricao, oficina, valor, agendamento, data, vehicles(placa), suppliers(nome_fantasia, telefone)")
         .neq("etapa", "cancelada")
         .order("data", { ascending: false });
       if (error) throw error;
@@ -96,6 +97,20 @@ export default function MaintenanceKanbanPage() {
                           <Button variant="ghost" size="icon" title="Itens da OS" onClick={() => setItemsFor(c.id)}>
                             <ListChecks className="h-4 w-4" />
                           </Button>
+                          {c.suppliers?.telefone && (
+                            <Button variant="ghost" size="icon" title="Acionar fornecedor" asChild>
+                              <a
+                                href={whatsappLink(
+                                  c.suppliers.telefone,
+                                  `Olá! Referente à OS do veículo ${c.vehicles?.placa ?? ""}: ${c.motivo ? c.motivo + " - " : ""}${c.descricao}. Poderia enviar o orçamento?`
+                                )}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <MessageCircle className="h-4 w-4 text-success" />
+                              </a>
+                            </Button>
+                          )}
                           {canWrite && next && (
                             <Button
                               variant="ghost"
