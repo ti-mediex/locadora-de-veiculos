@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { EXPENSE_CATEGORIA, EXPENSE_STATUS } from "@/lib/options";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Expense, Vehicle } from "@/types/database";
@@ -58,6 +59,7 @@ export default function ExpensesPage() {
   const create = useCreate<Expense>("expenses", "Despesa");
   const update = useUpdate<Expense>("expenses", "Despesa");
   const remove = useDelete("expenses", "Despesa");
+  const canWrite = useCanWrite("expenses");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -122,7 +124,7 @@ export default function ExpensesPage() {
       <PageHeader
         title="Despesas"
         description="Custos da operação e da frota"
-        actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> Nova despesa</Button>}
+        actions={canWrite && <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova despesa</Button>}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -160,12 +162,14 @@ export default function ExpensesPage() {
                     <TableCell className="text-right font-medium">{formatCurrency(e.valor)}</TableCell>
                     <TableCell><StatusBadge status={e.status} /></TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(e)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => confirm("Remover despesa?") && remove.mutate(e.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(e)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => confirm("Remover despesa?") && remove.mutate(e.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

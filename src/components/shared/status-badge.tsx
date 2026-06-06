@@ -36,6 +36,11 @@ const MAP: Record<string, { label: string; variant: Variant }> = {
   lancada: { label: "Lançada", variant: "secondary" },
   repassada: { label: "Repassada", variant: "default" },
   recorrida: { label: "Recorrida", variant: "warning" },
+  // Ocorrências (status) e Vistorias (tipo)
+  aberta: { label: "Aberta", variant: "warning" },
+  resolvida: { label: "Resolvida", variant: "success" },
+  entrega: { label: "Entrega", variant: "default" },
+  devolucao: { label: "Devolução", variant: "secondary" },
 };
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {

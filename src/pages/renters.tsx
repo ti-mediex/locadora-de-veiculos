@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { RENTER_STATUS } from "@/lib/options";
 import { maskCpf, formatDate } from "@/lib/format";
 import type { Renter } from "@/types/database";
@@ -63,6 +64,7 @@ export default function RentersPage() {
   const create = useCreate<Renter>("renters", "Locatário");
   const update = useUpdate<Renter>("renters", "Locatário");
   const remove = useDelete("renters", "Locatário");
+  const canWrite = useCanWrite("renters");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Renter | null>(null);
@@ -135,9 +137,11 @@ export default function RentersPage() {
         title="Locatários"
         description="Motoristas cadastrados na operação"
         actions={
-          <Button onClick={openNew}>
-            <Plus className="h-4 w-4" /> Novo locatário
-          </Button>
+          canWrite && (
+            <Button onClick={openNew}>
+              <Plus className="h-4 w-4" /> Novo locatário
+            </Button>
+          )
         }
       />
 
@@ -187,20 +191,22 @@ export default function RentersPage() {
                     <TableCell>{r.telefone ?? "—"}</TableCell>
                     <TableCell><StatusBadge status={r.status} /></TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm(`Remover ${r.nome}?`)) remove.mutate(r.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm(`Remover ${r.nome}?`)) remove.mutate(r.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

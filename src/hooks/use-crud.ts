@@ -10,7 +10,9 @@ type TableName =
   | "maintenances"
   | "fines"
   | "expenses"
-  | "profiles";
+  | "profiles"
+  | "occurrences"
+  | "inspections";
 
 interface CrudOptions {
   select?: string;

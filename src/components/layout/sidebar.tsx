@@ -10,6 +10,9 @@ import {
   Wallet,
   BarChart3,
   Settings,
+  ClipboardList,
+  ClipboardCheck,
+  Upload,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,7 +36,10 @@ const NAV: {
   { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
   { to: "/manutencoes", label: "Manutenções", icon: Wrench, roles: ALL },
   { to: "/multas", label: "Multas", icon: AlertTriangle, roles: ALL },
+  { to: "/ocorrencias", label: "Ocorrências", icon: ClipboardList, roles: ALL },
+  { to: "/vistorias", label: "Vistorias", icon: ClipboardCheck, roles: ALL },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3, roles: ["admin", "financeiro"] },
+  { to: "/importar", label: "Importar dados", icon: Upload, roles: ["admin"] },
   { to: "/configuracoes", label: "Configurações", icon: Settings, roles: ["admin"] },
 ];
 

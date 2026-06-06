@@ -24,6 +24,8 @@ import {
   Line,
   ComposedChart,
   Cell,
+  PieChart,
+  Pie,
 } from "recharts";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -47,6 +49,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { whatsappLink, cobrancaMessage } from "@/lib/whatsapp";
+import { OCCURRENCE_TYPE } from "@/lib/options";
+import { format, parseISO } from "date-fns";
 import {
   useDashboardSummary,
   useMonthlyCashflow,
@@ -54,6 +58,8 @@ import {
   useUpcomingReceivables,
   useOperationalAlerts,
   useTopDebtors,
+  useOccurrencesByDay,
+  useOccurrencesByType,
 } from "@/hooks/use-dashboard";
 
 export default function DashboardPage() {
@@ -63,6 +69,17 @@ export default function DashboardPage() {
   const { data: upcoming = [] } = useUpcomingReceivables();
   const { data: alerts } = useOperationalAlerts();
   const { data: topDebtors = [] } = useTopDebtors();
+  const { data: occByDay = [] } = useOccurrencesByDay(30);
+  const { data: occByType = [] } = useOccurrencesByType(30);
+
+  const occTypeData = occByType.map((o) => {
+    const cfg = OCCURRENCE_TYPE.find((t) => t.value === o.tipo);
+    return { name: cfg?.label ?? o.tipo, value: o.total, color: cfg?.color ?? "hsl(221 83% 53%)" };
+  });
+  const occDayData = occByDay.map((d) => ({
+    ...d,
+    label: typeof d.dia === "string" ? format(parseISO(d.dia), "dd/MM") : String(d.dia),
+  }));
 
   const topVeiculos = profitability.slice(0, 6).map((v) => ({
     nome: v.placa,
@@ -133,6 +150,75 @@ export default function DashboardPage() {
           hint="Veículos ativos na frota"
           icon={<Car className="h-5 w-5" />}
         />
+      </div>
+
+      {/* Operação — Ocorrências (inspirado no Blue Fleet) */}
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-muted-foreground">Operação</h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Ocorrências por dia</CardTitle>
+              <CardDescription>Últimos 30 dias, por tipo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {occDayData.length === 0 ? (
+                <EmptyState message="Sem ocorrências no período" />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={occDayData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" fontSize={11} />
+                    <YAxis fontSize={11} allowDecimals={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                    <Legend />
+                    {OCCURRENCE_TYPE.map((t) => (
+                      <Bar
+                        key={t.value}
+                        dataKey={t.value}
+                        name={t.label}
+                        stackId="occ"
+                        fill={t.color}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ocorrências por tipo</CardTitle>
+              <CardDescription>Distribuição (30 dias)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {occTypeData.length === 0 ? (
+                <EmptyState message="Sem ocorrências" />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={occTypeData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                    >
+                      {occTypeData.map((e, i) => (
+                        <Cell key={i} fill={e.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Gráficos */}

@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { MAINTENANCE_TYPE, MAINTENANCE_STATUS } from "@/lib/options";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import type { Maintenance, Vehicle } from "@/types/database";
@@ -58,6 +59,7 @@ export default function MaintenancesPage() {
   const create = useCreate<Maintenance>("maintenances", "Manutenção");
   const update = useUpdate<Maintenance>("maintenances", "Manutenção");
   const remove = useDelete("maintenances", "Manutenção");
+  const canWrite = useCanWrite("maintenances");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
@@ -119,7 +121,7 @@ export default function MaintenancesPage() {
       <PageHeader
         title="Manutenções"
         description="Histórico de manutenção e custos da frota"
-        actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> Nova manutenção</Button>}
+        actions={canWrite && <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova manutenção</Button>}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -159,12 +161,14 @@ export default function MaintenancesPage() {
                     <TableCell className="text-right font-medium">{formatCurrency(m.valor)}</TableCell>
                     <TableCell><StatusBadge status={m.status} /></TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => confirm("Remover manutenção?") && remove.mutate(m.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => confirm("Remover manutenção?") && remove.mutate(m.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

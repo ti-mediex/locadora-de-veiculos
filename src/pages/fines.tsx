@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { FINE_STATUS } from "@/lib/options";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Fine, Vehicle, Renter } from "@/types/database";
@@ -63,6 +64,7 @@ export default function FinesPage() {
   const create = useCreate<Fine>("fines", "Multa");
   const update = useUpdate<Fine>("fines", "Multa");
   const remove = useDelete("fines", "Multa");
+  const canWrite = useCanWrite("fines");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Fine | null>(null);
@@ -128,7 +130,7 @@ export default function FinesPage() {
       <PageHeader
         title="Multas e infrações"
         description="Controle de multas e repasse ao locatário"
-        actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> Nova multa</Button>}
+        actions={canWrite && <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova multa</Button>}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -174,12 +176,14 @@ export default function FinesPage() {
                     </TableCell>
                     <TableCell><StatusBadge status={f.status} /></TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => confirm("Remover multa?") && remove.mutate(f.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => confirm("Remover multa?") && remove.mutate(f.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

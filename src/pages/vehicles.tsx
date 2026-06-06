@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, maskPlaca } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
@@ -62,6 +63,7 @@ export default function VehiclesPage() {
   const create = useCreate<Vehicle>("vehicles", "Veículo");
   const update = useUpdate<Vehicle>("vehicles", "Veículo");
   const remove = useDelete("vehicles", "Veículo");
+  const canWrite = useCanWrite("vehicles");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
@@ -139,9 +141,11 @@ export default function VehiclesPage() {
         title="Veículos"
         description="Cadastro e gestão da frota"
         actions={
-          <Button onClick={openNew}>
-            <Plus className="h-4 w-4" /> Novo veículo
-          </Button>
+          canWrite && (
+            <Button onClick={openNew}>
+              <Plus className="h-4 w-4" /> Novo veículo
+            </Button>
+          )
         }
       />
 
@@ -163,9 +167,11 @@ export default function VehiclesPage() {
               message="Nenhum veículo cadastrado"
               icon={<Car className="h-6 w-6" />}
               action={
-                <Button variant="outline" onClick={openNew}>
-                  <Plus className="h-4 w-4" /> Cadastrar primeiro veículo
-                </Button>
+                canWrite && (
+                  <Button variant="outline" onClick={openNew}>
+                    <Plus className="h-4 w-4" /> Cadastrar primeiro veículo
+                  </Button>
+                )
               }
             />
           ) : (
@@ -194,20 +200,22 @@ export default function VehiclesPage() {
                     <TableCell className="text-right">{formatCurrency(v.valor_fipe)}</TableCell>
                     <TableCell><StatusBadge status={v.status} /></TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(v)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm(`Remover o veículo ${v.placa}?`)) remove.mutate(v.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(v)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm(`Remover o veículo ${v.placa}?`)) remove.mutate(v.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

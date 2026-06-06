@@ -36,6 +36,7 @@ import {
   useMarkOverdue,
   type ReceivableWithRefs,
 } from "@/hooks/use-receivables";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { FORMA_PAGAMENTO } from "@/lib/options";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { whatsappLink, cobrancaMessage } from "@/lib/whatsapp";
@@ -51,6 +52,7 @@ export default function ReceivablesPage() {
   const { data: receivables = [], isLoading } = useReceivables();
   const settle = useSettleReceivable();
   const markOverdue = useMarkOverdue();
+  const canWrite = useCanWrite("receivables");
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("todos");
@@ -115,9 +117,11 @@ export default function ReceivablesPage() {
         title="Recebíveis"
         description="Cobranças de aluguel, baixas e inadimplência"
         actions={
-          <Button variant="outline" onClick={() => markOverdue.mutate()}>
-            <AlertCircle className="h-4 w-4" /> Atualizar atrasos
-          </Button>
+          canWrite && (
+            <Button variant="outline" onClick={() => markOverdue.mutate()}>
+              <AlertCircle className="h-4 w-4" /> Atualizar atrasos
+            </Button>
+          )
         }
       />
 
@@ -205,9 +209,11 @@ export default function ReceivablesPage() {
                               </a>
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" onClick={() => openSettle(r)}>
-                            Baixar
-                          </Button>
+                          {canWrite && (
+                            <Button size="sm" variant="outline" onClick={() => openSettle(r)}>
+                              Baixar
+                            </Button>
+                          )}
                         </div>
                       )}
                     </TableCell>

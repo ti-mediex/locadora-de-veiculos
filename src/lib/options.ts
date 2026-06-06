@@ -76,6 +76,44 @@ export const EXPENSE_CATEGORIA = [
   { value: "Outros", label: "Outros" },
 ];
 
+export const OCCURRENCE_TYPE = [
+  { value: "manutencao", label: "Manutenção", color: "hsl(211 90% 64%)" },
+  { value: "sinistro", label: "Sinistro", color: "hsl(340 82% 66%)" },
+  { value: "infracao", label: "Infração", color: "hsl(38 92% 60%)" },
+  { value: "veiculo_reserva", label: "Veículo Reserva", color: "hsl(142 60% 60%)" },
+  { value: "devolucao", label: "Devolução", color: "hsl(262 70% 72%)" },
+  { value: "preparacao", label: "Preparação", color: "hsl(0 72% 65%)" },
+  { value: "translado", label: "Translado", color: "hsl(180 50% 60%)" },
+];
+
+export const OCCURRENCE_STATUS = [
+  { value: "aberta", label: "Aberta" },
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "resolvida", label: "Resolvida" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
+export const INSPECTION_TYPE = [
+  { value: "entrega", label: "Entrega" },
+  { value: "devolucao", label: "Devolução" },
+];
+
+// Itens padrão do checklist de vistoria
+export const INSPECTION_ITEMS = [
+  { key: "pneus", label: "Pneus" },
+  { key: "estepe", label: "Estepe" },
+  { key: "macaco_triangulo", label: "Macaco e triângulo" },
+  { key: "lataria", label: "Lataria" },
+  { key: "vidros_retrovisores", label: "Vidros e retrovisores" },
+  { key: "farois_lanternas", label: "Faróis e lanternas" },
+  { key: "limpeza", label: "Limpeza" },
+  { key: "documentos", label: "Documentos do veículo" },
+  { key: "chave_reserva", label: "Chave reserva" },
+  { key: "ar_condicionado", label: "Ar-condicionado" },
+  { key: "multimidia", label: "Multimídia" },
+  { key: "extintor", label: "Extintor (se aplicável)" },
+];
+
 export const FORMA_PAGAMENTO = [
   { value: "pix", label: "PIX" },
   { value: "dinheiro", label: "Dinheiro" },

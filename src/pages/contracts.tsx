@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import {
   useContracts,
   useCreateContract,
@@ -71,6 +72,7 @@ export default function ContractsPage() {
   const create = useCreateContract();
   const updateContract = useUpdateContract();
   const generate = useGenerateReceivables();
+  const canWrite = useCanWrite("contracts");
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -148,9 +150,11 @@ export default function ContractsPage() {
         title="Contratos"
         description="Locações ativas e histórico"
         actions={
-          <Button onClick={openNew}>
-            <Plus className="h-4 w-4" /> Novo contrato
-          </Button>
+          canWrite && (
+            <Button onClick={openNew}>
+              <Plus className="h-4 w-4" /> Novo contrato
+            </Button>
+          )
         }
       />
 
@@ -201,10 +205,12 @@ export default function ContractsPage() {
                         <Button variant="ghost" size="icon" title="Gerar PDF" onClick={() => handlePdf(c.id)}>
                           <FileDown className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title="Gerar cobranças" onClick={() => generate.mutate(c.id)}>
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                        {c.status !== "encerrado" && (
+                        {canWrite && (
+                          <Button variant="ghost" size="icon" title="Gerar cobranças" onClick={() => generate.mutate(c.id)}>
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canWrite && c.status !== "encerrado" && (
                           <Button variant="ghost" size="icon" title="Encerrar" onClick={() => encerrar(c.id, c.numero)}>
                             <Ban className="h-4 w-4 text-destructive" />
                           </Button>

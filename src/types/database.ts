@@ -27,6 +27,48 @@ export type FineStatus = "lancada" | "repassada" | "paga" | "recorrida" | "cance
 export type ExpenseStatus = "pendente" | "pago" | "cancelado";
 export type AppRole = "admin" | "financeiro" | "operador";
 
+export type OccurrenceType =
+  | "manutencao"
+  | "sinistro"
+  | "infracao"
+  | "veiculo_reserva"
+  | "devolucao"
+  | "preparacao"
+  | "translado";
+export type OccurrenceStatus = "aberta" | "em_andamento" | "resolvida" | "cancelada";
+export type InspectionType = "entrega" | "devolucao";
+
+export interface Occurrence {
+  id: string;
+  tipo: OccurrenceType;
+  vehicle_id: string | null;
+  renter_id: string | null;
+  contract_id: string | null;
+  data: string;
+  descricao: string;
+  valor: number | null;
+  status: OccurrenceStatus;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Inspection {
+  id: string;
+  vehicle_id: string;
+  contract_id: string | null;
+  tipo: InspectionType;
+  data: string;
+  km: number | null;
+  nivel_combustivel: number | null;
+  itens: Record<string, boolean>;
+  avarias: string | null;
+  observacoes: string | null;
+  responsavel: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Vehicle {
   id: string;
   placa: string;

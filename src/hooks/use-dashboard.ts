@@ -39,6 +39,45 @@ export function useMonthlyCashflow(meses = 12) {
   });
 }
 
+export interface OccurrenceByType {
+  tipo: string;
+  total: number;
+}
+
+/** Ocorrências por dia (long format) pivotado para o gráfico de barras empilhadas. */
+export function useOccurrencesByDay(dias = 30) {
+  return useQuery<Record<string, number | string>[]>({
+    queryKey: ["dashboard", "occ-by-day", dias],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("occurrences_by_day", { p_dias: dias });
+      if (error) throw error;
+      const rows = (data ?? []) as { dia: string; tipo: string; total: number }[];
+      const map = new Map<string, Record<string, number | string>>();
+      for (const r of rows) {
+        const key = r.dia;
+        const cur = map.get(key) ?? { dia: key };
+        cur[r.tipo] = Number(r.total);
+        map.set(key, cur);
+      }
+      return Array.from(map.values());
+    },
+  });
+}
+
+export function useOccurrencesByType(dias = 30) {
+  return useQuery<OccurrenceByType[]>({
+    queryKey: ["dashboard", "occ-by-type", dias],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("occurrences_by_type", { p_dias: dias });
+      if (error) throw error;
+      return ((data ?? []) as OccurrenceByType[]).map((d) => ({
+        tipo: d.tipo,
+        total: Number(d.total),
+      }));
+    },
+  });
+}
+
 export function useVehicleProfitability() {
   return useQuery<VehicleProfitability[]>({
     queryKey: ["dashboard", "profitability"],
