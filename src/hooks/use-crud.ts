@@ -22,7 +22,9 @@ type TableName =
   | "financing_installments"
   | "vehicle_colors"
   | "maintenance_items"
-  | "invoices";
+  | "invoices"
+  | "bank_accounts"
+  | "ledger_entries";
 
 interface CrudOptions {
   select?: string;

@@ -208,6 +208,37 @@ export const NF_STATUS = [
   { value: "cancelada", label: "Cancelada" },
 ];
 
+export const LEDGER_TIPO = [
+  { value: "entrada", label: "Entrada (receita)" },
+  { value: "saida", label: "Saída (despesa)" },
+];
+
+export const LEDGER_STATUS = [
+  { value: "previsto", label: "Previsto" },
+  { value: "parcial", label: "Baixa parcial" },
+  { value: "baixado", label: "Baixado" },
+  { value: "cancelado", label: "Cancelado" },
+];
+
+export const LEDGER_MODO = [
+  { value: "unico", label: "Avulso único" },
+  { value: "parcelado", label: "Avulso parcelado" },
+  { value: "recorrente", label: "Recorrente (mensal)" },
+];
+
+export const LEDGER_CATEGORIA = [
+  { value: "Aluguel", label: "Aluguel (receita)" },
+  { value: "Manutenção", label: "Manutenção" },
+  { value: "Combustível", label: "Combustível" },
+  { value: "Seguro", label: "Seguro" },
+  { value: "IPVA/Licenciamento", label: "IPVA / Licenciamento" },
+  { value: "Financiamento", label: "Financiamento" },
+  { value: "Salários", label: "Salários" },
+  { value: "Administrativo", label: "Administrativo" },
+  { value: "Impostos", label: "Impostos" },
+  { value: "Outros", label: "Outros" },
+];
+
 export const FORMA_PAGAMENTO = [
   { value: "pix", label: "PIX" },
   { value: "dinheiro", label: "Dinheiro" },

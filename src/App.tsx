@@ -24,6 +24,8 @@ import BuyersPage from "@/pages/buyers";
 import PartsServicesPage from "@/pages/parts-services";
 import FinancingPage from "@/pages/financing";
 import InvoicesPage from "@/pages/invoices";
+import BankAccountsPage from "@/pages/bank-accounts";
+import LedgerPage from "@/pages/ledger";
 import VehicleColorsPage from "@/pages/vehicle-colors";
 import BulkOperationsPage from "@/pages/bulk-operations";
 import ImportPage from "@/pages/import";
@@ -73,6 +75,8 @@ export default function App() {
               <Route path="/cores" element={<VehicleColorsPage />} />
               <Route path="/financiamentos" element={<FinancingPage />} />
               <Route path="/notas-fiscais" element={<InvoicesPage />} />
+              <Route path="/contas-bancarias" element={<BankAccountsPage />} />
+              <Route path="/lancamentos" element={<LedgerPage />} />
               <Route path="/operacoes-lote" element={<BulkOperationsPage />} />
               <Route path="/relatorios" element={<ReportsPage />} />
               <Route path="/importar" element={<ImportPage />} />

@@ -16,6 +16,8 @@ export type WriteModule =
   | "vehicle_colors"
   | "financing"
   | "invoices"
+  | "bank_accounts"
+  | "lancamentos"
   | "contracts"
   | "receivables"
   | "expenses"
@@ -35,6 +37,8 @@ const MODULE_ROLES: Record<WriteModule, AppRole[]> = {
   vehicle_colors: ["admin", "operador"],
   financing: ["admin", "financeiro"],
   invoices: ["admin", "financeiro"],
+  bank_accounts: ["admin", "financeiro"],
+  lancamentos: ["admin", "financeiro"],
   occurrences: ["admin", "operador", "financeiro"],
   contracts: ["admin", "financeiro"],
   receivables: ["admin", "financeiro"],

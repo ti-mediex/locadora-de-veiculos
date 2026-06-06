@@ -22,6 +22,8 @@ import {
   Palette,
   Layers3,
   KanbanSquare,
+  Landmark,
+  ArrowLeftRight,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,6 +54,8 @@ const NAV: {
   { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
   { to: "/financiamentos", label: "Financiamentos", icon: Banknote, roles: ["admin", "financeiro"] },
   { to: "/notas-fiscais", label: "Notas Fiscais", icon: FileText, roles: ["admin", "financeiro"] },
+  { to: "/lancamentos", label: "Lançamentos", icon: ArrowLeftRight, roles: ["admin", "financeiro"] },
+  { to: "/contas-bancarias", label: "Contas Bancárias", icon: Landmark, roles: ["admin", "financeiro"] },
   { to: "/manutencoes", label: "Manutenções", icon: Wrench, roles: ALL },
   { to: "/manutencao-kanban", label: "Dashboard Manutenção", icon: KanbanSquare, roles: ALL },
   { to: "/multas", label: "Multas", icon: AlertTriangle, roles: ALL },

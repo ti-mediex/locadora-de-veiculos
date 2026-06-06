@@ -144,6 +144,44 @@ export interface Supplier {
   updated_at: string;
 }
 
+export interface BankAccount {
+  id: string;
+  nome: string;
+  banco: string | null;
+  agencia: string | null;
+  conta: string | null;
+  tipo: string | null;
+  saldo_inicial: number;
+  status: string;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LedgerEntry {
+  id: string;
+  data: string;
+  vencimento: string | null;
+  tipo: string; // entrada | saida | transferencia
+  categoria: string | null;
+  descricao: string;
+  valor: number;
+  valor_pago: number;
+  status: string; // previsto | parcial | baixado | cancelado
+  conta_id: string | null;
+  conta_destino_id: string | null;
+  supplier_id: string | null;
+  recorrente: boolean;
+  parcela_num: number | null;
+  parcela_total: number | null;
+  grupo: string | null;
+  forma_pagamento: string | null;
+  data_baixa: string | null;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Vehicle {
   id: string;
   placa: string;
