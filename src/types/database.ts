@@ -1,0 +1,282 @@
+// Tipos do banco — alinhados às migrations em supabase/migrations.
+// Para regenerar a partir do projeto real:
+//   supabase gen types typescript --project-id <ref> > src/types/database.ts
+
+export type VehicleStatus = "disponivel" | "locado" | "manutencao" | "inativo";
+export type RenterStatus = "ativo" | "inativo" | "bloqueado" | "prospect";
+export type BillingCycle = "diario" | "semanal" | "quinzenal" | "mensal";
+export type ContractStatus =
+  | "ativo"
+  | "encerrado"
+  | "suspenso"
+  | "inadimplente"
+  | "rascunho";
+export type ReceivableStatus =
+  | "pendente"
+  | "pago"
+  | "parcial"
+  | "atrasado"
+  | "cancelado";
+export type MaintenanceType = "preventiva" | "corretiva" | "sinistro" | "revisao";
+export type MaintenanceStatus =
+  | "agendada"
+  | "em_andamento"
+  | "concluida"
+  | "cancelada";
+export type FineStatus = "lancada" | "repassada" | "paga" | "recorrida" | "cancelada";
+export type ExpenseStatus = "pendente" | "pago" | "cancelado";
+export type AppRole = "admin" | "financeiro" | "operador";
+
+export interface Vehicle {
+  id: string;
+  placa: string;
+  renavam: string | null;
+  chassi: string | null;
+  marca: string;
+  modelo: string;
+  ano_fabricacao: number | null;
+  ano_modelo: number | null;
+  cor: string | null;
+  categoria: string | null;
+  km_atual: number;
+  status: VehicleStatus;
+  data_aquisicao: string | null;
+  valor_aquisicao: number | null;
+  valor_fipe: number | null;
+  financiado: boolean;
+  valor_parcela_financiamento: number | null;
+  qtd_parcelas_financiamento: number | null;
+  parcelas_pagas: number | null;
+  fornecedor: string | null;
+  observacoes: string | null;
+  foto_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Renter {
+  id: string;
+  nome: string;
+  cpf: string;
+  rg: string | null;
+  cnh: string | null;
+  categoria_cnh: string | null;
+  validade_cnh: string | null;
+  data_nascimento: string | null;
+  telefone: string | null;
+  email: string | null;
+  cep: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  chave_pix: string | null;
+  contato_emergencia_nome: string | null;
+  contato_emergencia_telefone: string | null;
+  status: RenterStatus;
+  observacoes: string | null;
+  foto_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Contract {
+  id: string;
+  numero: string;
+  vehicle_id: string;
+  renter_id: string;
+  data_inicio: string;
+  data_fim: string | null;
+  ciclo_cobranca: BillingCycle;
+  valor_aluguel: number;
+  dia_vencimento: number | null;
+  valor_caucao: number | null;
+  caucao_devolvida: boolean;
+  km_inicial: number | null;
+  km_final: number | null;
+  status: ContractStatus;
+  observacoes: string | null;
+  contrato_pdf_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Receivable {
+  id: string;
+  contract_id: string;
+  competencia: string | null;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  vencimento: string;
+  valor: number;
+  valor_pago: number;
+  juros: number;
+  multa: number;
+  data_pagamento: string | null;
+  forma_pagamento: string | null;
+  status: ReceivableStatus;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Maintenance {
+  id: string;
+  vehicle_id: string;
+  tipo: MaintenanceType;
+  descricao: string;
+  data: string;
+  km: number | null;
+  valor: number;
+  oficina: string | null;
+  status: MaintenanceStatus;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Fine {
+  id: string;
+  vehicle_id: string;
+  renter_id: string | null;
+  contract_id: string | null;
+  data_infracao: string;
+  codigo_infracao: string | null;
+  descricao: string;
+  local_infracao: string | null;
+  orgao_autuador: string | null;
+  valor: number;
+  pontos: number | null;
+  vencimento: string | null;
+  repassar_locatario: boolean;
+  repassado: boolean;
+  status: FineStatus;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Expense {
+  id: string;
+  categoria: string;
+  descricao: string;
+  vehicle_id: string | null;
+  data: string;
+  valor: number;
+  recorrente: boolean;
+  fornecedor: string | null;
+  status: ExpenseStatus;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Profile {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: AppRole;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DashboardSummary {
+  periodo_inicio: string;
+  periodo_fim: string;
+  total_veiculos: number;
+  veiculos_locados: number;
+  taxa_ocupacao: number;
+  receita_prevista: number;
+  receita_recebida: number;
+  inadimplencia_valor: number;
+  inadimplencia_pct: number;
+  despesas: number;
+  manutencao: number;
+  multas_empresa: number;
+  lucro_liquido: number;
+  contratos_ativos: number;
+  ticket_medio: number;
+}
+
+export interface MonthlyCashflow {
+  mes: string;
+  receita: number;
+  despesa: number;
+  resultado: number;
+}
+
+export interface VehicleProfitability {
+  vehicle_id: string;
+  placa: string;
+  modelo: string;
+  receita: number;
+  manutencao: number;
+  multas: number;
+  resultado: number;
+}
+
+// Helper genérico para o cliente Supabase tipado.
+type Row<T> = T;
+type Insert<T> = Partial<T>;
+type Update<T> = Partial<T>;
+
+interface TableDef<T> {
+  Row: Row<T>;
+  Insert: Insert<T>;
+  Update: Update<T>;
+  Relationships: [];
+}
+
+export interface Database {
+  public: {
+    Tables: {
+      vehicles: TableDef<Vehicle>;
+      renters: TableDef<Renter>;
+      contracts: TableDef<Contract>;
+      receivables: TableDef<Receivable>;
+      maintenances: TableDef<Maintenance>;
+      fines: TableDef<Fine>;
+      expenses: TableDef<Expense>;
+      profiles: TableDef<Profile>;
+    };
+    Views: Record<string, never>;
+    Functions: {
+      dashboard_summary: {
+        Args: { p_inicio?: string; p_fim?: string };
+        Returns: DashboardSummary;
+      };
+      monthly_cashflow: {
+        Args: { p_meses?: number };
+        Returns: MonthlyCashflow[];
+      };
+      vehicle_profitability: {
+        Args: Record<string, never>;
+        Returns: VehicleProfitability[];
+      };
+      generate_receivables: {
+        Args: { p_contract_id: string; p_ate?: string };
+        Returns: number;
+      };
+      settle_receivable: {
+        Args: {
+          p_receivable_id: string;
+          p_valor_pago: number;
+          p_data_pagamento?: string;
+          p_forma_pagamento?: string;
+          p_juros?: number;
+          p_multa?: number;
+        };
+        Returns: Receivable;
+      };
+      mark_overdue_receivables: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+}

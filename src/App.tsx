@@ -1,0 +1,62 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/auth-context";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { AppLayout } from "@/components/layout/app-layout";
+import { Toaster } from "@/components/ui/sonner";
+
+import LoginPage from "@/pages/login";
+import DashboardPage from "@/pages/dashboard";
+import VehiclesPage from "@/pages/vehicles";
+import RentersPage from "@/pages/renters";
+import ContractsPage from "@/pages/contracts";
+import ReceivablesPage from "@/pages/receivables";
+import ExpensesPage from "@/pages/expenses";
+import MaintenancesPage from "@/pages/maintenances";
+import FinesPage from "@/pages/fines";
+import ReportsPage from "@/pages/reports";
+import SettingsPage from "@/pages/settings";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/veiculos" element={<VehiclesPage />} />
+              <Route path="/locatarios" element={<RentersPage />} />
+              <Route path="/contratos" element={<ContractsPage />} />
+              <Route path="/recebiveis" element={<ReceivablesPage />} />
+              <Route path="/despesas" element={<ExpensesPage />} />
+              <Route path="/manutencoes" element={<MaintenancesPage />} />
+              <Route path="/multas" element={<FinesPage />} />
+              <Route path="/relatorios" element={<ReportsPage />} />
+              <Route path="/configuracoes" element={<SettingsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster />
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
