@@ -222,24 +222,28 @@ export default function ImportPage() {
 
   function buildRecord(row: string[]): Record<string, unknown> | null {
     const rec: Record<string, unknown> = {};
-    // Inclui SEMPRE as mesmas chaves (mapeadas), com null quando vazio —
-    // o PostgREST exige que todos os objetos do lote tenham as mesmas chaves.
+    // Inclui apenas campos com valor; campos vazios são omitidos e o banco usa
+    // o DEFAULT (envio com defaultToNull:false). Evita violar NOT NULL e mantém
+    // colunas heterogêneas (PostgREST usa a união das colunas).
     for (const f of entity.fields) {
       const header = mapping[f.field];
       const mapped = !!header && header !== IGNORE;
-      if (f.resolveTo === "vehicle_id") {
-        if (!mapped) continue;
-        const idx = headers.indexOf(header);
-        const placa = String(coerceValue(row[idx] ?? "", "text") ?? "").replace(/\W/g, "").toUpperCase();
-        rec["vehicle_id"] = vehiclesByPlaca.get(placa) ?? null;
-        continue;
-      }
       if (!mapped) continue;
       const idx = headers.indexOf(header);
-      let value = idx >= 0 ? coerceValue(row[idx] ?? "", f.type) : null;
-      if (value != null && f.field === "placa") value = String(value).toUpperCase().replace(/\s/g, "");
-      if (value != null && f.field === "cpf") value = String(value).replace(/\D/g, "");
-      rec[f.field] = value ?? null;
+      if (idx < 0) continue;
+      const value = coerceValue(row[idx] ?? "", f.type);
+      if (value === null || value === "") continue;
+      if (f.resolveTo === "vehicle_id") {
+        const placa = String(value).replace(/\W/g, "").toUpperCase();
+        const vid = vehiclesByPlaca.get(placa);
+        if (vid) rec["vehicle_id"] = vid;
+      } else if (f.field === "placa") {
+        rec[f.field] = String(value).toUpperCase().replace(/\s/g, "");
+      } else if (f.field === "cpf") {
+        rec[f.field] = String(value).replace(/\D/g, "");
+      } else {
+        rec[f.field] = value;
+      }
     }
     // valida obrigatórios
     for (const f of entity.fields) {
@@ -263,16 +267,25 @@ export default function ImportPage() {
 
     const errors: string[] = [];
     let ok = 0;
-    // importa em lotes de 200
-    for (let i = 0; i < records.length; i += 200) {
-      const batch = records.slice(i, i + 200);
-      const q =
-        entity.conflict
-          ? supabase.from(entity.table).upsert(batch as never, { onConflict: entity.conflict })
-          : supabase.from(entity.table).insert(batch as never);
-      const { error } = await q;
-      if (error) errors.push(error.message);
-      else ok += batch.length;
+
+    const send = (batch: Record<string, unknown>[]) =>
+      entity.conflict
+        ? supabase.from(entity.table).upsert(batch as never, { onConflict: entity.conflict, defaultToNull: false })
+        : supabase.from(entity.table).insert(batch as never, { defaultToNull: false });
+
+    // importa em lotes de 100; se o lote falhar, tenta linha a linha para isolar o erro
+    for (let i = 0; i < records.length; i += 100) {
+      const batch = records.slice(i, i + 100);
+      const { error } = await send(batch);
+      if (!error) {
+        ok += batch.length;
+        continue;
+      }
+      for (let j = 0; j < batch.length; j++) {
+        const { error: e2 } = await send([batch[j]]);
+        if (!e2) ok += 1;
+        else if (errors.length < 8) errors.push(`Linha ${i + j + 1}: ${e2.message}`);
+      }
     }
 
     setResult({ ok, skip, errors });

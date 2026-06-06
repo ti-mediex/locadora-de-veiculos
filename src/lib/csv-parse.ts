@@ -102,11 +102,20 @@ export function coerceValue(raw: string, type: "text" | "number" | "date" | "boo
       return ["1", "true", "sim", "yes", "x", "verdadeiro"].includes(v.toLowerCase());
     case "date": {
       // aceita dd/mm/aaaa ou aaaa-mm-dd
-      const br = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const br = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
       if (br) return `${br[3]}-${br[2]}-${br[1]}`;
       const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-      return v;
+      // número serial do Excel (dias desde 1899-12-30)
+      if (/^\d+(\.\d+)?$/.test(v)) {
+        const n = Number(v);
+        if (n > 59) {
+          const d = new Date(Math.round((n - 25569) * 86400000));
+          if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+        }
+      }
+      // não foi possível interpretar como data -> null (evita erro de tipo no banco)
+      return null;
     }
     default:
       return v;
