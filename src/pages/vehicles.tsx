@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -202,6 +202,25 @@ export default function VehiclesPage() {
                     <TableCell>
                       {canWrite && (
                         <div className="flex justify-end gap-1">
+                          {v.status === "inativo" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Reativar (disponível)"
+                              onClick={() => update.mutate({ id: v.id, status: "disponivel" })}
+                            >
+                              <RotateCcw className="h-4 w-4 text-success" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Inativar veículo"
+                              onClick={() => update.mutate({ id: v.id, status: "inativo" })}
+                            >
+                              <Power className="h-4 w-4 text-warning" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => openEdit(v)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
