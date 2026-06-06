@@ -107,6 +107,15 @@ export function useDelete(table: TableName, label = "Registro") {
       qc.invalidateQueries({ queryKey: [table] });
       toast.success(`${label} removido`);
     },
-    onError: (e: Error) => toast.error(`Erro ao remover: ${e.message}`),
+    onError: (e: Error & { code?: string }) => {
+      if (e.code === "23503") {
+        toast.error(
+          `Não é possível excluir: este ${label.toLowerCase()} possui vínculos (ex.: contratos, cobranças). Encerre os vínculos ou inative o registro.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(`Erro ao remover: ${e.message}`);
+      }
+    },
   });
 }
