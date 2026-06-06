@@ -48,7 +48,9 @@ npm run build
 
 ### Banco de dados (Supabase)
 
-As migrations estão em [`supabase/migrations/`](supabase/migrations) e são a **fonte da verdade** do schema. Aplique-as de uma das formas:
+> ✅ **Projeto já provisionado:** `locadora-veiculos` (`iqlhnhlvhkkfsryxvyfa`, região sa-east-1), com as 5 migrations já aplicadas e dados de demonstração carregados. URL e chave pública estão no `.env.example`.
+
+As migrations estão em [`supabase/migrations/`](supabase/migrations) e são a **fonte da verdade** do schema. Para reaplicar em outro ambiente:
 
 **Via Supabase CLI (recomendado):**
 ```bash
@@ -62,6 +64,7 @@ supabase db push
 2. `20260606000002_financial_functions.sql` — motor de cobranças, inadimplência e KPIs
 3. `20260606000003_rls_policies.sql` — Row Level Security
 4. `20260606000004_seed.sql` — dados de demonstração (opcional)
+5. `20260606000005_security_hardening.sql` — restringe execução das RPCs ao papel autenticado
 
 > O primeiro usuário que se cadastrar no app recebe automaticamente o papel **admin**.
 
