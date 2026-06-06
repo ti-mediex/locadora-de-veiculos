@@ -51,6 +51,7 @@ const NAV: {
   { to: "/recebiveis", label: "Recebíveis", icon: Receipt, roles: ["admin", "financeiro"] },
   { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
   { to: "/financiamentos", label: "Financiamentos", icon: Banknote, roles: ["admin", "financeiro"] },
+  { to: "/notas-fiscais", label: "Notas Fiscais", icon: FileText, roles: ["admin", "financeiro"] },
   { to: "/manutencoes", label: "Manutenções", icon: Wrench, roles: ALL },
   { to: "/manutencao-kanban", label: "Dashboard Manutenção", icon: KanbanSquare, roles: ALL },
   { to: "/multas", label: "Multas", icon: AlertTriangle, roles: ALL },

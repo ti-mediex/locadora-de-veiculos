@@ -59,6 +59,7 @@ export const MAINTENANCE_STAGE = [
   { value: "aguardando_chegada", label: "Aguardando Chegada", color: "hsl(190 70% 50%)" },
   { value: "aguardando_orcamento", label: "Aguardando Orçamento", color: "hsl(38 92% 55%)" },
   { value: "orcamento_analise", label: "Orçamento em Análise", color: "hsl(28 90% 55%)" },
+  { value: "em_execucao", label: "Serviço em Execução", color: "hsl(200 80% 50%)" },
   { value: "aguardando_saida", label: "Aguardando Saída", color: "hsl(142 60% 50%)" },
   { value: "aguardando_nf", label: "Aguardando Nota Fiscal", color: "hsl(280 60% 60%)" },
   { value: "finalizada", label: "Finalizada", color: "hsl(142 71% 40%)" },
@@ -182,6 +183,29 @@ export const GROUP_COLORS = [
   "hsl(0 72% 65%)",
   "hsl(180 50% 60%)",
   "hsl(280 60% 65%)",
+];
+
+export const SINISTRO_MOTIVO = [
+  { value: "Acidente / Colisão", label: "Acidente / Colisão" },
+  { value: "Roubo", label: "Roubo" },
+  { value: "Furto", label: "Furto" },
+  { value: "Incêndio", label: "Incêndio" },
+  { value: "Enchente", label: "Enchente" },
+  { value: "Vandalismo", label: "Vandalismo" },
+  { value: "Outros", label: "Outros" },
+];
+
+export const NF_TIPO = [
+  { value: "Produto", label: "Produto" },
+  { value: "Serviço", label: "Serviço" },
+  { value: "Produto e Serviço", label: "Produto e Serviço" },
+];
+
+export const NF_STATUS = [
+  { value: "em_cadastro", label: "Em cadastro" },
+  { value: "aprovada", label: "Aprovada" },
+  { value: "lancada", label: "Lançada" },
+  { value: "cancelada", label: "Cancelada" },
 ];
 
 export const FORMA_PAGAMENTO = [

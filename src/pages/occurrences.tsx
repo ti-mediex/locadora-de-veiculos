@@ -49,6 +49,16 @@ const schema = z.object({
   valor: z.coerce.number().optional().or(z.literal("")),
   status: z.string().default("aberta"),
   observacoes: z.string().optional(),
+  // Sinistro
+  data_evento: z.string().optional(),
+  local_evento: z.string().optional(),
+  boletim_ocorrencia: z.string().optional(),
+  valor_orcamento: z.coerce.number().optional().or(z.literal("")),
+  indenizacao_seguradora: z.coerce.number().optional().or(z.literal("")),
+  considera_culpado: z.boolean().optional(),
+  parecer_motorista: z.string().optional(),
+  parecer_responsavel: z.string().optional(),
+  danos: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -108,6 +118,15 @@ export default function OccurrencesPage() {
       valor: o.valor ?? undefined,
       status: o.status,
       observacoes: o.observacoes ?? "",
+      data_evento: o.data_evento ?? "",
+      local_evento: o.local_evento ?? "",
+      boletim_ocorrencia: o.boletim_ocorrencia ?? "",
+      valor_orcamento: o.valor_orcamento ?? undefined,
+      indenizacao_seguradora: o.indenizacao_seguradora ?? undefined,
+      considera_culpado: o.considera_culpado ?? undefined,
+      parecer_motorista: o.parecer_motorista ?? "",
+      parecer_responsavel: o.parecer_responsavel ?? "",
+      danos: o.danos ?? "",
     });
     setOpen(true);
   }
@@ -118,6 +137,9 @@ export default function OccurrencesPage() {
       vehicle_id: data.vehicle_id || null,
       renter_id: data.renter_id || null,
       valor: data.valor || null,
+      data_evento: data.data_evento || null,
+      valor_orcamento: data.valor_orcamento || null,
+      indenizacao_seguradora: data.indenizacao_seguradora || null,
     };
     if (editing) {
       update.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) });
@@ -266,6 +288,53 @@ export default function OccurrencesPage() {
             <Field label="Observações">
               <Textarea {...register("observacoes")} />
             </Field>
+
+            {watch("tipo") === "sinistro" && (
+              <div className="space-y-4 rounded-md border border-dashed p-4">
+                <p className="text-xs font-semibold uppercase text-destructive">Dados do sinistro</p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Data do evento">
+                    <Input type="date" {...register("data_evento")} />
+                  </Field>
+                  <Field label="Boletim de ocorrência">
+                    <Input {...register("boletim_ocorrencia")} />
+                  </Field>
+                  <Field label="Local do evento">
+                    <Input {...register("local_evento")} />
+                  </Field>
+                  <Field label="Valor do orçamento (R$)">
+                    <Input type="number" step="0.01" {...register("valor_orcamento")} />
+                  </Field>
+                  <Field label="Indenização seguradora (R$)">
+                    <Input type="number" step="0.01" {...register("indenizacao_seguradora")} />
+                  </Field>
+                  <Field label="Condutor culpado?">
+                    <Select
+                      value={watch("considera_culpado") === undefined ? "" : watch("considera_culpado") ? "sim" : "nao"}
+                      onValueChange={(v) => setValue("considera_culpado", v === "sim")}
+                    >
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sim">Sim</SelectItem>
+                        <SelectItem value="nao">Não</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <Field label="Danos no veículo">
+                  <Textarea {...register("danos")} placeholder="Lataria, motor, acessórios..." />
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Parecer do motorista">
+                    <Textarea {...register("parecer_motorista")} />
+                  </Field>
+                  <Field label="Parecer do responsável">
+                    <Textarea {...register("parecer_responsavel")} />
+                  </Field>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={create.isPending || update.isPending}>

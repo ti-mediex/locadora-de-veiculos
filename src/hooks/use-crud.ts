@@ -21,7 +21,8 @@ type TableName =
   | "financing_contracts"
   | "financing_installments"
   | "vehicle_colors"
-  | "maintenance_items";
+  | "maintenance_items"
+  | "invoices";
 
 interface CrudOptions {
   select?: string;

@@ -60,6 +60,39 @@ export interface Occurrence {
   valor: number | null;
   status: OccurrenceStatus;
   observacoes: string | null;
+  supplier_id: string | null;
+  data_evento: string | null;
+  local_evento: string | null;
+  boletim_ocorrencia: string | null;
+  parecer_motorista: string | null;
+  parecer_responsavel: string | null;
+  considera_culpado: boolean | null;
+  valor_orcamento: number | null;
+  reembolso_terceiro: number | null;
+  indenizacao_seguradora: number | null;
+  danos: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  unidade: string | null;
+  supplier_id: string | null;
+  fornecedor: string | null;
+  documento: string | null;
+  numero: string | null;
+  serie: string | null;
+  tipo: string | null;
+  data_emissao: string | null;
+  data_entrada: string | null;
+  valor_total: number;
+  desconto: number | null;
+  origem: string | null;
+  cfop: string | null;
+  maintenance_id: string | null;
+  status: string;
+  observacoes: string | null;
   created_at: string;
   updated_at: string;
 }

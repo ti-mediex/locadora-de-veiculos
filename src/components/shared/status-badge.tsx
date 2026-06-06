@@ -41,6 +41,9 @@ const MAP: Record<string, { label: string; variant: Variant }> = {
   resolvida: { label: "Resolvida", variant: "success" },
   entrega: { label: "Entrega", variant: "default" },
   devolucao: { label: "Devolução", variant: "secondary" },
+  // Notas fiscais
+  em_cadastro: { label: "Em cadastro", variant: "secondary" },
+  aprovada: { label: "Aprovada", variant: "success" },
 };
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
