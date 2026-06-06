@@ -55,6 +55,31 @@ export function parseCsv(text: string): ParsedCsv {
   return { headers, rows: nonEmpty, delimiter };
 }
 
+/** Faz o parse do CSV em matriz bruta (todas as linhas), sem assumir cabeçalho. */
+export function parseCsvMatrix(text: string): string[][] {
+  const clean = text.replace(/^﻿/, "");
+  const firstLine = clean.slice(0, clean.indexOf("\n") >= 0 ? clean.indexOf("\n") : clean.length);
+  const delimiter = (firstLine.match(/;/g)?.length ?? 0) >= (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+  const rows: string[][] = [];
+  let field = "";
+  let row: string[] = [];
+  let inQuotes = false;
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (clean[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === delimiter) { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c === "\r") { /* ignora */ }
+    else field += c;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
 /** Normaliza um cabeçalho para comparação (sem acento, minúsculo, sem pontuação). */
 export function normalizeHeader(h: string): string {
   return h

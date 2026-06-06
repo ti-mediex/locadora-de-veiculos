@@ -30,7 +30,8 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { useList } from "@/hooks/use-crud";
-import { parseCsv, normalizeHeader, coerceValue } from "@/lib/csv-parse";
+import { normalizeHeader, coerceValue } from "@/lib/csv-parse";
+import { parseSpreadsheet } from "@/lib/spreadsheet";
 import type { Vehicle } from "@/types/database";
 
 type FieldType = "text" | "number" | "date" | "boolean";
@@ -58,17 +59,18 @@ const ENTITIES: EntityDef[] = [
     conflict: "placa",
     fields: [
       { field: "placa", label: "Placa", type: "text", required: true },
-      { field: "marca", label: "Marca", type: "text", required: true },
+      { field: "marca", label: "Marca", type: "text", required: true, synonyms: ["montadora", "fabricante"] },
       { field: "modelo", label: "Modelo", type: "text", required: true },
-      { field: "ano_fabricacao", label: "Ano fabricação", type: "number", synonyms: ["anofab", "ano"] },
-      { field: "ano_modelo", label: "Ano modelo", type: "number" },
+      { field: "ano_fabricacao", label: "Ano fabricação", type: "number", synonyms: ["anofab", "ano", "anodefabricacao", "anofabricacao"] },
+      { field: "ano_modelo", label: "Ano modelo", type: "number", synonyms: ["anomodelo"] },
       { field: "cor", label: "Cor", type: "text" },
-      { field: "categoria", label: "Categoria", type: "text" },
+      { field: "categoria", label: "Categoria", type: "text", synonyms: ["grupo", "carroceria"] },
       { field: "renavam", label: "Renavam", type: "text" },
       { field: "chassi", label: "Chassi", type: "text" },
-      { field: "km_atual", label: "KM atual", type: "number", synonyms: ["km", "quilometragem"] },
-      { field: "valor_fipe", label: "Valor FIPE", type: "number", synonyms: ["fipe"] },
-      { field: "valor_aquisicao", label: "Valor aquisição", type: "number" },
+      { field: "km_atual", label: "KM atual", type: "number", synonyms: ["km", "quilometragem", "kmconfirmado", "kmatual", "kmestimado"] },
+      { field: "valor_fipe", label: "Valor FIPE", type: "number", synonyms: ["fipe", "valorfipe"] },
+      { field: "valor_aquisicao", label: "Valor aquisição", type: "number", synonyms: ["valordecompra", "valordeaquisicao", "valorcompra"] },
+      { field: "data_aquisicao", label: "Data de aquisição", type: "date", synonyms: ["datadecompra", "dataaquisicao", "datadeaquisicao"] },
       { field: "fornecedor", label: "Fornecedor", type: "text" },
       { field: "status", label: "Status", type: "text" },
     ],
@@ -190,19 +192,23 @@ export default function ImportPage() {
     return map;
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const parsed = parseCsv(String(reader.result));
+    try {
+      const parsed = await parseSpreadsheet(file);
+      if (parsed.headers.length === 0) {
+        toast.error("Não foi possível ler o cabeçalho do arquivo");
+        return;
+      }
       setHeaders(parsed.headers);
       setRows(parsed.rows);
       setMapping(autoMap(parsed.headers, entity));
       setResult(null);
       toast.success(`${parsed.rows.length} linha(s) lida(s)`);
-    };
-    reader.readAsText(file, "utf-8");
+    } catch (err) {
+      toast.error("Erro ao ler arquivo: " + (err as Error).message);
+    }
   }
 
   function onEntityChange(k: string) {
@@ -298,7 +304,7 @@ export default function ImportPage() {
             <FileSpreadsheet className="h-5 w-5" /> 1. Escolha o que importar e o arquivo
           </CardTitle>
           <CardDescription>
-            Exporte do Blue Fleet em CSV (ou salve o Excel como .csv). O sistema detecta as colunas e tenta mapear automaticamente.
+            Exporte do Blue Fleet em <strong>Excel (.xlsx)</strong> ou CSV. O sistema ignora as linhas de título/filtro, detecta o cabeçalho e mapeia as colunas automaticamente.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -319,7 +325,7 @@ export default function ImportPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,.xls,text/csv"
                 onChange={handleFile}
                 className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
               />
