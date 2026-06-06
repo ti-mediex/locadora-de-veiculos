@@ -32,7 +32,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useList } from "@/hooks/use-crud";
 import { normalizeHeader, coerceValue } from "@/lib/csv-parse";
 import { parseSpreadsheet } from "@/lib/spreadsheet";
-import type { Vehicle } from "@/types/database";
+import type { Vehicle, Renter } from "@/types/database";
 
 type FieldType = "text" | "number" | "date" | "boolean";
 interface FieldDef {
@@ -41,12 +41,13 @@ interface FieldDef {
   type: FieldType;
   required?: boolean;
   synonyms?: string[];
-  resolveTo?: "vehicle_id"; // valor é uma placa; resolve para o id do veículo
+  resolveTo?: "vehicle_id" | "renter_id"; // resolve placa->veículo ou CPF->locatário
+  valueMap?: Record<string, string>; // tradução de valores (ex.: situação -> enum)
 }
 interface EntityDef {
   key: string;
   label: string;
-  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers";
+  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "contracts";
   conflict?: string;
   fields: FieldDef[];
 }
@@ -157,6 +158,31 @@ const ENTITIES: EntityDef[] = [
       { field: "status", label: "Status", type: "text", synonyms: ["etapa", "situacao"] },
     ],
   },
+  {
+    key: "contracts",
+    label: "Contratos de Locação",
+    table: "contracts",
+    conflict: "numero",
+    fields: [
+      { field: "_placa", label: "Placa do veículo (→ veículo)", type: "text", required: true, resolveTo: "vehicle_id", synonyms: ["veiculo atual", "veiculo do contrato", "veiculo principal", "placa", "veiculo"] },
+      { field: "_cpf", label: "CPF do condutor (→ locatário)", type: "text", required: true, resolveTo: "renter_id", synonyms: ["cpf condutor", "documento cliente", "cpf", "cpf/cnpj"] },
+      { field: "numero", label: "Número do contrato", type: "text", synonyms: ["contrato de locacao", "contrato comercial", "contrato"] },
+      { field: "valor_aluguel", label: "Valor do aluguel", type: "number", required: true, synonyms: ["valor de locacao vigente", "valor inicial de locacao", "valor de locacao"] },
+      { field: "data_inicio", label: "Data de início", type: "date", required: true, synonyms: ["inicio de contrato", "inicio do contrato", "data de inicio"] },
+      { field: "data_fim", label: "Data de término", type: "date", synonyms: ["termino do contrato", "termino previsto", "data de termino"] },
+      { field: "franquia_km", label: "Franquia de KM", type: "number", synonyms: ["franquia km/mes", "franquia km", "franquia"] },
+      { field: "nivel_combustivel_retirada", label: "Nível combustível (entrega)", type: "text", synonyms: ["nivel de combustivel na entrega"] },
+      { field: "informacoes_adicionais", label: "Informações adicionais", type: "text", synonyms: ["descritivo adicional"] },
+      {
+        field: "status", label: "Situação", type: "text", synonyms: ["situacao"],
+        valueMap: {
+          "ativo": "ativo", "vigente": "ativo", "em aberto": "ativo", "aberto": "ativo", "em andamento": "ativo",
+          "encerrado": "encerrado", "finalizado": "encerrado", "cancelado": "encerrado", "devolvido": "encerrado",
+          "suspenso": "suspenso", "inadimplente": "inadimplente",
+        },
+      },
+    ],
+  },
 ];
 
 const IGNORE = "__ignore__";
@@ -165,6 +191,7 @@ export default function ImportPage() {
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
+  const { data: renters = [] } = useList<Renter>("renters");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [entityKey, setEntityKey] = useState("vehicles");
@@ -181,6 +208,12 @@ export default function ImportPage() {
     for (const v of vehicles) m.set(v.placa.replace(/\W/g, "").toUpperCase(), v.id);
     return m;
   }, [vehicles]);
+
+  const rentersByCpf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of renters) m.set((r.cpf ?? "").replace(/\D/g, ""), r.id);
+    return m;
+  }, [renters]);
 
   function autoMap(hs: string[], ent: EntityDef) {
     const map: Record<string, string> = {};
@@ -237,6 +270,13 @@ export default function ImportPage() {
         const placa = String(value).replace(/\W/g, "").toUpperCase();
         const vid = vehiclesByPlaca.get(placa);
         if (vid) rec["vehicle_id"] = vid;
+      } else if (f.resolveTo === "renter_id") {
+        const cpf = String(value).replace(/\D/g, "");
+        const rid = rentersByCpf.get(cpf);
+        if (rid) rec["renter_id"] = rid;
+      } else if (f.valueMap) {
+        const mappedVal = f.valueMap[String(value).trim().toLowerCase()];
+        if (mappedVal) rec[f.field] = mappedVal;
       } else if (f.field === "placa") {
         rec[f.field] = String(value).toUpperCase().replace(/\s/g, "");
       } else if (f.field === "cpf") {
@@ -248,7 +288,8 @@ export default function ImportPage() {
     // valida obrigatórios
     for (const f of entity.fields) {
       if (!f.required) continue;
-      const key = f.resolveTo === "vehicle_id" ? "vehicle_id" : f.field;
+      const key =
+        f.resolveTo === "vehicle_id" ? "vehicle_id" : f.resolveTo === "renter_id" ? "renter_id" : f.field;
       if (rec[key] === undefined || rec[key] === null || rec[key] === "") return null;
     }
     return rec;
