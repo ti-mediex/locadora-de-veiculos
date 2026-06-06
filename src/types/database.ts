@@ -23,6 +23,17 @@ export type MaintenanceStatus =
   | "em_andamento"
   | "concluida"
   | "cancelada";
+export type MaintenanceStage =
+  | "programada"
+  | "pre_agendamento"
+  | "confirmacao_agenda"
+  | "aguardando_chegada"
+  | "aguardando_orcamento"
+  | "orcamento_analise"
+  | "aguardando_saida"
+  | "aguardando_nf"
+  | "finalizada"
+  | "cancelada";
 export type FineStatus = "lancada" | "repassada" | "paga" | "recorrida" | "cancelada";
 export type ExpenseStatus = "pendente" | "pago" | "cancelado";
 export type AppRole = "admin" | "financeiro" | "operador";
@@ -211,9 +222,29 @@ export interface Maintenance {
   valor: number;
   oficina: string | null;
   status: MaintenanceStatus;
+  etapa: MaintenanceStage;
+  motivo: string | null;
+  solicitante: string | null;
+  renter_id: string | null;
+  contract_id: string | null;
+  supplier_id: string | null;
+  agendamento: string | null;
+  leva_traz: boolean;
+  reembolsavel: boolean;
   observacoes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface MaintenanceItem {
+  id: string;
+  maintenance_id: string;
+  grupo_despesa: string | null;
+  categoria: string | null;
+  descricao: string;
+  desconto: number;
+  valor: number;
+  created_at: string;
 }
 
 export interface Fine {

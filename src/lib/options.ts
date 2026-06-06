@@ -51,6 +51,44 @@ export const MAINTENANCE_STATUS = [
   { value: "cancelada", label: "Cancelada" },
 ];
 
+// Pipeline de manutenção (Kanban) — etapas estilo Blue Fleet, em ordem
+export const MAINTENANCE_STAGE = [
+  { value: "programada", label: "Programada", color: "hsl(215 16% 60%)" },
+  { value: "pre_agendamento", label: "Pré-Agendamento", color: "hsl(211 90% 60%)" },
+  { value: "confirmacao_agenda", label: "Confirmação de Agenda", color: "hsl(262 70% 65%)" },
+  { value: "aguardando_chegada", label: "Aguardando Chegada", color: "hsl(190 70% 50%)" },
+  { value: "aguardando_orcamento", label: "Aguardando Orçamento", color: "hsl(38 92% 55%)" },
+  { value: "orcamento_analise", label: "Orçamento em Análise", color: "hsl(28 90% 55%)" },
+  { value: "aguardando_saida", label: "Aguardando Saída", color: "hsl(142 60% 50%)" },
+  { value: "aguardando_nf", label: "Aguardando Nota Fiscal", color: "hsl(280 60% 60%)" },
+  { value: "finalizada", label: "Finalizada", color: "hsl(142 71% 40%)" },
+  { value: "cancelada", label: "Cancelada", color: "hsl(0 72% 55%)" },
+];
+
+// Grupos de despesa para itens da OS (espelha a estrutura do Blue Fleet)
+export const GRUPO_DESPESA = [
+  { value: "Preventiva (Peças/M.O)", label: "Preventiva (Peças / M.O)" },
+  { value: "Corretiva Reembolsável", label: "Corretiva Reembolsável" },
+  { value: "Corretiva Não Reembolsável", label: "Corretiva Não Reembolsável" },
+  { value: "Alinhamento/Balanceamento", label: "Alinhamento / Balanceamento" },
+  { value: "Reboque", label: "Reboque" },
+  { value: "Veículo Reserva", label: "Veículo Reserva" },
+  { value: "Combustível", label: "Combustível" },
+  { value: "Outros", label: "Outros" },
+];
+
+export const MAINTENANCE_MOTIVO = [
+  { value: "Revisão", label: "Revisão" },
+  { value: "Freios", label: "Freios" },
+  { value: "Motor", label: "Motor" },
+  { value: "Suspensão", label: "Suspensão" },
+  { value: "Pneus", label: "Pneus" },
+  { value: "Elétrica", label: "Elétrica" },
+  { value: "Funilaria/Pintura", label: "Funilaria / Pintura" },
+  { value: "Ar-condicionado", label: "Ar-condicionado" },
+  { value: "Outros", label: "Outros" },
+];
+
 export const FINE_STATUS = [
   { value: "lancada", label: "Lançada" },
   { value: "repassada", label: "Repassada ao locatário" },

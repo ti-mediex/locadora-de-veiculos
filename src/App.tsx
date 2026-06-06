@@ -13,6 +13,7 @@ import ContractsPage from "@/pages/contracts";
 import ReceivablesPage from "@/pages/receivables";
 import ExpensesPage from "@/pages/expenses";
 import MaintenancesPage from "@/pages/maintenances";
+import MaintenanceKanbanPage from "@/pages/maintenance-kanban";
 import FinesPage from "@/pages/fines";
 import OccurrencesPage from "@/pages/occurrences";
 import InspectionsPage from "@/pages/inspections";
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/recebiveis" element={<ReceivablesPage />} />
               <Route path="/despesas" element={<ExpensesPage />} />
               <Route path="/manutencoes" element={<MaintenancesPage />} />
+              <Route path="/manutencao-kanban" element={<MaintenanceKanbanPage />} />
               <Route path="/multas" element={<FinesPage />} />
               <Route path="/ocorrencias" element={<OccurrencesPage />} />
               <Route path="/vistorias" element={<InspectionsPage />} />

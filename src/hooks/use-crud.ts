@@ -20,7 +20,8 @@ type TableName =
   | "parts_services"
   | "financing_contracts"
   | "financing_installments"
-  | "vehicle_colors";
+  | "vehicle_colors"
+  | "maintenance_items";
 
 interface CrudOptions {
   select?: string;
