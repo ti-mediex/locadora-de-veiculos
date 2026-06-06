@@ -11,7 +11,8 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { FileDown, BarChart3 } from "lucide-react";
+import { useMemo } from "react";
+import { FileDown, BarChart3, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ import { useVehicleProfitability, useMonthlyCashflow } from "@/hooks/use-dashboa
 import { useList } from "@/hooks/use-crud";
 import { formatCurrency } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
-import type { Expense } from "@/types/database";
+import type { Expense, Maintenance, Vehicle } from "@/types/database";
 
 const PIE_COLORS = [
   "hsl(221 83% 53%)",
@@ -51,6 +52,31 @@ export default function ReportsPage() {
   const { data: profitability = [] } = useVehicleProfitability();
   const { data: cashflow = [] } = useMonthlyCashflow(12);
   const { data: expenses = [] } = useList<Expense>("expenses");
+  const { data: maintenances = [] } = useList<Maintenance>("maintenances");
+  const { data: vehicles = [] } = useList<Vehicle>("vehicles");
+
+  const manutencaoPorVeiculo = useMemo(() => {
+    const map = new Map<string, { placa: string; modelo: string; qtd: number; total: number }>();
+    for (const m of maintenances) {
+      if (m.status === "cancelada") continue;
+      const v = vehicles.find((x) => x.id === m.vehicle_id);
+      const placa = v?.placa ?? "—";
+      const cur = map.get(m.vehicle_id) ?? { placa, modelo: v ? `${v.marca} ${v.modelo}` : "—", qtd: 0, total: 0 };
+      cur.qtd += 1;
+      cur.total += m.valor;
+      map.set(m.vehicle_id, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [maintenances, vehicles]);
+
+  function exportManutencao() {
+    exportToCsv("custos-manutencao-por-veiculo", manutencaoPorVeiculo, [
+      { key: "placa", label: "Placa" },
+      { key: "modelo", label: "Modelo" },
+      { key: "qtd", label: "Qtd OS" },
+      { key: "total", label: "Custo total" },
+    ]);
+  }
 
   const despesasPorCategoria = Object.values(
     expenses
@@ -191,6 +217,44 @@ export default function ReportsPage() {
                     <TableCell className={`text-right font-semibold ${Number(v.resultado) >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(v.resultado)}
                     </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>Custos de manutenção por veículo</CardTitle>
+            <CardDescription>Total de OS e custo acumulado por veículo</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={exportManutencao}>
+            <FileDown className="h-4 w-4" /> CSV
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {manutencaoPorVeiculo.length === 0 ? (
+            <EmptyState message="Sem manutenções registradas" icon={<Wrench className="h-6 w-6" />} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Placa</TableHead>
+                  <TableHead>Veículo</TableHead>
+                  <TableHead className="text-right">Qtd OS</TableHead>
+                  <TableHead className="text-right">Custo total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {manutencaoPorVeiculo.map((m, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-mono font-medium">{m.placa}</TableCell>
+                    <TableCell>{m.modelo}</TableCell>
+                    <TableCell className="text-right">{m.qtd}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(m.total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

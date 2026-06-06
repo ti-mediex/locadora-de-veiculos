@@ -98,7 +98,15 @@ export default function SettingsPage() {
                     </TableCell>
                     <TableCell>{formatDate(p.created_at)}</TableCell>
                     <TableCell>
-                      {p.active ? <Badge variant="success">Ativo</Badge> : <Badge variant="muted">Inativo</Badge>}
+                      {isAdmin ? (
+                        <button onClick={() => update.mutate({ id: p.id, active: !p.active })}>
+                          {p.active ? <Badge variant="success">Ativo</Badge> : <Badge variant="muted">Inativo</Badge>}
+                        </button>
+                      ) : p.active ? (
+                        <Badge variant="success">Ativo</Badge>
+                      ) : (
+                        <Badge variant="muted">Inativo</Badge>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
