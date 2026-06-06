@@ -9,7 +9,10 @@ import {
   FileDown,
   Ban,
   RefreshCw,
+  Eye,
 } from "lucide-react";
+import { ContractDetailDialog } from "@/components/contracts/contract-detail";
+import type { ContractWithRefs } from "@/hooks/use-contracts";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -81,6 +84,7 @@ export default function ContractsPage() {
   const canWrite = useCanWrite("contracts");
 
   const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<ContractWithRefs | null>(null);
   const [search, setSearch] = useState("");
 
   const {
@@ -211,6 +215,9 @@ export default function ContractsPage() {
                     <TableCell><StatusBadge status={c.status} /></TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" title="Ver detalhes (360)" onClick={() => setDetail(c)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" title="Gerar PDF" onClick={() => handlePdf(c.id)}>
                           <FileDown className="h-4 w-4" />
                         </Button>
@@ -320,6 +327,8 @@ export default function ContractsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ContractDetailDialog contract={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }
