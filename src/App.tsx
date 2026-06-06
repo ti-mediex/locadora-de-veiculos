@@ -17,6 +17,11 @@ import FinesPage from "@/pages/fines";
 import OccurrencesPage from "@/pages/occurrences";
 import InspectionsPage from "@/pages/inspections";
 import SuppliersPage from "@/pages/suppliers";
+import VehicleGroupsPage from "@/pages/vehicle-groups";
+import YardsPage from "@/pages/yards";
+import BuyersPage from "@/pages/buyers";
+import PartsServicesPage from "@/pages/parts-services";
+import FinancingPage from "@/pages/financing";
 import ImportPage from "@/pages/import";
 import ReportsPage from "@/pages/reports";
 import SettingsPage from "@/pages/settings";
@@ -56,6 +61,11 @@ export default function App() {
               <Route path="/multas" element={<FinesPage />} />
               <Route path="/ocorrencias" element={<OccurrencesPage />} />
               <Route path="/vistorias" element={<InspectionsPage />} />
+              <Route path="/grupos" element={<VehicleGroupsPage />} />
+              <Route path="/patios" element={<YardsPage />} />
+              <Route path="/compradores" element={<BuyersPage />} />
+              <Route path="/pecas-servicos" element={<PartsServicesPage />} />
+              <Route path="/financiamentos" element={<FinancingPage />} />
               <Route path="/relatorios" element={<ReportsPage />} />
               <Route path="/importar" element={<ImportPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />

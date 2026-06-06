@@ -13,7 +13,13 @@ type TableName =
   | "profiles"
   | "occurrences"
   | "inspections"
-  | "suppliers";
+  | "suppliers"
+  | "vehicle_groups"
+  | "yards"
+  | "buyers"
+  | "parts_services"
+  | "financing_contracts"
+  | "financing_installments";
 
 interface CrudOptions {
   select?: string;
