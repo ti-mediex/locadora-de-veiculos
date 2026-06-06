@@ -45,7 +45,7 @@ interface FieldDef {
 interface EntityDef {
   key: string;
   label: string;
-  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences";
+  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers";
   conflict?: string;
   fields: FieldDef[];
 }
@@ -90,6 +90,25 @@ const ENTITIES: EntityDef[] = [
       { field: "email", label: "E-mail", type: "text" },
       { field: "cidade", label: "Cidade", type: "text" },
       { field: "estado", label: "Estado", type: "text", synonyms: ["uf"] },
+      { field: "chave_pix", label: "Chave PIX", type: "text", synonyms: ["pix"] },
+      { field: "status", label: "Status", type: "text" },
+    ],
+  },
+  {
+    key: "suppliers",
+    label: "Fornecedores",
+    table: "suppliers",
+    fields: [
+      { field: "nome_fantasia", label: "Nome fantasia", type: "text", required: true, synonyms: ["nome", "fornecedor"] },
+      { field: "razao_social", label: "Razão social", type: "text" },
+      { field: "tipo", label: "Tipo", type: "text" },
+      { field: "cnpj", label: "CNPJ", type: "text" },
+      { field: "categoria", label: "Categoria", type: "text" },
+      { field: "telefone", label: "Telefone", type: "text" },
+      { field: "email", label: "E-mail", type: "text" },
+      { field: "cidade", label: "Cidade", type: "text" },
+      { field: "estado", label: "Estado", type: "text", synonyms: ["uf"] },
+      { field: "prazo_pagamento", label: "Prazo pagamento", type: "number" },
       { field: "chave_pix", label: "Chave PIX", type: "text", synonyms: ["pix"] },
       { field: "status", label: "Status", type: "text" },
     ],

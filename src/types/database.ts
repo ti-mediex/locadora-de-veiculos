@@ -69,6 +69,37 @@ export interface Inspection {
   updated_at: string;
 }
 
+export interface Supplier {
+  id: string;
+  nome_fantasia: string;
+  razao_social: string | null;
+  tipo: string | null;
+  cnpj: string | null;
+  categoria: string | null;
+  classificacao: string | null;
+  codigo: string | null;
+  site: string | null;
+  telefone: string | null;
+  email: string | null;
+  cep: string | null;
+  endereco: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  inscricao_estadual: string | null;
+  inscricao_municipal: string | null;
+  prazo_pagamento: number | null;
+  banco: string | null;
+  agencia: string | null;
+  conta: string | null;
+  chave_pix: string | null;
+  status: string;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Vehicle {
   id: string;
   placa: string;

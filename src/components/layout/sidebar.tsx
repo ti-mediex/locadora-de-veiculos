@@ -13,6 +13,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Upload,
+  Building2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const NAV: {
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, roles: ALL },
   { to: "/veiculos", label: "Veículos", icon: Car, roles: ALL },
   { to: "/locatarios", label: "Locatários", icon: Users, roles: ALL },
+  { to: "/fornecedores", label: "Fornecedores", icon: Building2, roles: ALL },
   { to: "/contratos", label: "Contratos", icon: FileText, roles: ALL },
   { to: "/recebiveis", label: "Recebíveis", icon: Receipt, roles: ["admin", "financeiro"] },
   { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },

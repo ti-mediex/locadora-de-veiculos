@@ -114,6 +114,38 @@ export const INSPECTION_ITEMS = [
   { key: "extintor", label: "Extintor (se aplicável)" },
 ];
 
+export const SUPPLIER_TIPO = [
+  { value: "Frota", label: "Frota (manutenção, peças)" },
+  { value: "Seguradora", label: "Seguradora" },
+  { value: "Cliente", label: "Cliente" },
+  { value: "Despachante", label: "Despachante" },
+  { value: "Outro", label: "Outro" },
+];
+
+export const SUPPLIER_STATUS = [
+  { value: "ativo", label: "Ativo" },
+  { value: "inativo", label: "Inativo" },
+];
+
+// Situação do veículo -> rótulo + cor (donut do dashboard, estilo Blue Fleet)
+export const VEHICLE_STATUS_CHART: Record<string, { label: string; color: string }> = {
+  disponivel: { label: "Disponível", color: "hsl(340 82% 66%)" },
+  locado: { label: "Locado", color: "hsl(211 90% 64%)" },
+  manutencao: { label: "Manutenção", color: "hsl(38 92% 60%)" },
+  inativo: { label: "Inativo", color: "hsl(215 16% 70%)" },
+};
+
+export const GROUP_COLORS = [
+  "hsl(211 90% 64%)",
+  "hsl(340 82% 66%)",
+  "hsl(38 92% 60%)",
+  "hsl(142 60% 60%)",
+  "hsl(262 70% 72%)",
+  "hsl(0 72% 65%)",
+  "hsl(180 50% 60%)",
+  "hsl(280 60% 65%)",
+];
+
 export const FORMA_PAGAMENTO = [
   { value: "pix", label: "PIX" },
   { value: "dinheiro", label: "Dinheiro" },

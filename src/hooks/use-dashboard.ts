@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { VEHICLE_STATUS_CHART, GROUP_COLORS } from "@/lib/options";
 import type {
   DashboardSummary,
   MonthlyCashflow,
@@ -74,6 +75,70 @@ export function useOccurrencesByType(dias = 30) {
         tipo: d.tipo,
         total: Number(d.total),
       }));
+    },
+  });
+}
+
+export interface AggSlice {
+  name: string;
+  value: number;
+  color: string;
+}
+
+/** Agrega a frota por situação e por grupo/categoria (donuts estilo Blue Fleet). */
+export function useFleetAggregates() {
+  return useQuery<{ byStatus: AggSlice[]; byGroup: AggSlice[]; total: number }>({
+    queryKey: ["dashboard", "fleet-agg"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("vehicles").select("status, categoria");
+      if (error) throw error;
+      const rows = (data ?? []) as { status: string; categoria: string | null }[];
+
+      const statusMap = new Map<string, number>();
+      const groupMap = new Map<string, number>();
+      for (const r of rows) {
+        statusMap.set(r.status, (statusMap.get(r.status) ?? 0) + 1);
+        const g = r.categoria || "Sem grupo";
+        groupMap.set(g, (groupMap.get(g) ?? 0) + 1);
+      }
+
+      const STATUS = VEHICLE_STATUS_CHART;
+      const byStatus: AggSlice[] = Array.from(statusMap.entries()).map(([k, v]) => ({
+        name: STATUS[k]?.label ?? k,
+        value: v,
+        color: STATUS[k]?.color ?? "hsl(215 16% 70%)",
+      }));
+      const byGroup: AggSlice[] = Array.from(groupMap.entries()).map(([k, v], i) => ({
+        name: k,
+        value: v,
+        color: GROUP_COLORS[i % GROUP_COLORS.length],
+      }));
+      return { byStatus, byGroup, total: rows.length };
+    },
+  });
+}
+
+export interface DailyCashflow {
+  dia: string;
+  entrada: number;
+  saida: number;
+  saldo: number;
+}
+
+/** Fluxo de caixa diário do mês corrente (entrada x saída + saldo acumulado). */
+export function useDailyCashflow() {
+  return useQuery<DailyCashflow[]>({
+    queryKey: ["dashboard", "daily-cashflow"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("daily_cashflow");
+      if (error) throw error;
+      let acc = 0;
+      return ((data ?? []) as { dia: string; entrada: number; saida: number }[]).map((d) => {
+        const entrada = Number(d.entrada);
+        const saida = Number(d.saida);
+        acc += entrada - saida;
+        return { dia: d.dia, entrada, saida, saldo: acc };
+      });
     },
   });
 }

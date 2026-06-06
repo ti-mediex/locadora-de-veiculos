@@ -60,6 +60,8 @@ import {
   useTopDebtors,
   useOccurrencesByDay,
   useOccurrencesByType,
+  useFleetAggregates,
+  useDailyCashflow,
 } from "@/hooks/use-dashboard";
 
 export default function DashboardPage() {
@@ -71,6 +73,13 @@ export default function DashboardPage() {
   const { data: topDebtors = [] } = useTopDebtors();
   const { data: occByDay = [] } = useOccurrencesByDay(30);
   const { data: occByType = [] } = useOccurrencesByType(30);
+  const { data: fleet } = useFleetAggregates();
+  const { data: dailyCash = [] } = useDailyCashflow();
+
+  const dailyCashData = dailyCash.map((d) => ({
+    ...d,
+    label: format(parseISO(d.dia), "dd"),
+  }));
 
   const occTypeData = occByType.map((o) => {
     const cfg = OCCURRENCE_TYPE.find((t) => t.value === o.tipo);
@@ -220,6 +229,81 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Frota — situação e grupo (estilo Blue Fleet) */}
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-muted-foreground">Frota</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Veículos por situação</CardTitle>
+              <CardDescription>{fleet?.total ?? 0} veículos na frota</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!fleet || fleet.byStatus.length === 0 ? (
+                <EmptyState message="Sem veículos cadastrados" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={fleet.byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100}>
+                      {fleet.byStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Veículos por grupo</CardTitle>
+              <CardDescription>Distribuição por categoria</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!fleet || fleet.byGroup.length === 0 ? (
+                <EmptyState message="Sem veículos cadastrados" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={fleet.byGroup} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100}>
+                      {fleet.byGroup.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Fluxo de Caixa diário (mês corrente) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Fluxo de Caixa diário</CardTitle>
+          <CardDescription>Entradas, saídas e saldo acumulado do mês</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {dailyCashData.length === 0 ? (
+            <EmptyState message="Sem movimentação no mês" />
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={dailyCashData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="label" fontSize={11} />
+                <YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                <Legend />
+                <Bar dataKey="entrada" name="Entrada" fill="hsl(142 71% 45%)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="saida" name="Saída" fill="hsl(0 72% 51%)" radius={[3, 3, 0, 0]} />
+                <Line type="monotone" dataKey="saldo" name="Saldo acumulado" stroke="hsl(221 83% 53%)" strokeWidth={2} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Gráficos */}
       <div className="grid gap-4 lg:grid-cols-2">

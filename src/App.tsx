@@ -16,6 +16,7 @@ import MaintenancesPage from "@/pages/maintenances";
 import FinesPage from "@/pages/fines";
 import OccurrencesPage from "@/pages/occurrences";
 import InspectionsPage from "@/pages/inspections";
+import SuppliersPage from "@/pages/suppliers";
 import ImportPage from "@/pages/import";
 import ReportsPage from "@/pages/reports";
 import SettingsPage from "@/pages/settings";
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/veiculos" element={<VehiclesPage />} />
               <Route path="/locatarios" element={<RentersPage />} />
+              <Route path="/fornecedores" element={<SuppliersPage />} />
               <Route path="/contratos" element={<ContractsPage />} />
               <Route path="/recebiveis" element={<ReceivablesPage />} />
               <Route path="/despesas" element={<ExpensesPage />} />

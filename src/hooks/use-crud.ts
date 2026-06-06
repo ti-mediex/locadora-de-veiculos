@@ -12,7 +12,8 @@ type TableName =
   | "expenses"
   | "profiles"
   | "occurrences"
-  | "inspections";
+  | "inspections"
+  | "suppliers";
 
 interface CrudOptions {
   select?: string;
