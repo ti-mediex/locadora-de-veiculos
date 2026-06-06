@@ -222,29 +222,30 @@ export default function ImportPage() {
 
   function buildRecord(row: string[]): Record<string, unknown> | null {
     const rec: Record<string, unknown> = {};
+    // Inclui SEMPRE as mesmas chaves (mapeadas), com null quando vazio —
+    // o PostgREST exige que todos os objetos do lote tenham as mesmas chaves.
     for (const f of entity.fields) {
       const header = mapping[f.field];
-      if (!header || header === IGNORE) continue;
-      const idx = headers.indexOf(header);
-      if (idx < 0) continue;
-      const value = coerceValue(row[idx] ?? "", f.type);
+      const mapped = !!header && header !== IGNORE;
       if (f.resolveTo === "vehicle_id") {
-        const placa = String(value ?? "").replace(/\W/g, "").toUpperCase();
-        const vid = vehiclesByPlaca.get(placa);
-        if (vid) rec["vehicle_id"] = vid;
-      } else if (value !== null) {
-        rec[f.field] = f.field === "placa" ? String(value).toUpperCase().replace(/\s/g, "") : value;
-        if (f.field === "cpf") rec[f.field] = String(value).replace(/\D/g, "");
+        if (!mapped) continue;
+        const idx = headers.indexOf(header);
+        const placa = String(coerceValue(row[idx] ?? "", "text") ?? "").replace(/\W/g, "").toUpperCase();
+        rec["vehicle_id"] = vehiclesByPlaca.get(placa) ?? null;
+        continue;
       }
+      if (!mapped) continue;
+      const idx = headers.indexOf(header);
+      let value = idx >= 0 ? coerceValue(row[idx] ?? "", f.type) : null;
+      if (value != null && f.field === "placa") value = String(value).toUpperCase().replace(/\s/g, "");
+      if (value != null && f.field === "cpf") value = String(value).replace(/\D/g, "");
+      rec[f.field] = value ?? null;
     }
     // valida obrigatórios
     for (const f of entity.fields) {
       if (!f.required) continue;
-      if (f.resolveTo === "vehicle_id") {
-        if (!rec["vehicle_id"]) return null;
-      } else if (rec[f.field] === undefined || rec[f.field] === null || rec[f.field] === "") {
-        return null;
-      }
+      const key = f.resolveTo === "vehicle_id" ? "vehicle_id" : f.field;
+      if (rec[key] === undefined || rec[key] === null || rec[key] === "") return null;
     }
     return rec;
   }
