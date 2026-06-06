@@ -166,7 +166,7 @@ const ENTITIES: EntityDef[] = [
     fields: [
       { field: "_placa", label: "Placa do veículo (→ veículo)", type: "text", required: true, resolveTo: "vehicle_id", synonyms: ["veiculo atual", "veiculo do contrato", "veiculo principal", "placa", "veiculo"] },
       { field: "_cpf", label: "CPF do condutor (→ locatário)", type: "text", required: true, resolveTo: "renter_id", synonyms: ["cpf condutor", "documento cliente", "cpf", "cpf/cnpj"] },
-      { field: "numero", label: "Número do contrato", type: "text", synonyms: ["contrato de locacao", "contrato comercial", "contrato"] },
+      { field: "numero", label: "Número do contrato", type: "text", synonyms: ["contrato de locacao", "contrato"] },
       { field: "valor_aluguel", label: "Valor do aluguel", type: "number", required: true, synonyms: ["valor de locacao vigente", "valor inicial de locacao", "valor de locacao"] },
       { field: "data_inicio", label: "Data de início", type: "date", required: true, synonyms: ["inicio de contrato", "inicio do contrato", "data de inicio"] },
       { field: "data_fim", label: "Data de término", type: "date", synonyms: ["termino do contrato", "termino previsto", "data de termino"] },
@@ -218,8 +218,14 @@ export default function ImportPage() {
   function autoMap(hs: string[], ent: EntityDef) {
     const map: Record<string, string> = {};
     for (const f of ent.fields) {
-      const candidates = [f.label, f.field, ...(f.synonyms ?? [])].map(normalizeHeader);
-      const found = hs.find((h) => candidates.includes(normalizeHeader(h)));
+      // prioridade: campo, depois sinônimos (na ordem), depois rótulo
+      const candList = [f.field, ...(f.synonyms ?? []), f.label];
+      let found: string | undefined;
+      for (const c of candList) {
+        const cn = normalizeHeader(c);
+        const h = hs.find((x) => normalizeHeader(x) === cn);
+        if (h) { found = h; break; }
+      }
       map[f.field] = found ?? IGNORE;
     }
     return map;
@@ -253,7 +259,7 @@ export default function ImportPage() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  function buildRecord(row: string[]): Record<string, unknown> | null {
+  function buildRecord(row: string[], cpfMap: Map<string, string>): Record<string, unknown> | null {
     const rec: Record<string, unknown> = {};
     // Inclui apenas campos com valor; campos vazios são omitidos e o banco usa
     // o DEFAULT (envio com defaultToNull:false). Evita violar NOT NULL e mantém
@@ -272,7 +278,7 @@ export default function ImportPage() {
         if (vid) rec["vehicle_id"] = vid;
       } else if (f.resolveTo === "renter_id") {
         const cpf = String(value).replace(/\D/g, "");
-        const rid = rentersByCpf.get(cpf);
+        const rid = cpfMap.get(cpf);
         if (rid) rec["renter_id"] = rid;
       } else if (f.valueMap) {
         const mappedVal = f.valueMap[String(value).trim().toLowerCase()];
@@ -295,13 +301,57 @@ export default function ImportPage() {
     return rec;
   }
 
+  /** Para contratos: cria automaticamente os locatários (condutores) que faltam. */
+  async function ensureContractRenters(): Promise<Map<string, string>> {
+    const cpfMap = new Map(rentersByCpf);
+    const cpfHeader = mapping["_cpf"];
+    if (!cpfHeader || cpfHeader === IGNORE) return cpfMap;
+    const cpfIdx = headers.indexOf(cpfHeader);
+    if (cpfIdx < 0) return cpfMap;
+    const findIdx = (...names: string[]) => {
+      const cands = names.map(normalizeHeader);
+      return headers.findIndex((h) => cands.includes(normalizeHeader(h)));
+    };
+    const nomeIdx = findIdx("nome condutor", "cliente", "nome do condutor", "nome");
+    const emailIdx = findIdx("e-mail condutor", "email do cliente", "email condutor", "email");
+    const telIdx = findIdx("telefone do condutor", "telefone do cliente", "telefone condutor", "telefone", "celular");
+    const novos = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      const cpf = String(row[cpfIdx] ?? "").replace(/\D/g, "");
+      if (!cpf || cpfMap.has(cpf) || novos.has(cpf)) continue;
+      const nome = nomeIdx >= 0 ? String(row[nomeIdx] ?? "").trim() : "";
+      novos.set(cpf, {
+        cpf,
+        nome: nome || `Condutor ${cpf}`,
+        email: emailIdx >= 0 ? String(row[emailIdx] ?? "").trim() || null : null,
+        telefone: telIdx >= 0 ? String(row[telIdx] ?? "").trim() || null : null,
+        status: "ativo",
+      });
+    }
+    const arr = [...novos.values()];
+    for (let i = 0; i < arr.length; i += 200) {
+      const batch = arr.slice(i, i + 200);
+      const { data } = await supabase
+        .from("renters")
+        .upsert(batch as never, { onConflict: "cpf", defaultToNull: false })
+        .select("id, cpf");
+      for (const r of (data ?? []) as { id: string; cpf: string }[]) {
+        cpfMap.set(String(r.cpf).replace(/\D/g, ""), r.id);
+      }
+    }
+    return cpfMap;
+  }
+
   async function handleImport() {
     setImporting(true);
     setResult(null);
+
+    const cpfMap = entity.key === "contracts" ? await ensureContractRenters() : rentersByCpf;
+
     const records: Record<string, unknown>[] = [];
     let skip = 0;
     for (const row of rows) {
-      const rec = buildRecord(row);
+      const rec = buildRecord(row, cpfMap);
       if (rec) records.push(rec);
       else skip++;
     }
