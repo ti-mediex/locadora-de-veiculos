@@ -144,6 +144,31 @@ export interface Supplier {
   updated_at: string;
 }
 
+export interface Billing {
+  id: string;
+  contract_id: string | null;
+  renter_id: string | null;
+  descricao: string | null;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  data_emissao: string;
+  valor_total: number;
+  status: string;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BillingItem {
+  id: string;
+  billing_id: string;
+  tipo: string;
+  descricao: string;
+  valor: number;
+  ref_id: string | null;
+  created_at: string;
+}
+
 export interface BankAccount {
   id: string;
   nome: string;

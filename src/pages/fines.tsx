@@ -52,6 +52,11 @@ const schema = z.object({
   vencimento: z.string().optional(),
   repassar_locatario: z.boolean().default(true),
   status: z.string().default("lancada"),
+  tipo_infracao: z.string().optional(),
+  condutor_indicado: z.string().optional(),
+  data_indicacao: z.string().optional(),
+  nic_prazo: z.string().optional(),
+  nic_status: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -90,7 +95,7 @@ export default function FinesPage() {
 
   function openNew() {
     setEditing(null);
-    reset({ status: "lancada", repassar_locatario: true, pontos: 0, data_infracao: new Date().toISOString().slice(0, 10) });
+    reset({ status: "lancada", repassar_locatario: true, pontos: 0, tipo_infracao: "multa", nic_status: "pendente", data_infracao: new Date().toISOString().slice(0, 10) });
     setOpen(true);
   }
 
@@ -108,6 +113,11 @@ export default function FinesPage() {
       vencimento: f.vencimento ?? "",
       repassar_locatario: f.repassar_locatario,
       status: f.status,
+      tipo_infracao: (f as { tipo_infracao?: string }).tipo_infracao ?? "multa",
+      condutor_indicado: (f as { condutor_indicado?: string }).condutor_indicado ?? "",
+      data_indicacao: (f as { data_indicacao?: string }).data_indicacao ?? "",
+      nic_prazo: (f as { nic_prazo?: string }).nic_prazo ?? "",
+      nic_status: (f as { nic_status?: string }).nic_status ?? "pendente",
     });
     setOpen(true);
   }
@@ -117,6 +127,8 @@ export default function FinesPage() {
       ...data,
       renter_id: data.renter_id || null,
       vencimento: data.vencimento || null,
+      data_indicacao: data.data_indicacao || null,
+      nic_prazo: data.nic_prazo || null,
     };
     if (editing) {
       update.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) });
@@ -251,6 +263,38 @@ export default function FinesPage() {
                   </SelectContent>
                 </Select>
               </Field>
+            </div>
+            <div className="space-y-3 rounded-md border border-dashed p-4">
+              <p className="text-xs font-semibold uppercase text-warning">Indicação de condutor (NIC)</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Tipo de abertura">
+                  <Select value={watch("tipo_infracao") || "multa"} onValueChange={(v) => setValue("tipo_infracao", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="multa">Multa de trânsito</SelectItem>
+                      <SelectItem value="notificacao">Notificação</SelectItem>
+                      <SelectItem value="nic">NIC (indicação de condutor)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Status da NIC">
+                  <Select value={watch("nic_status") || "pendente"} onValueChange={(v) => setValue("nic_status", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="indicado">Condutor indicado</SelectItem>
+                      <SelectItem value="vencido">Prazo vencido</SelectItem>
+                      <SelectItem value="nao_aplicavel">Não aplicável</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Condutor indicado">
+                  <Input {...register("condutor_indicado")} />
+                </Field>
+                <Field label="Prazo da indicação">
+                  <Input type="date" {...register("nic_prazo")} />
+                </Field>
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" {...register("repassar_locatario")} className="h-4 w-4" />

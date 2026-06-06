@@ -18,6 +18,7 @@ export type WriteModule =
   | "invoices"
   | "bank_accounts"
   | "lancamentos"
+  | "billing"
   | "contracts"
   | "receivables"
   | "expenses"
@@ -39,6 +40,7 @@ const MODULE_ROLES: Record<WriteModule, AppRole[]> = {
   invoices: ["admin", "financeiro"],
   bank_accounts: ["admin", "financeiro"],
   lancamentos: ["admin", "financeiro"],
+  billing: ["admin", "financeiro"],
   occurrences: ["admin", "operador", "financeiro"],
   contracts: ["admin", "financeiro"],
   receivables: ["admin", "financeiro"],

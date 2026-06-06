@@ -44,6 +44,8 @@ const MAP: Record<string, { label: string; variant: Variant }> = {
   // Notas fiscais
   em_cadastro: { label: "Em cadastro", variant: "secondary" },
   aprovada: { label: "Aprovada", variant: "success" },
+  // Faturamento
+  fechada: { label: "Fechada", variant: "success" },
 };
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {

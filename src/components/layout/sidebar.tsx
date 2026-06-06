@@ -52,6 +52,7 @@ const NAV: {
   { to: "/contratos", label: "Contratos", icon: FileText, roles: ALL },
   { to: "/operacoes-lote", label: "Operações em lote", icon: Layers3, roles: ["admin", "financeiro"] },
   { to: "/recebiveis", label: "Recebíveis", icon: Receipt, roles: ["admin", "financeiro"] },
+  { to: "/faturamento", label: "Faturamento", icon: Receipt, roles: ["admin", "financeiro"] },
   { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
   { to: "/financiamentos", label: "Financiamentos", icon: Banknote, roles: ["admin", "financeiro"] },
   { to: "/notas-fiscais", label: "Notas Fiscais", icon: FileText, roles: ["admin", "financeiro"] },
