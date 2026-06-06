@@ -13,6 +13,9 @@ Sistema web para gestão financeira completa de uma frota locada a **motoristas 
 - **Multas** — lançamento, vínculo ao responsável e **repasse ao locatário**.
 - **Despesas** — IPVA, seguro, licenciamento, financiamento e custos administrativos.
 - **Relatórios** — rentabilidade por veículo, composição de despesas, fluxo de caixa e **exportação CSV**.
+- **Régua de cobrança** — botão de **cobrança via WhatsApp** (1 clique, mensagem pré-preenchida) em recebíveis e no dashboard.
+- **Alertas operacionais** — CNH vencendo/vencida, manutenções pendentes, multas a repassar e **top devedores**.
+- **Controle de acesso por papel** — RLS granular no banco + menus por perfil: **admin** (tudo), **financeiro** (contratos, recebíveis, despesas, multas, relatórios), **operador** (veículos, locatários, manutenções).
 - **Configurações** — gestão de usuários e papéis (admin / financeiro / operador).
 
 ## 🏗️ Stack

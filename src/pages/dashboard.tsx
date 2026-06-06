@@ -7,6 +7,10 @@ import {
   Percent,
   PiggyBank,
   FileText,
+  Wrench,
+  IdCard,
+  MessageCircle,
+  Bell,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -40,12 +44,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
+import { whatsappLink, cobrancaMessage } from "@/lib/whatsapp";
 import {
   useDashboardSummary,
   useMonthlyCashflow,
   useVehicleProfitability,
   useUpcomingReceivables,
+  useOperationalAlerts,
+  useTopDebtors,
 } from "@/hooks/use-dashboard";
 
 export default function DashboardPage() {
@@ -53,6 +61,8 @@ export default function DashboardPage() {
   const { data: cashflow = [] } = useMonthlyCashflow(12);
   const { data: profitability = [] } = useVehicleProfitability();
   const { data: upcoming = [] } = useUpcomingReceivables();
+  const { data: alerts } = useOperationalAlerts();
+  const { data: topDebtors = [] } = useTopDebtors();
 
   const topVeiculos = profitability.slice(0, 6).map((v) => ({
     nome: v.placa,
@@ -195,6 +205,93 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Alertas operacionais + Top devedores */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-warning" /> Alertas operacionais
+            </CardTitle>
+            <CardDescription>Itens da frota que exigem atenção</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Wrench className="h-4 w-4 text-warning" /> Manutenções pendentes
+              </div>
+              <span className="font-semibold">{alerts?.manutencoesPendentes ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <AlertTriangle className="h-4 w-4 text-destructive" /> Multas a repassar
+              </div>
+              <span className="font-semibold">{alerts?.multasARepassar ?? 0}</span>
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm">
+                <IdCard className="h-4 w-4 text-primary" /> CNH vencendo / vencida (≤30 dias)
+              </div>
+              {alerts?.cnhVencendo.length ? (
+                <ul className="space-y-1 text-sm">
+                  {alerts.cnhVencendo.map((c) => (
+                    <li key={c.id} className="flex justify-between">
+                      <span className="text-muted-foreground">{c.nome}</span>
+                      <span>{formatDate(c.validade_cnh)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma CNH próxima do vencimento.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" /> Top devedores
+            </CardTitle>
+            <CardDescription>Maiores saldos em atraso — cobre em 1 clique</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topDebtors.length === 0 ? (
+              <EmptyState message="Nenhuma inadimplência no momento 🎉" />
+            ) : (
+              <ul className="space-y-2">
+                {topDebtors.map((d) => (
+                  <li key={d.nome} className="flex items-center justify-between gap-2 rounded-lg border p-3">
+                    <div>
+                      <div className="text-sm font-medium">{d.nome}</div>
+                      <div className="text-xs text-muted-foreground">{d.cobrancas} cobrança(s) em atraso</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-destructive">{formatCurrency(d.total)}</span>
+                      {d.telefone && (
+                        <Button size="icon" variant="ghost" title="Cobrar via WhatsApp" asChild>
+                          <a
+                            href={whatsappLink(
+                              d.telefone,
+                              `Olá ${d.nome.split(" ")[0]}, consta um saldo em atraso de ${formatCurrency(
+                                d.total
+                              )} referente ao aluguel do veículo. Por favor, regularize o pagamento. 🚗`
+                            )}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <MessageCircle className="h-4 w-4 text-success" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Próximos vencimentos / atrasos */}
       <Card>
         <CardHeader>
@@ -213,6 +310,7 @@ export default function DashboardPage() {
                   <TableHead>Vencimento</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -226,6 +324,28 @@ export default function DashboardPage() {
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={r.status} />
+                    </TableCell>
+                    <TableCell>
+                      {r.contracts?.renters?.telefone && (
+                        <Button size="icon" variant="ghost" title="Cobrar via WhatsApp" asChild>
+                          <a
+                            href={whatsappLink(
+                              r.contracts.renters.telefone,
+                              cobrancaMessage({
+                                nome: r.contracts?.renters?.nome,
+                                numeroContrato: r.contracts?.numero,
+                                valor: r.valor,
+                                vencimento: r.vencimento,
+                                atrasado: r.status === "atrasado",
+                              })
+                            )}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <MessageCircle className="h-4 w-4 text-success" />
+                          </a>
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

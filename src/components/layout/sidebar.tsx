@@ -13,18 +13,28 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import type { AppRole } from "@/types/database";
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/veiculos", label: "Veículos", icon: Car },
-  { to: "/locatarios", label: "Locatários", icon: Users },
-  { to: "/contratos", label: "Contratos", icon: FileText },
-  { to: "/recebiveis", label: "Recebíveis", icon: Receipt },
-  { to: "/despesas", label: "Despesas", icon: Wallet },
-  { to: "/manutencoes", label: "Manutenções", icon: Wrench },
-  { to: "/multas", label: "Multas", icon: AlertTriangle },
-  { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { to: "/configuracoes", label: "Configurações", icon: Settings },
+const ALL: AppRole[] = ["admin", "financeiro", "operador"];
+
+const NAV: {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+  roles: AppRole[];
+}[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, roles: ALL },
+  { to: "/veiculos", label: "Veículos", icon: Car, roles: ALL },
+  { to: "/locatarios", label: "Locatários", icon: Users, roles: ALL },
+  { to: "/contratos", label: "Contratos", icon: FileText, roles: ALL },
+  { to: "/recebiveis", label: "Recebíveis", icon: Receipt, roles: ["admin", "financeiro"] },
+  { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
+  { to: "/manutencoes", label: "Manutenções", icon: Wrench, roles: ALL },
+  { to: "/multas", label: "Multas", icon: AlertTriangle, roles: ALL },
+  { to: "/relatorios", label: "Relatórios", icon: BarChart3, roles: ["admin", "financeiro"] },
+  { to: "/configuracoes", label: "Configurações", icon: Settings, roles: ["admin"] },
 ];
 
 export function Sidebar({
@@ -34,6 +44,9 @@ export function Sidebar({
   open: boolean;
   onClose: () => void;
 }) {
+  const { profile } = useAuth();
+  const role = profile?.role;
+  const items = NAV.filter((item) => !role || item.roles.includes(role));
   return (
     <>
       {open && (
@@ -60,7 +73,7 @@ export function Sidebar({
           </button>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {NAV.map((item) => (
+          {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -7,7 +7,7 @@ export type ReceivableWithRefs = Receivable & {
   contracts: {
     numero: string;
     vehicles: { placa: string } | null;
-    renters: { nome: string } | null;
+    renters: { nome: string; telefone: string | null } | null;
   } | null;
 };
 
@@ -17,7 +17,7 @@ export function useReceivables() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("receivables")
-        .select("*, contracts(numero, vehicles(placa), renters(nome))")
+        .select("*, contracts(numero, vehicles(placa), renters(nome, telefone))")
         .order("vencimento", { ascending: false });
       if (error) throw error;
       return (data ?? []) as never;

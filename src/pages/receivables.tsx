@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Receipt, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, Receipt, CheckCircle2, AlertCircle, MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
@@ -38,6 +38,7 @@ import {
 } from "@/hooks/use-receivables";
 import { FORMA_PAGAMENTO } from "@/lib/options";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { whatsappLink, cobrancaMessage } from "@/lib/whatsapp";
 
 const FILTERS = [
   { value: "todos", label: "Todos" },
@@ -178,9 +179,36 @@ export default function ReceivablesPage() {
                     <TableCell><StatusBadge status={r.status} /></TableCell>
                     <TableCell>
                       {r.status !== "pago" && r.status !== "cancelado" && (
-                        <Button size="sm" variant="outline" onClick={() => openSettle(r)}>
-                          Baixar
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          {r.contracts?.renters?.telefone && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Cobrar via WhatsApp"
+                              asChild
+                            >
+                              <a
+                                href={whatsappLink(
+                                  r.contracts.renters.telefone,
+                                  cobrancaMessage({
+                                    nome: r.contracts?.renters?.nome,
+                                    numeroContrato: r.contracts?.numero,
+                                    valor: r.valor + r.juros + r.multa - r.valor_pago,
+                                    vencimento: r.vencimento,
+                                    atrasado: r.status === "atrasado",
+                                  })
+                                )}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <MessageCircle className="h-4 w-4 text-success" />
+                              </a>
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => openSettle(r)}>
+                            Baixar
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
