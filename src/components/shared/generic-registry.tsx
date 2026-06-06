@@ -57,7 +57,8 @@ interface Props {
     | "vehicle_groups"
     | "yards"
     | "buyers"
-    | "parts_services";
+    | "parts_services"
+    | "vehicle_colors";
   module: WriteModule;
   icon?: ReactNode;
   fields: RegField[];

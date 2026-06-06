@@ -19,6 +19,8 @@ import {
   UserSquare2,
   Boxes,
   Banknote,
+  Palette,
+  Layers3,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,7 +44,9 @@ const NAV: {
   { to: "/patios", label: "Pátios", icon: Warehouse, roles: ALL },
   { to: "/compradores", label: "Compradores", icon: UserSquare2, roles: ALL },
   { to: "/pecas-servicos", label: "Peças e Serviços", icon: Boxes, roles: ALL },
+  { to: "/cores", label: "Cores de Veículo", icon: Palette, roles: ALL },
   { to: "/contratos", label: "Contratos", icon: FileText, roles: ALL },
+  { to: "/operacoes-lote", label: "Operações em lote", icon: Layers3, roles: ["admin", "financeiro"] },
   { to: "/recebiveis", label: "Recebíveis", icon: Receipt, roles: ["admin", "financeiro"] },
   { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
   { to: "/financiamentos", label: "Financiamentos", icon: Banknote, roles: ["admin", "financeiro"] },

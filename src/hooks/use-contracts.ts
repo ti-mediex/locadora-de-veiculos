@@ -34,10 +34,11 @@ export function useCreateContract() {
         .single();
       if (error) throw error;
       const contract = data as Contract;
-      // Gera recebíveis até a data fim (ou +60 dias)
-      const { error: genErr } = await supabase.rpc("generate_receivables", {
-        p_contract_id: contract.id,
-      });
+      // Se informou quantidade de faturas, gera exatamente N; senão, por horizonte (60 dias)
+      const qtd = Number((payload as Record<string, unknown>).qtd_faturas) || 0;
+      const { error: genErr } = qtd > 0
+        ? await supabase.rpc("generate_n_receivables", { p_contract_id: contract.id, p_qtd: qtd })
+        : await supabase.rpc("generate_receivables", { p_contract_id: contract.id });
       if (genErr) throw genErr;
       return contract;
     },
@@ -67,6 +68,53 @@ export function useUpdateContract() {
       qc.invalidateQueries({ queryKey: ["vehicles"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Contrato atualizado");
+    },
+    onError: (e: Error) => toast.error("Erro: " + e.message),
+  });
+}
+
+/** Reajuste de aluguel em lote (percentual ou valor fixo). */
+export function useBulkAdjustRent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { ids: string[]; percentual?: number; novoValor?: number }) => {
+      const { data, error } = await supabase.rpc("bulk_adjust_rent", {
+        p_ids: args.ids,
+        p_percentual: args.percentual ?? null,
+        p_novo_valor: args.novoValor ?? null,
+      });
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ["contracts"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(`${n} contrato(s) reajustado(s)`);
+    },
+    onError: (e: Error) => toast.error("Erro: " + e.message),
+  });
+}
+
+/** Renovação em lote: gera N novas faturas para cada contrato selecionado. */
+export function useBulkRenew() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { ids: string[]; qtd: number }) => {
+      let total = 0;
+      for (const id of args.ids) {
+        const { data, error } = await supabase.rpc("generate_n_receivables", {
+          p_contract_id: id,
+          p_qtd: args.qtd,
+        });
+        if (error) throw error;
+        total += (data as number) ?? 0;
+      }
+      return total;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ["receivables"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(`${n} nova(s) cobrança(s) gerada(s)`);
     },
     onError: (e: Error) => toast.error("Erro: " + e.message),
   });

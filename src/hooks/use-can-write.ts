@@ -13,6 +13,7 @@ export type WriteModule =
   | "yards"
   | "buyers"
   | "parts_services"
+  | "vehicle_colors"
   | "financing"
   | "contracts"
   | "receivables"
@@ -30,6 +31,7 @@ const MODULE_ROLES: Record<WriteModule, AppRole[]> = {
   yards: ["admin", "operador"],
   buyers: ["admin", "operador"],
   parts_services: ["admin", "operador"],
+  vehicle_colors: ["admin", "operador"],
   financing: ["admin", "financeiro"],
   occurrences: ["admin", "operador", "financeiro"],
   contracts: ["admin", "financeiro"],

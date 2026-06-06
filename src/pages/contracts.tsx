@@ -61,6 +61,12 @@ const schema = z.object({
   valor_aluguel: z.coerce.number().min(0.01, "Informe o valor"),
   valor_caucao: z.coerce.number().min(0).default(0),
   km_inicial: z.coerce.number().int().optional().or(z.literal("")),
+  qtd_faturas: z.coerce.number().int().optional().or(z.literal("")),
+  franquia_km: z.coerce.number().int().optional().or(z.literal("")),
+  odometro_entrega: z.coerce.number().int().optional().or(z.literal("")),
+  nivel_combustivel_retirada: z.string().optional(),
+  dia_faturamento: z.string().optional(),
+  informacoes_adicionais: z.string().optional(),
   observacoes: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -113,6 +119,9 @@ export default function ContractsPage() {
       ...data,
       data_fim: data.data_fim || null,
       km_inicial: data.km_inicial || null,
+      qtd_faturas: data.qtd_faturas || null,
+      franquia_km: data.franquia_km || null,
+      odometro_entrega: data.odometro_entrega || null,
       status: "ativo" as const,
     };
     create.mutate(payload, { onSuccess: () => setOpen(false) });
@@ -279,7 +288,25 @@ export default function ContractsPage() {
               <Field label="KM inicial">
                 <Input type="number" {...register("km_inicial")} />
               </Field>
+              <Field label="Qtd. de faturas">
+                <Input type="number" placeholder="Ex.: 4" {...register("qtd_faturas")} />
+              </Field>
+              <Field label="Dia de faturamento">
+                <Input placeholder="Ex.: Segunda-feira / dia 5" {...register("dia_faturamento")} />
+              </Field>
+              <Field label="Franquia de KM">
+                <Input type="number" placeholder="Ex.: 150/dia" {...register("franquia_km")} />
+              </Field>
+              <Field label="Odômetro na entrega">
+                <Input type="number" {...register("odometro_entrega")} />
+              </Field>
+              <Field label="Nível combustível (retirada)">
+                <Input placeholder="Ex.: 1/2 tanque" {...register("nivel_combustivel_retirada")} />
+              </Field>
             </div>
+            <Field label="Informações adicionais (coberturas, franquia, combustível)">
+              <Input {...register("informacoes_adicionais")} />
+            </Field>
             <Field label="Observações">
               <Input {...register("observacoes")} />
             </Field>

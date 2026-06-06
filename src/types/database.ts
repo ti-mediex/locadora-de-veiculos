@@ -172,6 +172,12 @@ export interface Contract {
   status: ContractStatus;
   observacoes: string | null;
   contrato_pdf_url: string | null;
+  franquia_km: number | null;
+  odometro_entrega: number | null;
+  nivel_combustivel_retirada: string | null;
+  informacoes_adicionais: string | null;
+  qtd_faturas: number | null;
+  dia_faturamento: string | null;
   created_at: string;
   updated_at: string;
 }
