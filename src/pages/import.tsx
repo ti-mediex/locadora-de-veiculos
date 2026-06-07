@@ -41,13 +41,14 @@ interface FieldDef {
   type: FieldType;
   required?: boolean;
   synonyms?: string[];
-  resolveTo?: "vehicle_id" | "renter_id"; // resolve placa->veículo ou CPF->locatário
-  valueMap?: Record<string, string>; // tradução de valores (ex.: situação -> enum)
+  resolveTo?: "vehicle_id" | "renter_id";
+  valueMap?: Record<string, string>;
+  constant?: unknown; // valor fixo para todas as linhas (não precisa mapear)
 }
 interface EntityDef {
   key: string;
   label: string;
-  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "contracts";
+  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "contracts" | "ledger_entries";
   conflict?: string;
   fields: FieldDef[];
 }
@@ -73,7 +74,7 @@ const ENTITIES: EntityDef[] = [
       { field: "valor_aquisicao", label: "Valor aquisição", type: "number", synonyms: ["valordecompra", "valordeaquisicao", "valorcompra"] },
       { field: "data_aquisicao", label: "Data de aquisição", type: "date", synonyms: ["datadecompra", "dataaquisicao", "datadeaquisicao"] },
       { field: "fornecedor", label: "Fornecedor", type: "text" },
-      { field: "status", label: "Status", type: "text" },
+      { field: "status", label: "Status", type: "text", valueMap: { "disponivel": "disponivel", "no patio": "disponivel", "no pátio": "disponivel", "disponível": "disponivel", "locado": "locado", "alugado": "locado", "manutencao": "manutencao", "em manutencao": "manutencao", "manutenção": "manutencao", "inativo": "inativo", "baixado": "inativo" } },
     ],
   },
   {
@@ -82,7 +83,7 @@ const ENTITIES: EntityDef[] = [
     table: "renters",
     conflict: "cpf",
     fields: [
-      { field: "nome", label: "Nome", type: "text", required: true, synonyms: ["condutor", "cliente", "nome do condutor", "nome completo", "razao social", "nome / razao social", "razao social / nome", "nome razao social", "nome fantasia", "nome cliente", "nome do cliente"] },
+      { field: "nome", label: "Nome", type: "text", required: true, synonyms: ["nome fantasia", "cliente", "condutor", "nome do condutor", "nome completo", "nome cliente", "nome do cliente", "razao social", "nome / razao social", "razao social / nome", "nome razao social"] },
       { field: "cpf", label: "CPF", type: "text", required: true, synonyms: ["cpf/cnpj", "documento", "cpf cnpj", "cnpj", "documento cliente", "cpf condutor"] },
       { field: "rg", label: "RG", type: "text", synonyms: ["rg", "identidade"] },
       { field: "cnh", label: "CNH", type: "text", synonyms: ["registro cnh", "numero da cnh", "registro"] },
@@ -94,7 +95,7 @@ const ENTITIES: EntityDef[] = [
       { field: "cidade", label: "Cidade", type: "text", synonyms: ["municipio"] },
       { field: "estado", label: "Estado", type: "text", synonyms: ["uf"] },
       { field: "chave_pix", label: "Chave PIX", type: "text", synonyms: ["pix"] },
-      { field: "status", label: "Status", type: "text", synonyms: ["situacao"] },
+      { field: "status", label: "Status", type: "text", synonyms: ["situacao"], valueMap: { "ativo": "ativo", "ativa": "ativo", "inativo": "inativo", "inativa": "inativo", "bloqueado": "bloqueado", "prospect": "prospect", "em cadastro": "prospect" } },
     ],
   },
   {
@@ -150,12 +151,47 @@ const ENTITIES: EntityDef[] = [
     label: "Ocorrências",
     table: "occurrences",
     fields: [
-      { field: "tipo", label: "Tipo", type: "text", required: true, synonyms: ["tipo de ocorrencia"] },
+      {
+        field: "tipo", label: "Tipo", type: "text", required: true, synonyms: ["tipo", "tipo de ocorrencia"],
+        valueMap: {
+          "manutencao": "manutencao", "manutencao corretiva": "manutencao", "manutencao preventiva": "manutencao",
+          "manutenção": "manutencao", "manutenção corretiva": "manutencao", "manutenção preventiva": "manutencao",
+          "sinistro": "sinistro", "infracao": "infracao", "infração": "infracao", "multa": "infracao",
+          "veiculo reserva": "veiculo_reserva", "veículo reserva": "veiculo_reserva", "carro reserva": "veiculo_reserva",
+          "devolucao": "devolucao", "devolução": "devolucao", "preparacao": "preparacao", "preparação": "preparacao",
+          "translado": "translado",
+        },
+      },
       { field: "_placa", label: "Placa (→ veículo)", type: "text", resolveTo: "vehicle_id", synonyms: ["placa", "veiculo"] },
-      { field: "data", label: "Data", type: "date", required: true, synonyms: ["data da ocorrencia", "data de abertura"] },
-      { field: "descricao", label: "Descrição", type: "text", required: true, synonyms: ["descricao da ocorrencia"] },
-      { field: "valor", label: "Valor", type: "number", synonyms: ["valor total"] },
-      { field: "status", label: "Status", type: "text", synonyms: ["etapa", "situacao"] },
+      { field: "data", label: "Data", type: "date", required: true, synonyms: ["criado em", "data de agendamento", "data da ocorrencia", "data de abertura"] },
+      { field: "descricao", label: "Descrição", type: "text", required: true, synonyms: ["motivo", "justificativa", "descricao da ocorrencia"] },
+      { field: "valor", label: "Valor", type: "number", synonyms: ["gasto total", "valor total"] },
+      {
+        field: "status", label: "Status", type: "text", synonyms: ["situacao"],
+        valueMap: {
+          "aberta": "aberta", "pre-agendamento": "aberta", "pré-agendamento": "aberta", "agendada": "aberta",
+          "em andamento": "em_andamento", "resolvida": "resolvida", "concluida": "resolvida", "concluída": "resolvida",
+          "finalizada": "resolvida", "cancelada": "cancelada",
+        },
+      },
+    ],
+  },
+  {
+    key: "contas_receber",
+    label: "Contas a Receber (lançamentos)",
+    table: "ledger_entries",
+    fields: [
+      { field: "tipo", label: "Tipo", type: "text", constant: "entrada" },
+      { field: "categoria", label: "Categoria", type: "text", constant: "Recebível" },
+      { field: "descricao", label: "Descrição", type: "text", required: true, synonyms: ["descricao", "receber de", "receber de (fantasia)", "receber de (razao social)", "numero do documento"] },
+      { field: "valor", label: "Valor previsto", type: "number", required: true, synonyms: ["valor previsto", "valor bruto", "valor"] },
+      { field: "data", label: "Data", type: "date", synonyms: ["data de vencimento", "data prevista", "data de competencia"] },
+      { field: "vencimento", label: "Vencimento", type: "date", synonyms: ["data de vencimento", "data prevista"] },
+      { field: "valor_pago", label: "Valor recebido", type: "number", synonyms: ["valor recebido"] },
+      {
+        field: "status", label: "Recebido", type: "text", synonyms: ["recebido"],
+        valueMap: { "sim": "baixado", "nao": "previsto", "não": "previsto" },
+      },
     ],
   },
   {
@@ -218,6 +254,7 @@ export default function ImportPage() {
   function autoMap(hs: string[], ent: EntityDef) {
     const map: Record<string, string> = {};
     for (const f of ent.fields) {
+      if (f.constant !== undefined) continue;
       // prioridade: campo, depois sinônimos (na ordem), depois rótulo
       const candList = [f.field, ...(f.synonyms ?? []), f.label];
       let found: string | undefined;
@@ -261,10 +298,12 @@ export default function ImportPage() {
 
   function buildRecord(row: string[], cpfMap: Map<string, string>): Record<string, unknown> | null {
     const rec: Record<string, unknown> = {};
+    for (const f of entity.fields) if (f.constant !== undefined) rec[f.field] = f.constant;
     // Inclui apenas campos com valor; campos vazios são omitidos e o banco usa
     // o DEFAULT (envio com defaultToNull:false). Evita violar NOT NULL e mantém
     // colunas heterogêneas (PostgREST usa a união das colunas).
     for (const f of entity.fields) {
+      if (f.constant !== undefined) continue;
       const header = mapping[f.field];
       const mapped = !!header && header !== IGNORE;
       if (!mapped) continue;
@@ -293,7 +332,7 @@ export default function ImportPage() {
     }
     // valida obrigatórios
     for (const f of entity.fields) {
-      if (!f.required) continue;
+      if (!f.required || f.constant !== undefined) continue;
       const key =
         f.resolveTo === "vehicle_id" ? "vehicle_id" : f.resolveTo === "renter_id" ? "renter_id" : f.field;
       if (rec[key] === undefined || rec[key] === null || rec[key] === "") return null;
@@ -345,7 +384,7 @@ export default function ImportPage() {
   async function handleImport() {
     // valida se os campos obrigatórios foram mapeados (evita importar 0 em silêncio)
     const faltando = entity.fields
-      .filter((f) => f.required && (!mapping[f.field] || mapping[f.field] === IGNORE))
+      .filter((f) => f.required && f.constant === undefined && (!mapping[f.field] || mapping[f.field] === IGNORE))
       .map((f) => f.label);
     if (faltando.length > 0) {
       toast.error(`Mapeie os campos obrigatórios: ${faltando.join(", ")}`);
@@ -461,7 +500,7 @@ export default function ImportPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {entity.fields.map((f) => (
+              {entity.fields.filter((f) => f.constant === undefined).map((f) => (
                 <div key={f.field} className="space-y-1.5">
                   <Label className="text-xs">
                     {f.label} {f.required && <span className="text-destructive">*</span>}
@@ -488,7 +527,7 @@ export default function ImportPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {entity.fields.map((f) => (
+                      {entity.fields.filter((f) => f.constant === undefined).map((f) => (
                         <TableHead key={f.field}>{f.label}</TableHead>
                       ))}
                     </TableRow>
@@ -496,7 +535,7 @@ export default function ImportPage() {
                   <TableBody>
                     {previewRows.map((row, ri) => (
                       <TableRow key={ri}>
-                        {entity.fields.map((f) => {
+                        {entity.fields.filter((f) => f.constant === undefined).map((f) => {
                           const h = mapping[f.field];
                           const idx = h && h !== IGNORE ? headers.indexOf(h) : -1;
                           return <TableCell key={f.field}>{idx >= 0 ? row[idx] : "—"}</TableCell>;
