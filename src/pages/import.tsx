@@ -82,8 +82,8 @@ const ENTITIES: EntityDef[] = [
     table: "renters",
     conflict: "cpf",
     fields: [
-      { field: "nome", label: "Nome", type: "text", required: true, synonyms: ["condutor", "cliente", "nome do condutor", "nome completo"] },
-      { field: "cpf", label: "CPF", type: "text", required: true, synonyms: ["cpf/cnpj", "documento", "cpf cnpj"] },
+      { field: "nome", label: "Nome", type: "text", required: true, synonyms: ["condutor", "cliente", "nome do condutor", "nome completo", "razao social", "nome / razao social", "razao social / nome", "nome razao social", "nome fantasia", "nome cliente", "nome do cliente"] },
+      { field: "cpf", label: "CPF", type: "text", required: true, synonyms: ["cpf/cnpj", "documento", "cpf cnpj", "cnpj", "documento cliente", "cpf condutor"] },
       { field: "rg", label: "RG", type: "text", synonyms: ["rg", "identidade"] },
       { field: "cnh", label: "CNH", type: "text", synonyms: ["registro cnh", "numero da cnh", "registro"] },
       { field: "categoria_cnh", label: "Categoria CNH", type: "text", synonyms: ["categoria", "cat cnh", "categoria da cnh"] },
@@ -343,6 +343,15 @@ export default function ImportPage() {
   }
 
   async function handleImport() {
+    // valida se os campos obrigatórios foram mapeados (evita importar 0 em silêncio)
+    const faltando = entity.fields
+      .filter((f) => f.required && (!mapping[f.field] || mapping[f.field] === IGNORE))
+      .map((f) => f.label);
+    if (faltando.length > 0) {
+      toast.error(`Mapeie os campos obrigatórios: ${faltando.join(", ")}`);
+      setResult({ ok: 0, skip: rows.length, errors: [`Campos obrigatórios não mapeados: ${faltando.join(", ")}`] });
+      return;
+    }
     setImporting(true);
     setResult(null);
 
