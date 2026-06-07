@@ -296,7 +296,7 @@ export default function ImportPage() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  function buildRecord(row: string[], cpfMap: Map<string, string>): Record<string, unknown> | null {
+  function buildRecord(row: string[], cpfMap: Map<string, string>, placaMap: Map<string, string>): Record<string, unknown> | null {
     const rec: Record<string, unknown> = {};
     for (const f of entity.fields) if (f.constant !== undefined) rec[f.field] = f.constant;
     // Inclui apenas campos com valor; campos vazios são omitidos e o banco usa
@@ -313,7 +313,7 @@ export default function ImportPage() {
       if (value === null || value === "") continue;
       if (f.resolveTo === "vehicle_id") {
         const placa = String(value).replace(/\W/g, "").toUpperCase();
-        const vid = vehiclesByPlaca.get(placa);
+        const vid = placaMap.get(placa);
         if (vid) rec["vehicle_id"] = vid;
       } else if (f.resolveTo === "renter_id") {
         const cpf = String(value).replace(/\D/g, "");
@@ -381,6 +381,55 @@ export default function ImportPage() {
     return cpfMap;
   }
 
+  /** Para contratos: cria automaticamente os veículos que faltam (dados na própria planilha). */
+  async function ensureContractVehicles(): Promise<Map<string, string>> {
+    const placaMap = new Map(vehiclesByPlaca);
+    const placaHeader = mapping["_placa"];
+    if (!placaHeader || placaHeader === IGNORE) return placaMap;
+    const placaIdx = headers.indexOf(placaHeader);
+    if (placaIdx < 0) return placaMap;
+    const findIdx = (...names: string[]) => {
+      const cands = names.map(normalizeHeader);
+      return headers.findIndex((h) => cands.includes(normalizeHeader(h)));
+    };
+    const marcaIdx = findIdx("montadora", "marca", "fabricante");
+    const modeloIdx = findIdx("modelo");
+    const renavamIdx = findIdx("renavam");
+    const chassiIdx = findIdx("chassi");
+    const anoFabIdx = findIdx("ano de fabricacao", "ano fabricacao");
+    const anoModIdx = findIdx("ano modelo");
+    const grupoIdx = findIdx("grupo", "categoria");
+    const novos = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      const placa = String(row[placaIdx] ?? "").replace(/\W/g, "").toUpperCase();
+      if (!placa || placaMap.has(placa) || novos.has(placa)) continue;
+      const num = (i: number) => (i >= 0 ? Number(String(row[i] ?? "").replace(/\D/g, "")) || null : null);
+      novos.set(placa, {
+        placa,
+        marca: (marcaIdx >= 0 ? String(row[marcaIdx] ?? "").trim() : "") || "(importado)",
+        modelo: (modeloIdx >= 0 ? String(row[modeloIdx] ?? "").trim() : "") || "(importado)",
+        renavam: renavamIdx >= 0 ? String(row[renavamIdx] ?? "").trim() || null : null,
+        chassi: chassiIdx >= 0 ? String(row[chassiIdx] ?? "").trim() || null : null,
+        ano_fabricacao: num(anoFabIdx),
+        ano_modelo: num(anoModIdx),
+        categoria: grupoIdx >= 0 ? String(row[grupoIdx] ?? "").trim() || null : null,
+        status: "disponivel",
+      });
+    }
+    const arr = [...novos.values()];
+    for (let i = 0; i < arr.length; i += 200) {
+      const batch = arr.slice(i, i + 200);
+      const { data } = await supabase
+        .from("vehicles")
+        .upsert(batch as never, { onConflict: "placa", defaultToNull: false })
+        .select("id, placa");
+      for (const v of (data ?? []) as { id: string; placa: string }[]) {
+        placaMap.set(v.placa.replace(/\W/g, "").toUpperCase(), v.id);
+      }
+    }
+    return placaMap;
+  }
+
   async function handleImport() {
     // valida se os campos obrigatórios foram mapeados (evita importar 0 em silêncio)
     const faltando = entity.fields
@@ -395,11 +444,12 @@ export default function ImportPage() {
     setResult(null);
 
     const cpfMap = entity.key === "contracts" ? await ensureContractRenters() : rentersByCpf;
+    const placaMap = entity.key === "contracts" ? await ensureContractVehicles() : vehiclesByPlaca;
 
     const records: Record<string, unknown>[] = [];
     let skip = 0;
     for (const row of rows) {
-      const rec = buildRecord(row, cpfMap);
+      const rec = buildRecord(row, cpfMap, placaMap);
       if (rec) records.push(rec);
       else skip++;
     }
