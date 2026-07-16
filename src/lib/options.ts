@@ -239,6 +239,26 @@ export const LEDGER_CATEGORIA = [
   { value: "Outros", label: "Outros" },
 ];
 
+export const RECEITA_CATEGORIA = [
+  { value: "Aluguel", label: "Aluguel" },
+  { value: "Venda de veículo", label: "Venda de veículo" },
+  { value: "Reembolso", label: "Reembolso" },
+  { value: "Multa repassada", label: "Multa repassada" },
+  { value: "Outros", label: "Outros" },
+];
+
+export const DESPESA_CATEGORIA = [
+  { value: "Manutenção", label: "Manutenção" },
+  { value: "Combustível", label: "Combustível" },
+  { value: "IPVA/Licenciamento", label: "IPVA / Licenciamento" },
+  { value: "Seguro", label: "Seguro" },
+  { value: "Financiamento", label: "Parcela de financiamento" },
+  { value: "Multas", label: "Multas" },
+  { value: "Rastreador", label: "Rastreador" },
+  { value: "Administrativo", label: "Administrativo" },
+  { value: "Outros", label: "Outros" },
+];
+
 export const FORMA_PAGAMENTO = [
   { value: "pix", label: "PIX" },
   { value: "dinheiro", label: "Dinheiro" },

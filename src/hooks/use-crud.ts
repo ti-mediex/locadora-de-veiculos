@@ -26,7 +26,8 @@ type TableName =
   | "bank_accounts"
   | "ledger_entries"
   | "billings"
-  | "billing_items";
+  | "billing_items"
+  | "finance_entries";
 
 interface CrudOptions {
   select?: string;

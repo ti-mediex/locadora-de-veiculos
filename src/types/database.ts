@@ -169,6 +169,20 @@ export interface BillingItem {
   created_at: string;
 }
 
+export interface FinanceEntry {
+  id: string;
+  tipo: "receita" | "despesa";
+  data: string;
+  vehicle_id: string | null;
+  categoria: string | null;
+  descricao: string;
+  valor: number;
+  forma_pagamento: string | null;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BankAccount {
   id: string;
   nome: string;

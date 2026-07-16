@@ -1,30 +1,11 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
+  TrendingUp,
+  TrendingDown,
   Car,
-  Users,
-  FileText,
-  Receipt,
-  Wrench,
-  AlertTriangle,
-  Wallet,
-  BarChart3,
-  Settings,
-  ClipboardList,
-  ClipboardCheck,
   Upload,
-  Building2,
-  Layers,
-  Warehouse,
-  UserSquare2,
-  Boxes,
-  Banknote,
-  Palette,
-  Layers3,
-  KanbanSquare,
-  Landmark,
-  ArrowLeftRight,
-  ShieldAlert,
+  Settings,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -41,30 +22,9 @@ const NAV: {
   roles: AppRole[];
 }[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, roles: ALL },
+  { to: "/receitas", label: "Receitas", icon: TrendingUp, roles: ["admin", "financeiro"] },
+  { to: "/despesas", label: "Despesas", icon: TrendingDown, roles: ["admin", "financeiro"] },
   { to: "/veiculos", label: "Veículos", icon: Car, roles: ALL },
-  { to: "/locatarios", label: "Locatários", icon: Users, roles: ALL },
-  { to: "/fornecedores", label: "Fornecedores", icon: Building2, roles: ALL },
-  { to: "/grupos", label: "Grupos de Veículos", icon: Layers, roles: ALL },
-  { to: "/patios", label: "Pátios", icon: Warehouse, roles: ALL },
-  { to: "/compradores", label: "Compradores", icon: UserSquare2, roles: ALL },
-  { to: "/pecas-servicos", label: "Peças e Serviços", icon: Boxes, roles: ALL },
-  { to: "/cores", label: "Cores de Veículo", icon: Palette, roles: ALL },
-  { to: "/contratos", label: "Contratos", icon: FileText, roles: ALL },
-  { to: "/operacoes-lote", label: "Operações em lote", icon: Layers3, roles: ["admin", "financeiro"] },
-  { to: "/recebiveis", label: "Recebíveis", icon: Receipt, roles: ["admin", "financeiro"] },
-  { to: "/faturamento", label: "Faturamento", icon: Receipt, roles: ["admin", "financeiro"] },
-  { to: "/despesas", label: "Despesas", icon: Wallet, roles: ["admin", "financeiro"] },
-  { to: "/financiamentos", label: "Financiamentos", icon: Banknote, roles: ["admin", "financeiro"] },
-  { to: "/notas-fiscais", label: "Notas Fiscais", icon: FileText, roles: ["admin", "financeiro"] },
-  { to: "/lancamentos", label: "Lançamentos", icon: ArrowLeftRight, roles: ["admin", "financeiro"] },
-  { to: "/contas-bancarias", label: "Contas Bancárias", icon: Landmark, roles: ["admin", "financeiro"] },
-  { to: "/manutencoes", label: "Manutenções", icon: Wrench, roles: ALL },
-  { to: "/manutencao-kanban", label: "Dashboard Manutenção", icon: KanbanSquare, roles: ALL },
-  { to: "/multas", label: "Multas", icon: AlertTriangle, roles: ALL },
-  { to: "/sinistros-kanban", label: "Dashboard Sinistro", icon: ShieldAlert, roles: ALL },
-  { to: "/ocorrencias", label: "Ocorrências", icon: ClipboardList, roles: ALL },
-  { to: "/vistorias", label: "Vistorias", icon: ClipboardCheck, roles: ALL },
-  { to: "/relatorios", label: "Relatórios", icon: BarChart3, roles: ["admin", "financeiro"] },
   { to: "/importar", label: "Importar dados", icon: Upload, roles: ["admin"] },
   { to: "/configuracoes", label: "Configurações", icon: Settings, roles: ["admin"] },
 ];
@@ -126,7 +86,7 @@ export function Sidebar({
           ))}
         </nav>
         <div className="border-t p-4 text-xs text-muted-foreground">
-          VIP CARS · v1.0
+          VIP CARS · v2.0
         </div>
       </aside>
     </>

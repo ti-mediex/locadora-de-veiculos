@@ -48,7 +48,7 @@ interface FieldDef {
 interface EntityDef {
   key: string;
   label: string;
-  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "contracts" | "ledger_entries";
+  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "contracts" | "ledger_entries" | "finance_entries";
   conflict?: string;
   fields: FieldDef[];
 }
@@ -219,7 +219,38 @@ const ENTITIES: EntityDef[] = [
       },
     ],
   },
+  {
+    key: "receitas",
+    label: "Receitas",
+    table: "finance_entries",
+    fields: [
+      { field: "tipo", label: "Tipo", type: "text", constant: "receita" },
+      { field: "data", label: "Data", type: "date", required: true, synonyms: ["data", "data de recebimento", "data prevista", "data de vencimento", "competencia", "data de competencia"] },
+      { field: "_placa", label: "Placa (→ veículo)", type: "text", resolveTo: "vehicle_id", synonyms: ["placa", "veiculo"] },
+      { field: "categoria", label: "Categoria", type: "text", synonyms: ["categoria", "tipo de fatura"] },
+      { field: "descricao", label: "Descrição", type: "text", required: true, synonyms: ["descricao", "historico", "receber de", "receber de (fantasia)", "observacoes"] },
+      { field: "valor", label: "Valor", type: "number", required: true, synonyms: ["valor", "valor previsto", "valor recebido", "valor bruto"] },
+      { field: "forma_pagamento", label: "Forma de pagamento", type: "text", synonyms: ["forma de recebimento", "forma de pagamento"] },
+    ],
+  },
+  {
+    key: "despesas",
+    label: "Despesas",
+    table: "finance_entries",
+    fields: [
+      { field: "tipo", label: "Tipo", type: "text", constant: "despesa" },
+      { field: "data", label: "Data", type: "date", required: true, synonyms: ["data", "data de lancamento", "vencimento", "data de vencimento"] },
+      { field: "_placa", label: "Placa (→ veículo)", type: "text", resolveTo: "vehicle_id", synonyms: ["placa", "veiculo"] },
+      { field: "categoria", label: "Categoria", type: "text", synonyms: ["categoria", "grupo de despesa", "tipo de despesa"] },
+      { field: "descricao", label: "Descrição", type: "text", required: true, synonyms: ["descricao", "historico"] },
+      { field: "valor", label: "Valor", type: "number", required: true, synonyms: ["valor", "valor total"] },
+      { field: "forma_pagamento", label: "Forma de pagamento", type: "text", synonyms: ["forma de pagamento"] },
+    ],
+  },
 ];
+
+// Tipos de dado disponíveis na importação (app simplificado)
+const VISIBLE_KEYS = ["vehicles", "receitas", "despesas"];
 
 const IGNORE = "__ignore__";
 
@@ -517,7 +548,7 @@ export default function ImportPage() {
               <Select value={entityKey} onValueChange={onEntityChange}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ENTITIES.map((e) => (
+                  {ENTITIES.filter((e) => VISIBLE_KEYS.includes(e.key)).map((e) => (
                     <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
                   ))}
                 </SelectContent>

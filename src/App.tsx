@@ -7,31 +7,10 @@ import { Toaster } from "@/components/ui/sonner";
 
 import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/dashboard";
-import VehiclesPage from "@/pages/vehicles";
-import RentersPage from "@/pages/renters";
-import ContractsPage from "@/pages/contracts";
-import ReceivablesPage from "@/pages/receivables";
+import RevenuesPage from "@/pages/revenues";
 import ExpensesPage from "@/pages/expenses";
-import MaintenancesPage from "@/pages/maintenances";
-import MaintenanceKanbanPage from "@/pages/maintenance-kanban";
-import SinistrosKanbanPage from "@/pages/sinistros-kanban";
-import FinesPage from "@/pages/fines";
-import OccurrencesPage from "@/pages/occurrences";
-import InspectionsPage from "@/pages/inspections";
-import SuppliersPage from "@/pages/suppliers";
-import VehicleGroupsPage from "@/pages/vehicle-groups";
-import YardsPage from "@/pages/yards";
-import BuyersPage from "@/pages/buyers";
-import PartsServicesPage from "@/pages/parts-services";
-import FinancingPage from "@/pages/financing";
-import InvoicesPage from "@/pages/invoices";
-import BankAccountsPage from "@/pages/bank-accounts";
-import LedgerPage from "@/pages/ledger";
-import BillingPage from "@/pages/billing";
-import VehicleColorsPage from "@/pages/vehicle-colors";
-import BulkOperationsPage from "@/pages/bulk-operations";
+import VehiclesPage from "@/pages/vehicles";
 import ImportPage from "@/pages/import";
-import ReportsPage from "@/pages/reports";
 import SettingsPage from "@/pages/settings";
 
 const queryClient = new QueryClient({
@@ -59,30 +38,9 @@ export default function App() {
               }
             >
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/veiculos" element={<VehiclesPage />} />
-              <Route path="/locatarios" element={<RentersPage />} />
-              <Route path="/fornecedores" element={<SuppliersPage />} />
-              <Route path="/contratos" element={<ContractsPage />} />
-              <Route path="/recebiveis" element={<ReceivablesPage />} />
+              <Route path="/receitas" element={<RevenuesPage />} />
               <Route path="/despesas" element={<ExpensesPage />} />
-              <Route path="/manutencoes" element={<MaintenancesPage />} />
-              <Route path="/manutencao-kanban" element={<MaintenanceKanbanPage />} />
-              <Route path="/sinistros-kanban" element={<SinistrosKanbanPage />} />
-              <Route path="/multas" element={<FinesPage />} />
-              <Route path="/ocorrencias" element={<OccurrencesPage />} />
-              <Route path="/vistorias" element={<InspectionsPage />} />
-              <Route path="/grupos" element={<VehicleGroupsPage />} />
-              <Route path="/patios" element={<YardsPage />} />
-              <Route path="/compradores" element={<BuyersPage />} />
-              <Route path="/pecas-servicos" element={<PartsServicesPage />} />
-              <Route path="/cores" element={<VehicleColorsPage />} />
-              <Route path="/financiamentos" element={<FinancingPage />} />
-              <Route path="/notas-fiscais" element={<InvoicesPage />} />
-              <Route path="/contas-bancarias" element={<BankAccountsPage />} />
-              <Route path="/lancamentos" element={<LedgerPage />} />
-              <Route path="/faturamento" element={<BillingPage />} />
-              <Route path="/operacoes-lote" element={<BulkOperationsPage />} />
-              <Route path="/relatorios" element={<ReportsPage />} />
+              <Route path="/veiculos" element={<VehiclesPage />} />
               <Route path="/importar" element={<ImportPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />
             </Route>

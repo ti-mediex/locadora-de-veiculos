@@ -95,7 +95,14 @@ export function coerceValue(raw: string, type: "text" | "number" | "date" | "boo
   if (v === "") return null;
   switch (type) {
     case "number": {
-      const n = Number(v.replace(/\./g, "").replace(",", "."));
+      let s = v.trim();
+      if (s.includes(",")) {
+        // formato brasileiro: ponto = milhar, vírgula = decimal
+        s = s.replace(/\./g, "").replace(",", ".");
+      }
+      // sem vírgula: ponto é decimal (padrão dos relatórios Blue Fleet)
+      s = s.replace(/[^0-9.\-]/g, "");
+      const n = Number(s);
       return Number.isNaN(n) ? null : n;
     }
     case "boolean":
