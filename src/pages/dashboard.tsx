@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   Wallet,
   TrendingUp,
@@ -6,6 +7,9 @@ import {
   Percent,
   Car,
   FileDown,
+  AlertTriangle,
+  Clock,
+  ChevronRight,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -46,11 +50,15 @@ import {
   useFinanceMonthly,
   useFinanceByVehicle,
 } from "@/hooks/use-finance";
+import { usePendenciasSummary } from "@/hooks/use-pendencias";
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const { data: summary } = useFinanceSummary();
   const { data: monthly = [] } = useFinanceMonthly(12);
   const { data: byVehicle = [] } = useFinanceByVehicle();
+  const { data: pend } = usePendenciasSummary();
+  const totalAlertas = (pend?.vencidas ?? 0) + (pend?.a_vencer_7 ?? 0) + (pend?.ituran_inativos ?? 0);
 
   const topVehicles = byVehicle.slice(0, 8).map((v) => ({ nome: v.placa, resultado: v.resultado }));
 
@@ -74,6 +82,30 @@ export default function DashboardPage() {
         title="Dashboard financeiro"
         description="Receitas e despesas da frota — resultado por veículo"
       />
+
+      {/* Faixa de alertas de pendências */}
+      {totalAlertas > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate("/pendencias")}
+          className="flex w-full items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-left transition-colors hover:bg-warning/20"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
+          <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="font-medium">Alertas de pendências:</span>
+            {(pend?.vencidas ?? 0) > 0 && (
+              <span className="text-destructive">{pend?.vencidas} vencida{pend?.vencidas! > 1 ? "s" : ""}</span>
+            )}
+            {(pend?.a_vencer_7 ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{pend?.a_vencer_7} a vencer em 7 dias</span>
+            )}
+            {(pend?.ituran_inativos ?? 0) > 0 && (
+              <span>{pend?.ituran_inativos} rastreador(es) Ituran inativo(s)</span>
+            )}
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      )}
 
       {/* KPIs do mês */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -179,7 +211,11 @@ export default function DashboardPage() {
                   </TableHeader>
                   <TableBody>
                     {byVehicle.map((v) => (
-                      <TableRow key={v.vehicle_id}>
+                      <TableRow
+                        key={v.vehicle_id}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`)}
+                      >
                         <TableCell className="font-mono font-medium">{v.placa}</TableCell>
                         <TableCell className="text-right text-success">{formatCurrency(v.receita)}</TableCell>
                         <TableCell className="text-right text-destructive">{formatCurrency(v.despesa)}</TableCell>

@@ -259,6 +259,43 @@ export const DESPESA_CATEGORIA = [
   { value: "Outros", label: "Outros" },
 ];
 
+// Pendências por veículo -------------------------------------------------------
+// controle: 'vencimento' mostra data; 'ativo' mostra toggle (Ituran); 'multa' mostra valor+responsável
+export const PENDENCIA_CATEGORIA = [
+  { value: "Rastreador Ituran", label: "Rastreador Ituran", controle: "ativo" },
+  { value: "IPVA", label: "IPVA", controle: "vencimento" },
+  { value: "Licenciamento", label: "Licenciamento", controle: "vencimento" },
+  { value: "CRLV", label: "CRLV", controle: "vencimento" },
+  { value: "Seguro/CSV", label: "Seguro / CSV", controle: "vencimento" },
+  { value: "Multa", label: "Multa", controle: "multa" },
+  { value: "Documentação", label: "Documentação", controle: "vencimento" },
+  { value: "Manutenção", label: "Manutenção", controle: "vencimento" },
+  { value: "Outros", label: "Outros", controle: "livre" },
+];
+
+export const PENDENCIA_STATUS = [
+  { value: "aberta", label: "Aberta" },
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "resolvida", label: "Resolvida" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
+export const PENDENCIA_PRIORIDADE = [
+  { value: "baixa", label: "Baixa" },
+  { value: "media", label: "Média" },
+  { value: "alta", label: "Alta" },
+  { value: "critica", label: "Crítica" },
+];
+
+// Itens de controle criados em lote (o funcionário só preenche as datas)
+export const PENDENCIA_ITENS_PADRAO = [
+  { categoria: "Rastreador Ituran", titulo: "Rastreador Ituran", controle: "ativo" },
+  { categoria: "IPVA", titulo: "IPVA", controle: "vencimento" },
+  { categoria: "Licenciamento", titulo: "Licenciamento", controle: "vencimento" },
+  { categoria: "CRLV", titulo: "CRLV", controle: "vencimento" },
+  { categoria: "Seguro/CSV", titulo: "Seguro / CSV", controle: "vencimento" },
+];
+
 export const FORMA_PAGAMENTO = [
   { value: "pix", label: "PIX" },
   { value: "dinheiro", label: "Dinheiro" },

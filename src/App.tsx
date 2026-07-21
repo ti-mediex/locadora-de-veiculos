@@ -9,6 +9,7 @@ import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/dashboard";
 import RevenuesPage from "@/pages/revenues";
 import ExpensesPage from "@/pages/expenses";
+import PendenciasPage from "@/pages/pendencias";
 import VehiclesPage from "@/pages/vehicles";
 import ImportPage from "@/pages/import";
 import SettingsPage from "@/pages/settings";
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/receitas" element={<RevenuesPage />} />
               <Route path="/despesas" element={<ExpensesPage />} />
+              <Route path="/pendencias" element={<PendenciasPage />} />
               <Route path="/veiculos" element={<VehiclesPage />} />
               <Route path="/importar" element={<ImportPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />

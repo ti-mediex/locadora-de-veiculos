@@ -169,6 +169,26 @@ export interface BillingItem {
   created_at: string;
 }
 
+export interface VehiclePendencia {
+  id: string;
+  vehicle_id: string;
+  categoria: string;
+  titulo: string;
+  descricao: string | null;
+  status: "aberta" | "em_andamento" | "resolvida" | "cancelada";
+  prioridade: "baixa" | "media" | "alta" | "critica";
+  vencimento: string | null;
+  valor: number | null;
+  pago: boolean;
+  ativo: boolean | null;
+  responsavel: string | null;
+  observacoes: string | null;
+  resolvido_em: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FinanceEntry {
   id: string;
   tipo: "receita" | "despesa";

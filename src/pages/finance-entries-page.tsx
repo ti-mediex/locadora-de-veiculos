@@ -194,7 +194,11 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
               </TableHeader>
               <TableBody>
                 {filtered.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow
+                    key={r.id}
+                    className={canWrite ? "cursor-pointer" : undefined}
+                    onClick={canWrite ? () => openEdit(r) : undefined}
+                  >
                     <TableCell>{formatDate(r.data)}</TableCell>
                     <TableCell>{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
                     <TableCell>{r.categoria ?? "—"}</TableCell>
@@ -203,7 +207,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                       {isReceita ? "+" : "−"} {formatCurrency(r.valor)}
                     </TableCell>
                     {canWrite && (
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => del(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>

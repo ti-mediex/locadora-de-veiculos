@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Field } from "@/components/shared/field";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -33,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { usePendenciasPorVeiculo } from "@/hooks/use-pendencias";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, maskPlaca } from "@/lib/format";
@@ -59,7 +62,9 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function VehiclesPage() {
+  const navigate = useNavigate();
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
+  const { data: pendMap = {} } = usePendenciasPorVeiculo();
   const create = useCreate<Vehicle>("vehicles", "Veículo");
   const update = useUpdate<Vehicle>("vehicles", "Veículo");
   const remove = useDelete("vehicles", "Veículo");
@@ -183,13 +188,20 @@ export default function VehiclesPage() {
                   <TableHead>Ano</TableHead>
                   <TableHead className="text-right">KM</TableHead>
                   <TableHead className="text-right">FIPE</TableHead>
+                  <TableHead>Pendências</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((v) => (
-                  <TableRow key={v.id}>
+                {filtered.map((v) => {
+                  const pend = pendMap[v.id];
+                  return (
+                  <TableRow
+                    key={v.id}
+                    className="cursor-pointer"
+                    onClick={() => (canWrite ? openEdit(v) : navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`))}
+                  >
                     <TableCell className="font-mono font-medium">{maskPlaca(v.placa)}</TableCell>
                     <TableCell>
                       <div className="font-medium">{v.marca} {v.modelo}</div>
@@ -198,8 +210,25 @@ export default function VehiclesPage() {
                     <TableCell>{v.ano_fabricacao}/{v.ano_modelo}</TableCell>
                     <TableCell className="text-right">{formatNumber(v.km_atual)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(v.valor_fipe)}</TableCell>
-                    <TableCell><StatusBadge status={v.status} /></TableCell>
                     <TableCell>
+                      <button
+                        type="button"
+                        title="Ver pendências do veículo"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`); }}
+                        className="inline-flex items-center gap-1"
+                      >
+                        {pend && pend.vencidas > 0 && (
+                          <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{pend.vencidas}</Badge>
+                        )}
+                        {pend && pend.abertas > 0 ? (
+                          <Badge variant={pend.vencidas > 0 ? "warning" : "secondary"}>{pend.abertas} aberta{pend.abertas > 1 ? "s" : ""}</Badge>
+                        ) : (
+                          !pend?.vencidas && <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </button>
+                    </TableCell>
+                    <TableCell><StatusBadge status={v.status} /></TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {canWrite && (
                         <div className="flex justify-end gap-1">
                           {v.status === "inativo" ? (
@@ -237,7 +266,8 @@ export default function VehiclesPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
