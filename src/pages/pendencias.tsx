@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, Wand2, ReceiptText, X,
+  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, Wand2, ReceiptText, X, FileUp,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
+import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-dialog";
 import {
   usePendencias, usePendenciasSummary, useGenerateDefaultPendencias,
   usePendenciaMultasItens, useSavePendenciaMultasItens, parseValor,
@@ -97,6 +98,8 @@ export default function PendenciasPage() {
   const [search, setSearch] = useState(searchParams.get("veiculo") ?? "");
   const [fCategoria, setFCategoria] = useState("todas");
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
+
+  const [importOpen, setImportOpen] = useState(false);
 
   // Itens de multa da pendência (várias multas numa mesma pendência)
   const emptyMulta = (): MultaLinha => ({ documento: "", infracao: "", data_ocorrencia: "", vencimento: "", valor: "", local: "" });
@@ -212,6 +215,9 @@ export default function PendenciasPage() {
         actions={
           canWrite && (
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <FileUp className="h-4 w-4" /> Importar débitos (Detran)
+              </Button>
               <Button variant="outline" onClick={() => genDefaults.mutate()} disabled={genDefaults.isPending}>
                 <Wand2 className="h-4 w-4" /> Itens de controle padrão
               </Button>
@@ -489,6 +495,8 @@ export default function PendenciasPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImportarDetranDialog open={importOpen} onOpenChange={setImportOpen} vehicles={vehicles} />
     </div>
   );
 }

@@ -273,6 +273,8 @@ export const PENDENCIA_CATEGORIA = [
   { value: "Busca e Apreensão", label: "Busca e Apreensão", controle: "solicitante" },
   { value: "Bloqueio Judicial", label: "Bloqueio Judicial", controle: "solicitante" },
   { value: "Manutenção Veicular", label: "Problemas de Manutenção Veicular", controle: "livre" },
+  { value: "Taxas Detran", label: "Taxas Detran", controle: "vencimento" },
+  { value: "Restrição", label: "Restrição", controle: "livre" },
   { value: "Outros", label: "Outros", controle: "livre" },
 ];
 
