@@ -317,9 +317,15 @@ export default function PendenciasPage() {
                   <Input type="number" step="0.01" {...register("valor")} />
                 </Field>
               )}
-              {controle === "multa" && (
-                <Field label="Responsável / Locatário" className="space-y-1.5 sm:col-span-2">
-                  <Input {...register("responsavel")} placeholder="Nome do condutor responsável" />
+              {(controle === "multa" || controle === "solicitante") && (
+                <Field
+                  label={controle === "solicitante" ? "Quem solicitou?" : "Responsável / Locatário"}
+                  className="space-y-1.5 sm:col-span-2"
+                >
+                  <Input
+                    {...register("responsavel")}
+                    placeholder={controle === "solicitante" ? "Nome de quem solicitou" : "Nome do condutor responsável"}
+                  />
                 </Field>
               )}
 

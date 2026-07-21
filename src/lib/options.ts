@@ -270,6 +270,9 @@ export const PENDENCIA_CATEGORIA = [
   { value: "Multa", label: "Multa", controle: "multa" },
   { value: "Documentação", label: "Documentação", controle: "vencimento" },
   { value: "Manutenção", label: "Manutenção", controle: "vencimento" },
+  { value: "Busca e Apreensão", label: "Busca e Apreensão", controle: "solicitante" },
+  { value: "Bloqueio Judicial", label: "Bloqueio Judicial", controle: "solicitante" },
+  { value: "Manutenção Veicular", label: "Problemas de Manutenção Veicular", controle: "livre" },
   { value: "Outros", label: "Outros", controle: "livre" },
 ];
 

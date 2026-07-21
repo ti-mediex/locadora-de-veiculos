@@ -28,7 +28,8 @@ type TableName =
   | "billings"
   | "billing_items"
   | "finance_entries"
-  | "vehicle_pendencias";
+  | "vehicle_pendencias"
+  | "alienantes";
 
 interface CrudOptions {
   select?: string;

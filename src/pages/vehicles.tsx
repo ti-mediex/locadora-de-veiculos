@@ -40,7 +40,7 @@ import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
-import type { Vehicle } from "@/types/database";
+import type { Vehicle, Alienante } from "@/types/database";
 
 const schema = z.object({
   placa: z.string().min(7, "Placa inválida").max(8),
@@ -58,6 +58,18 @@ const schema = z.object({
   valor_fipe: z.coerce.number().optional().or(z.literal("")),
   fornecedor: z.string().optional(),
   observacoes: z.string().optional(),
+  // Situação jurídica / patrimonial
+  alienacao_fiduciaria: z.boolean().default(false),
+  alienante: z.string().optional(),
+  proprietario_nome: z.string().optional(),
+  proprietario_documento: z.string().optional(),
+  quitado: z.boolean().default(false),
+  valor_quitacao: z.coerce.number().optional().or(z.literal("")),
+  data_quitacao: z.string().optional(),
+  busca_apreensao: z.boolean().default(false),
+  busca_apreensao_solicitante: z.string().optional(),
+  bloqueio_judicial: z.boolean().default(false),
+  bloqueio_judicial_solicitante: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -66,6 +78,8 @@ export default function VehiclesPage() {
   const navigate = useNavigate();
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
   const { data: pendMap = {} } = usePendenciasPorVeiculo();
+  const { data: alienantes = [] } = useList<Alienante>("alienantes", { orderBy: { column: "nome", ascending: true } });
+  const createAlienante = useCreate("alienantes", "Alienante");
   const create = useCreate<Vehicle>("vehicles", "Veículo");
   const update = useUpdate<Vehicle>("vehicles", "Veículo");
   const remove = useDelete("vehicles", "Veículo");
@@ -97,7 +111,10 @@ export default function VehiclesPage() {
 
   function openNew() {
     setEditing(null);
-    reset({ status: "disponivel", km_atual: 0 });
+    reset({
+      status: "disponivel", km_atual: 0,
+      alienacao_fiduciaria: false, quitado: false, busca_apreensao: false, bloqueio_judicial: false,
+    });
     setOpen(true);
   }
 
@@ -119,6 +136,17 @@ export default function VehiclesPage() {
       valor_fipe: v.valor_fipe ?? undefined,
       fornecedor: v.fornecedor ?? "",
       observacoes: v.observacoes ?? "",
+      alienacao_fiduciaria: v.alienacao_fiduciaria ?? false,
+      alienante: v.alienante ?? "",
+      proprietario_nome: v.proprietario_nome ?? "",
+      proprietario_documento: v.proprietario_documento ?? "",
+      quitado: v.quitado ?? false,
+      valor_quitacao: v.valor_quitacao ?? undefined,
+      data_quitacao: v.data_quitacao ?? "",
+      busca_apreensao: v.busca_apreensao ?? false,
+      busca_apreensao_solicitante: v.busca_apreensao_solicitante ?? "",
+      bloqueio_judicial: v.bloqueio_judicial ?? false,
+      bloqueio_judicial_solicitante: v.bloqueio_judicial_solicitante ?? "",
     });
     setOpen(true);
   }
@@ -131,7 +159,17 @@ export default function VehiclesPage() {
       ano_modelo: data.ano_modelo || null,
       valor_aquisicao: data.valor_aquisicao || null,
       valor_fipe: data.valor_fipe || null,
+      alienante: data.alienacao_fiduciaria ? data.alienante || null : null,
+      valor_quitacao: data.valor_quitacao === "" ? null : data.valor_quitacao,
+      data_quitacao: data.data_quitacao || null,
+      busca_apreensao_solicitante: data.busca_apreensao ? data.busca_apreensao_solicitante || null : null,
+      bloqueio_judicial_solicitante: data.bloqueio_judicial ? data.bloqueio_judicial_solicitante || null : null,
     };
+    // Persiste um novo alienante para reuso futuro.
+    const nomeAlienante = (data.alienante ?? "").trim();
+    if (data.alienacao_fiduciaria && nomeAlienante && !alienantes.some((a) => a.nome.toLowerCase() === nomeAlienante.toLowerCase())) {
+      createAlienante.mutate({ nome: nomeAlienante });
+    }
     if (editing) {
       update.mutate(
         { id: editing.id, ...payload },
@@ -219,6 +257,12 @@ export default function VehiclesPage() {
                     <TableCell>
                       <div className="font-medium">{v.marca} {v.modelo}</div>
                       <div className="text-xs text-muted-foreground">{v.cor} · {v.categoria}</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {v.busca_apreensao && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Busca e apreensão</Badge>}
+                        {v.bloqueio_judicial && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Bloqueio judicial</Badge>}
+                        {v.alienacao_fiduciaria && <Badge variant="warning">Alienado{v.alienante ? `: ${v.alienante}` : ""}</Badge>}
+                        {v.quitado && <Badge variant="success">Quitado</Badge>}
+                      </div>
                     </TableCell>
                     <TableCell>{v.ano_fabricacao}/{v.ano_modelo}</TableCell>
                     <TableCell className="text-right">{formatNumber(v.km_atual)}</TableCell>
@@ -364,6 +408,68 @@ export default function VehiclesPage() {
                 <Input type="number" step="0.01" {...register("valor_fipe")} />
               </Field>
             </div>
+
+            {/* Situação jurídica / patrimonial */}
+            <div className="space-y-4 rounded-lg border p-4">
+              <h4 className="text-sm font-semibold">Situação jurídica / patrimonial</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Proprietário do veículo (nome)">
+                  <Input {...register("proprietario_nome")} placeholder="Nome / razão social" />
+                </Field>
+                <Field label="CPF ou CNPJ do proprietário">
+                  <Input {...register("proprietario_documento")} placeholder="000.000.000-00" />
+                </Field>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" className="h-4 w-4" {...register("alienacao_fiduciaria")} />
+                Alienação fiduciária
+              </label>
+              {watch("alienacao_fiduciaria") && (
+                <Field label="Alienante (consórcio / banco)">
+                  <Input list="alienantes-list" {...register("alienante")} placeholder="Ex.: Consórcio BB" />
+                  <datalist id="alienantes-list">
+                    {alienantes.map((a) => <option key={a.id} value={a.nome} />)}
+                  </datalist>
+                </Field>
+              )}
+
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" className="h-4 w-4" {...register("quitado")} />
+                Quitado
+              </label>
+              {watch("quitado") && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Valor de quitação (R$)">
+                    <Input type="number" step="0.01" {...register("valor_quitacao")} />
+                  </Field>
+                  <Field label="Data do valor da quitação">
+                    <Input type="date" {...register("data_quitacao")} />
+                  </Field>
+                </div>
+              )}
+
+              <label className="flex items-center gap-2 text-sm font-medium text-destructive">
+                <input type="checkbox" className="h-4 w-4" {...register("busca_apreensao")} />
+                Busca e apreensão
+              </label>
+              {watch("busca_apreensao") && (
+                <Field label="Quem solicitou a busca e apreensão?">
+                  <Input {...register("busca_apreensao_solicitante")} placeholder="Solicitante" />
+                </Field>
+              )}
+
+              <label className="flex items-center gap-2 text-sm font-medium text-destructive">
+                <input type="checkbox" className="h-4 w-4" {...register("bloqueio_judicial")} />
+                Bloqueio judicial
+              </label>
+              {watch("bloqueio_judicial") && (
+                <Field label="Quem solicitou o bloqueio judicial?">
+                  <Input {...register("bloqueio_judicial_solicitante")} placeholder="Solicitante" />
+                </Field>
+              )}
+            </div>
+
             <Field label="Observações">
               <Input {...register("observacoes")} />
             </Field>

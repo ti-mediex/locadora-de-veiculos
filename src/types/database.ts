@@ -271,8 +271,25 @@ export interface Vehicle {
   fipe_combustivel: string | null;
   fipe_mes_referencia: string | null;
   fipe_atualizado_em: string | null;
+  alienacao_fiduciaria: boolean;
+  alienante: string | null;
+  proprietario_nome: string | null;
+  proprietario_documento: string | null;
+  quitado: boolean;
+  valor_quitacao: number | null;
+  data_quitacao: string | null;
+  busca_apreensao: boolean;
+  busca_apreensao_solicitante: string | null;
+  bloqueio_judicial: boolean;
+  bloqueio_judicial_solicitante: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Alienante {
+  id: string;
+  nome: string;
+  created_at: string;
 }
 
 export interface Renter {
