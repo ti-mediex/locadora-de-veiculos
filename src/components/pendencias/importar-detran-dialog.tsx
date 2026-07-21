@@ -65,6 +65,7 @@ export function ImportarDetranDialog({
   }
 
   const totalMultas = parsed?.multas.reduce((s, m) => s + m.valor, 0) ?? 0;
+  const totalDebitos = parsed?.debitos.reduce((s, d) => s + d.valor, 0) ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
@@ -117,7 +118,7 @@ export function ImportarDetranDialog({
               <label className="flex items-start gap-2">
                 <input type="checkbox" className="mt-1 h-4 w-4" checked={opcoes.debitos} onChange={(e) => setOpcoes((o) => ({ ...o, debitos: e.target.checked }))} />
                 <span>
-                  <strong>Débitos ({parsed.debitos.length})</strong>
+                  <strong>Débitos ({parsed.debitos.length}) — total {formatCurrency(totalDebitos)}</strong>
                   {parsed.debitos.map((d, i) => (
                     <div key={i} className="text-xs text-muted-foreground">• {d.titulo} — {formatCurrency(d.valor)}{d.vencimento ? ` (venc. ${d.vencimento.split("-").reverse().join("/")})` : ""}</div>
                   ))}
@@ -133,7 +134,7 @@ export function ImportarDetranDialog({
                   ))}
                 </span>
               </label>
-              <p className="text-xs text-muted-foreground">As multas são agrupadas em uma pendência. Autos já cadastrados são ignorados.</p>
+              <p className="text-xs text-muted-foreground">Cada multa é cadastrada como uma pendência separada. Autos já cadastrados são ignorados.</p>
             </div>
           )}
         </div>

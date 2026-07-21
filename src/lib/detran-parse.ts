@@ -68,23 +68,15 @@ export function parseDetran(textoRaw: string): DetranParsed {
   for (const m of flat.matchAll(ipvaRe)) {
     ipvaItens.push({ exercicio: m[1], cota: m[2], venc: m[3], valor: parseBRL(m[4]) });
   }
-  const cotaUnica = ipvaItens.find((i) => /ÚNICA|UNICA/i.test(i.cota));
-  if (cotaUnica) {
-    const parcelas = ipvaItens.filter((i) => !/ÚNICA|UNICA/i.test(i.cota));
+  // Cadastra cada cota parcelada (1..N) como uma pendência; ignora a cota ÚNICA.
+  const parcelas = ipvaItens.filter((i) => !/ÚNICA|UNICA/i.test(i.cota));
+  for (const p of parcelas) {
     debitos.push({
       categoria: "IPVA",
-      titulo: `IPVA ${cotaUnica.exercicio}`,
-      vencimento: parseData(cotaUnica.venc),
-      valor: cotaUnica.valor,
-      observacoes: parcelas.length
-        ? "Parcelamento: " + parcelas.map((p) => `${p.cota}) ${p.venc} R$ ${p.valor.toFixed(2)}`).join(" · ")
-        : undefined,
+      titulo: `IPVA ${p.exercicio} — cota ${p.cota}`,
+      vencimento: parseData(p.venc),
+      valor: p.valor,
     });
-  } else if (ipvaItens.length) {
-    // Sem cota única: cria uma pendência por parcela
-    for (const p of ipvaItens) {
-      debitos.push({ categoria: "IPVA", titulo: `IPVA ${p.exercicio} (cota ${p.cota})`, vencimento: parseData(p.venc), valor: p.valor });
-    }
   }
 
   // Licenciamento / Taxas Detran / Seguro Obrigatório — só se houver valor

@@ -281,30 +281,40 @@ export function useImportDetran() {
         }
       }
 
-      // Multas — agrupa numa única pendência, ignorando autos já cadastrados
+      // Multas — cada multa vira uma pendência separada, ignorando autos já cadastrados
       if (opcoes.multas && parsed.multas.length) {
-        const { data: docsExist } = await supabase
+        const docs = new Set<string>();
+        // autos já cadastrados como pendência separada (vehicle_pendencias.documento)
+        const { data: pendDocs } = await supabase
+          .from("vehicle_pendencias")
+          .select("documento")
+          .eq("vehicle_id", vehicleId)
+          .eq("categoria", "Multa")
+          .not("documento", "is", null);
+        for (const d of (pendDocs ?? []) as { documento: string | null }[]) if (d.documento) docs.add(d.documento);
+        // autos em pendências de multa agrupadas (pendencia_multas.documento)
+        const { data: itemDocs } = await supabase
           .from("pendencia_multas")
-          .select("documento, pendencia_id, vehicle_pendencias!inner(vehicle_id)")
+          .select("documento, vehicle_pendencias!inner(vehicle_id)")
           .eq("vehicle_pendencias.vehicle_id", vehicleId);
-        const docs = new Set(((docsExist ?? []) as { documento: string | null }[]).map((d) => d.documento).filter(Boolean));
+        for (const d of (itemDocs ?? []) as { documento: string | null }[]) if (d.documento) docs.add(d.documento);
+
         const novas = parsed.multas.filter((m) => !docs.has(m.documento));
         res.ignorados += parsed.multas.length - novas.length;
         if (novas.length) {
-          const total = novas.reduce((s, m) => s + m.valor, 0);
-          const hoje = new Date().toISOString().slice(0, 10);
-          const { data: pend, error: pErr } = await supabase.from("vehicle_pendencias").insert({
-            vehicle_id: vehicleId, categoria: "Multa", titulo: `Multas Detran (${novas.length}) — importadas`,
-            status: "aberta", prioridade: "alta", valor: total,
-            observacoes: `Importado do Detalhamento de débitos em ${hoje}`,
-          } as never).select("id").single();
-          if (pErr) throw pErr;
           const rows = novas.map((m) => ({
-            pendencia_id: (pend as { id: string }).id,
-            documento: m.documento, infracao: m.infracao, data_ocorrencia: m.data_ocorrencia || null,
-            vencimento: m.vencimento || null, valor: m.valor || null, local: m.local || null,
+            vehicle_id: vehicleId,
+            categoria: "Multa",
+            titulo: m.infracao || `Multa ${m.documento}`,
+            status: "aberta",
+            prioridade: "alta",
+            vencimento: m.vencimento || null,
+            valor: m.valor || null,
+            documento: m.documento,
+            data_ocorrencia: m.data_ocorrencia || null,
+            local: m.local || null,
           }));
-          const { error: mErr } = await supabase.from("pendencia_multas").insert(rows as never);
+          const { error: mErr } = await supabase.from("vehicle_pendencias").insert(rows as never);
           if (mErr) throw mErr;
           res.multas = novas.length;
         }
