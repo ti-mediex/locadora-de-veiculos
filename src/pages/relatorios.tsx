@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -98,14 +99,29 @@ export default function RelatoriosPage() {
   const inicioAno = hoje.slice(0, 4) + "-01-01";
   const [inicio, setInicio] = useState(inicioAno);
   const [fim, setFim] = useState(hoje);
+  const [fVeiculo, setFVeiculo] = useState("todos");
+  const [fSituacao, setFSituacao] = useState<"ativos" | "todos">("ativos");
 
   const { data: entries = [] } = useFinanceEntries(inicio || undefined, fim || undefined);
-  const { data: porVeiculo = [] } = useFinanceByVehicle();
-  const { data: pend = [] } = usePendencias();
-  const { data: veiculos = [] } = useList<Vehicle>("vehicles");
+  const { data: porVeiculoAll = [] } = useFinanceByVehicle();
+  const { data: pendAll = [] } = usePendencias();
+  const { data: veiculosAll = [] } = useList<Vehicle>("vehicles");
 
-  const receitas = useMemo(() => entries.filter((e) => e.tipo === "receita"), [entries]);
-  const despesas = useMemo(() => entries.filter((e) => e.tipo === "despesa"), [entries]);
+  // Filtros de escopo: veículo específico ou frota (só ativos / todos).
+  const ativosSet = useMemo(() => new Set(veiculosAll.filter((v) => v.status !== "inativo").map((v) => v.id)), [veiculosAll]);
+  const incluiVeiculo = (vehicleId: string | null) => {
+    if (fVeiculo !== "todos") return vehicleId === fVeiculo;
+    if (fSituacao === "ativos") return vehicleId === null || ativosSet.has(vehicleId);
+    return true;
+  };
+
+  const entriesF = useMemo(() => entries.filter((e) => incluiVeiculo(e.vehicle_id)), [entries, fVeiculo, fSituacao, ativosSet]);
+  const porVeiculo = useMemo(() => porVeiculoAll.filter((p) => incluiVeiculo(p.vehicle_id)), [porVeiculoAll, fVeiculo, fSituacao, ativosSet]);
+  const pend = useMemo(() => pendAll.filter((p) => incluiVeiculo(p.vehicle_id)), [pendAll, fVeiculo, fSituacao, ativosSet]);
+  const veiculos = useMemo(() => veiculosAll.filter((v) => (fVeiculo !== "todos" ? v.id === fVeiculo : fSituacao === "ativos" ? v.status !== "inativo" : true)), [veiculosAll, fVeiculo, fSituacao]);
+
+  const receitas = useMemo(() => entriesF.filter((e) => e.tipo === "receita"), [entriesF]);
+  const despesas = useMemo(() => entriesF.filter((e) => e.tipo === "despesa"), [entriesF]);
 
   // ---- Receitas ----
   const recPorVeiculo = useMemo(() => groupSum(receitas, (r) => r.placa ?? "Frota (geral)", (r) => r.valor)
@@ -203,7 +219,27 @@ export default function RelatoriosPage() {
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Período — fim</label>
           <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-44" />
         </div>
-        <span className="text-xs text-muted-foreground">O período afeta os relatórios de Receitas e Despesas. Pendências e Frota consideram a situação atual.</span>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Veículo</label>
+          <Select value={fVeiculo} onValueChange={setFVeiculo}>
+            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Frota toda</SelectItem>
+              {veiculosAll.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Situação</label>
+          <Select value={fSituacao} onValueChange={(v) => setFSituacao(v as "ativos" | "todos")} disabled={fVeiculo !== "todos"}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ativos">Somente ativos</SelectItem>
+              <SelectItem value="todos">Todos os veículos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <span className="text-xs text-muted-foreground">Filtre por um veículo ou pela frota. O período afeta Receitas e Despesas.</span>
       </div>
 
       <Tabs defaultValue="receitas">
