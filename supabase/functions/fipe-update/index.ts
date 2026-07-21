@@ -49,20 +49,48 @@ async function getJson(url: string, tries = 3): Promise<any> {
   return null;
 }
 
-/** Escolhe o item cujo nome tem maior sobreposição de tokens com o alvo. */
+/** Escala de tokens compartilhados (para ranquear candidatos). */
+function score(alvoTokens: string[], nome: string): number {
+  const itTk = tokens(nome);
+  let s = 0;
+  for (const t of alvoTokens) if (itTk.includes(t)) s += 1;
+  const ratio = alvoTokens.length ? s / alvoTokens.length : 0;
+  return s + ratio;
+}
 function bestMatch<T extends { nome: string }>(alvoTokens: string[], itens: T[]): T | null {
-  let best: T | null = null;
-  let bestScore = -1;
-  for (const it of itens) {
-    const itTk = tokens(it.nome);
-    let score = 0;
-    for (const t of alvoTokens) if (itTk.includes(t)) score += 1;
-    // bônus por proporção (evita casar por 1 token genérico)
-    const ratio = alvoTokens.length ? score / alvoTokens.length : 0;
-    const total = score + ratio;
-    if (total > bestScore) { bestScore = total; best = it; }
+  let best: T | null = null, bestScore = 0;
+  for (const it of itens) { const sc = score(alvoTokens, it.nome); if (sc > bestScore) { bestScore = sc; best = it; } }
+  return best;
+}
+function topMatches<T extends { nome: string }>(alvoTokens: string[], itens: T[], n: number): T[] {
+  return itens
+    .map((it) => ({ it, sc: score(alvoTokens, it.nome) }))
+    .filter((x) => x.sc > 0)
+    .sort((a, b) => b.sc - a.sc)
+    .slice(0, n)
+    .map((x) => x.it);
+}
+
+const anoNum = (codigo: string) => {
+  const n = parseInt(String(codigo).split("-")[0], 10);
+  return isNaN(n) || n > 3000 ? new Date().getFullYear() : n; // 32000 = "Zero Km"
+};
+const combScore = (nome: string) => /flex/i.test(nome) ? 3 : /gasolina/i.test(nome) ? 2 : /(álcool|alcool)/i.test(nome) ? 1 : 0;
+
+/** Escolhe o melhor ano dentre os disponíveis; exato=true se bate o ano_modelo. */
+function pickAno(anos: any[], anoModelo: number | null): { ano: any; exato: boolean } | null {
+  if (!anos.length) return null;
+  const exatos = anoModelo ? anos.filter((a) => anoNum(a.codigo) === anoModelo) : [];
+  if (exatos.length) {
+    exatos.sort((a, b) => combScore(b.nome) - combScore(a.nome));
+    return { ano: exatos[0], exato: true };
   }
-  return bestScore > 0 ? best : null;
+  const alvo = anoModelo ?? new Date().getFullYear();
+  const ordenados = [...anos].sort((a, b) => {
+    const d = Math.abs(anoNum(a.codigo) - alvo) - Math.abs(anoNum(b.codigo) - alvo);
+    return d !== 0 ? d : combScore(b.nome) - combScore(a.nome);
+  });
+  return { ano: ordenados[0], exato: false };
 }
 
 interface Ref { marca: number; modelo: number; ano: string; combustivel: string; codigo: string; }
@@ -77,17 +105,24 @@ async function resolveRef(marca: string, modelo: string, anoModelo: number | nul
   const models = await getJson(`${FIPE}/marcas/${brand.codigo}/modelos`);
   const modelList = models?.modelos;
   if (!Array.isArray(modelList)) return null;
-  const model = bestMatch(tokens(modelo), modelList);
-  if (!model) return null;
 
-  const anos = await getJson(`${FIPE}/marcas/${brand.codigo}/modelos/${model.codigo}/anos`);
-  if (!Array.isArray(anos) || anos.length === 0) return null;
-  // escolhe o ano pelo ano_modelo; prefere flex/gasolina (código terminando em -1)
-  let ano = anos.find((a: any) => String(a.codigo).startsWith(String(anoModelo)) && String(a.codigo).endsWith("-1"))
-    || anos.find((a: any) => String(a.codigo).startsWith(String(anoModelo)))
-    || anos[0];
+  // Considera os melhores candidatos de modelo e prefere aquele que possui o
+  // ano_modelo exato (evita casar um modelo homônimo de outra geração).
+  const candidatos = topMatches(tokens(modelo), modelList, 5);
+  if (candidatos.length === 0) return null;
 
-  return { marca: Number(brand.codigo), modelo: Number(model.codigo), ano: String(ano.codigo), combustivel: ano.nome, codigo: "" };
+  let fallback: Ref | null = null;
+  for (const m of candidatos) {
+    const anos = await getJson(`${FIPE}/marcas/${brand.codigo}/modelos/${m.codigo}/anos`);
+    await sleep(150);
+    if (!Array.isArray(anos) || anos.length === 0) continue;
+    const pick = pickAno(anos, anoModelo);
+    if (!pick) continue;
+    const ref: Ref = { marca: Number(brand.codigo), modelo: Number(m.codigo), ano: String(pick.ano.codigo), combustivel: pick.ano.nome, codigo: "" };
+    if (pick.exato) return ref;      // melhor caso: modelo com o ano do veículo
+    if (!fallback) fallback = ref;   // guarda o de maior score como aproximação
+  }
+  return fallback;
 }
 
 async function fetchValor(ref: Ref): Promise<{ valor: number; mes: string; codigo: string } | null> {
@@ -140,8 +175,8 @@ Deno.serve(async (req) => {
   for (const [, vs] of groups) {
     const sample = vs[0];
     let ref: Ref | null = null;
-    // reutiliza refs já resolvidas (execução mensal)
-    if (sample.fipe_marca_ref && sample.fipe_modelo_ref && sample.fipe_ano_ref) {
+    // reutiliza refs já resolvidas (execução mensal); force reprocessa do zero
+    if (!body.force && sample.fipe_marca_ref && sample.fipe_modelo_ref && sample.fipe_ano_ref) {
       ref = { marca: sample.fipe_marca_ref, modelo: sample.fipe_modelo_ref, ano: sample.fipe_ano_ref, combustivel: "", codigo: "" };
     } else {
       ref = await resolveRef(sample.marca, sample.modelo, sample.ano_modelo);
