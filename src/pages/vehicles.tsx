@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -36,9 +36,10 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo } from "@/hooks/use-pendencias";
+import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
-import { formatCurrency, formatNumber, maskPlaca } from "@/lib/format";
+import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 
 const schema = z.object({
@@ -68,6 +69,7 @@ export default function VehiclesPage() {
   const create = useCreate<Vehicle>("vehicles", "Veículo");
   const update = useUpdate<Vehicle>("vehicles", "Veículo");
   const remove = useDelete("vehicles", "Veículo");
+  const updateFipe = useUpdateFipe();
   const canWrite = useCanWrite("vehicles");
 
   const [open, setOpen] = useState(false);
@@ -136,7 +138,13 @@ export default function VehiclesPage() {
         { onSuccess: () => setOpen(false) }
       );
     } else {
-      create.mutate(payload, { onSuccess: () => setOpen(false) });
+      create.mutate(payload, {
+        onSuccess: (novo: Vehicle) => {
+          setOpen(false);
+          // Busca o valor FIPE automaticamente ao cadastrar o veículo.
+          if (novo?.id) updateFipe.mutate({ vehicle_id: novo.id });
+        },
+      });
     }
   }
 
@@ -147,9 +155,14 @@ export default function VehiclesPage() {
         description="Cadastro e gestão da frota"
         actions={
           canWrite && (
-            <Button onClick={openNew}>
-              <Plus className="h-4 w-4" /> Novo veículo
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => updateFipe.mutate({ all: true })} disabled={updateFipe.isPending}>
+                <RefreshCw className={`h-4 w-4 ${updateFipe.isPending ? "animate-spin" : ""}`} /> Atualizar FIPE
+              </Button>
+              <Button onClick={openNew}>
+                <Plus className="h-4 w-4" /> Novo veículo
+              </Button>
+            </div>
           )
         }
       />
@@ -209,7 +222,14 @@ export default function VehiclesPage() {
                     </TableCell>
                     <TableCell>{v.ano_fabricacao}/{v.ano_modelo}</TableCell>
                     <TableCell className="text-right">{formatNumber(v.km_atual)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(v.valor_fipe)}</TableCell>
+                    <TableCell className="text-right">
+                      <div>{formatCurrency(v.valor_fipe)}</div>
+                      {v.fipe_mes_referencia && (
+                        <div className="text-[10px] text-muted-foreground" title={v.fipe_atualizado_em ? `Atualizado em ${formatDate(v.fipe_atualizado_em)}` : undefined}>
+                          FIPE {v.fipe_mes_referencia}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <button
                         type="button"

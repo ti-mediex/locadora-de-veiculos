@@ -264,6 +264,13 @@ export interface Vehicle {
   fornecedor: string | null;
   observacoes: string | null;
   foto_url: string | null;
+  fipe_codigo: string | null;
+  fipe_marca_ref: number | null;
+  fipe_modelo_ref: number | null;
+  fipe_ano_ref: string | null;
+  fipe_combustivel: string | null;
+  fipe_mes_referencia: string | null;
+  fipe_atualizado_em: string | null;
   created_at: string;
   updated_at: string;
 }
