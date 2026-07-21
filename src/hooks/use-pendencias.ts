@@ -84,6 +84,26 @@ export function usePendenciasFinanceirasPorVeiculo() {
   });
 }
 
+export interface MultaPorVeiculo {
+  vehicle_id: string;
+  placa: string;
+  modelo: string;
+  qtd: number;
+  valor: number;
+}
+
+/** Ranking de multas por veículo (valor e quantidade). */
+export function useMultasPorVeiculo() {
+  return useQuery<MultaPorVeiculo[]>({
+    queryKey: ["vehicle_pendencias", "multas-por-veiculo"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("multas_por_veiculo");
+      if (error) throw error;
+      return ((data ?? []) as MultaPorVeiculo[]).map((r) => ({ ...r, qtd: Number(r.qtd), valor: Number(r.valor) }));
+    },
+  });
+}
+
 /** Resumo financeiro geral das pendências em aberto (total, vencido, por categoria). */
 export function usePendenciasFinanceirasResumo() {
   return useQuery<PendenciasFinanceirasResumo>({

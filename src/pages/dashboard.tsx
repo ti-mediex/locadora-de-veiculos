@@ -60,6 +60,7 @@ import {
   usePendenciasSummary,
   usePendenciasFinanceirasPorVeiculo,
   usePendenciasFinanceirasResumo,
+  useMultasPorVeiculo,
 } from "@/hooks/use-pendencias";
 import { useList } from "@/hooks/use-crud";
 import type { Vehicle } from "@/types/database";
@@ -76,11 +77,25 @@ export default function DashboardPage() {
   const totalAlertas = (pend?.vencidas ?? 0) + (pend?.a_vencer_7 ?? 0) + (pend?.ituran_inativos ?? 0);
   const [showFin, setShowFin] = useState(false);
 
+  const { data: multasRank = [] } = useMultasPorVeiculo();
+
   const restricaoCritica = useMemo(
     () => veiculos.filter((v) => v.busca_apreensao || v.bloqueio_judicial),
     [veiculos]
   );
   const alienados = useMemo(() => veiculos.filter((v) => v.alienacao_fiduciaria).length, [veiculos]);
+
+  // Indicadores de gestão da frota (computados a partir dos veículos ativos)
+  const ativos = useMemo(() => veiculos.filter((v) => v.status !== "inativo"), [veiculos]);
+  const valorFrota = useMemo(() => ativos.reduce((s, v) => s + (v.valor_fipe ?? 0), 0), [ativos]);
+  const disponiveis = useMemo(() => veiculos.filter((v) => v.status === "disponivel").length, [veiculos]);
+  const idadeMedia = useMemo(() => {
+    const anoAtual = new Date().getFullYear();
+    const anos = ativos.map((v) => v.ano_modelo).filter((a): a is number => !!a && a > 1990 && a <= anoAtual + 1);
+    if (!anos.length) return null;
+    return anoAtual - anos.reduce((s, a) => s + a, 0) / anos.length;
+  }, [ativos]);
+  const totalMultasFrota = useMemo(() => multasRank.reduce((s, m) => s + m.valor, 0), [multasRank]);
 
   const topVehicles = byVehicle.slice(0, 8).map((v) => ({ nome: v.placa, resultado: v.resultado }));
 
@@ -220,6 +235,46 @@ export default function DashboardPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Indicadores da frota */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Valor da frota (FIPE)" value={formatCurrency(valorFrota)} hint={`${ativos.length} veículo(s) ativo(s)`} icon={<Wallet className="h-5 w-5" />} />
+        <StatCard title="Idade média da frota" value={idadeMedia != null ? `${idadeMedia.toFixed(1)} anos` : "—"} icon={<Clock className="h-5 w-5" />} />
+        <StatCard title="Frota disponível" value={`${disponiveis}/${veiculos.length}`} hint="disponíveis / total" icon={<Car className="h-5 w-5" />} />
+        <StatCard title="Multas (valor total)" value={formatCurrency(totalMultasFrota)} hint={`${multasRank.length} veículo(s) com multa`} tone={totalMultasFrota > 0 ? "warning" : undefined} icon={<Receipt className="h-5 w-5" />} />
+      </div>
+
+      {/* Ranking: veículos com mais multas */}
+      {multasRank.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Veículos com mais multas</CardTitle>
+            <CardDescription>Ranking por valor — clique para ver as multas</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-80 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Veículo</TableHead>
+                    <TableHead className="text-right">Multas</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {multasRank.slice(0, 10).map((m) => (
+                    <TableRow key={m.vehicle_id} className="cursor-pointer" onClick={() => navigate(`/pendencias?veiculo=${encodeURIComponent(m.placa)}`)}>
+                      <TableCell><span className="font-mono font-medium">{m.placa}</span> <span className="text-xs text-muted-foreground">{m.modelo}</span></TableCell>
+                      <TableCell className="text-right">{m.qtd}</TableCell>
+                      <TableCell className="text-right font-semibold text-destructive">{formatCurrency(m.valor)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Receita x Despesa mensal */}
       <Card>
