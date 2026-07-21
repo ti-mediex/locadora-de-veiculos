@@ -11,6 +11,8 @@ import { Field } from "@/components/shared/field";
 import { extrairTextoPdf } from "@/lib/pdf-text";
 import { parseConsultaPlaca, type ConsultaPlacaParsed } from "@/lib/consulta-placa-parse";
 import { useImportConsultaPlaca } from "@/hooks/use-import-veiculo";
+import { useSaveImport } from "@/hooks/use-import-history";
+import { ImportHistoryList } from "@/components/shared/import-history-list";
 import type { Vehicle } from "@/types/database";
 
 const CAMPOS: { chave: keyof ConsultaPlacaParsed; label: string }[] = [
@@ -38,21 +40,23 @@ export function ImportarConsultaPlacaDialog({
   vehicles: Vehicle[];
 }) {
   const importar = useImportConsultaPlaca();
+  const salvarImport = useSaveImport();
   const [vehicleId, setVehicleId] = useState<string>("");
   const [naoEncontrado, setNaoEncontrado] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [lendo, setLendo] = useState(false);
   const [erro, setErro] = useState("");
   const [parsed, setParsed] = useState<ConsultaPlacaParsed | null>(null);
 
   function reset() {
-    setFileName(""); setParsed(null); setErro(""); setLendo(false); setVehicleId(""); setNaoEncontrado(false);
+    setFileName(""); setFile(null); setParsed(null); setErro(""); setLendo(false); setVehicleId(""); setNaoEncontrado(false);
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setErro(""); setLendo(true); setParsed(null); setFileName(file.name); setNaoEncontrado(false);
+    setErro(""); setLendo(true); setParsed(null); setFileName(file.name); setFile(file); setNaoEncontrado(false);
     try {
       const texto = await extrairTextoPdf(file);
       const p = parseConsultaPlaca(texto);
@@ -77,7 +81,12 @@ export function ImportarConsultaPlacaDialog({
     const alvo = vehicleId || null;
     if (!alvo && !naoEncontrado) return; // precisa escolher um veículo
     importar.mutate({ vehicleId: alvo, parsed }, {
-      onSuccess: () => { onOpenChange(false); reset(); },
+      onSuccess: (r) => {
+        if (file) {
+          salvarImport.mutate({ vehicleId: r.vehicleId, placa: parsed.placa, tipo: "consulta_placa", file, resumo: { campos: r.campos, criado: r.criado, placa: parsed.placa } });
+        }
+        onOpenChange(false); reset();
+      },
     });
   }
 
@@ -96,6 +105,8 @@ export function ImportarConsultaPlacaDialog({
             <span>{fileName || "Selecionar PDF da 'Consulta Placa'"}</span>
             <input type="file" accept="application/pdf" className="hidden" onChange={onFile} />
           </label>
+
+          <ImportHistoryList vehicleId={vehicleId || undefined} tipo="consulta_placa" />
 
           {erro && (
             <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">

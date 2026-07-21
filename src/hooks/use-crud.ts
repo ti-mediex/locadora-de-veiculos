@@ -30,7 +30,8 @@ type TableName =
   | "finance_entries"
   | "vehicle_pendencias"
   | "pendencia_multas"
-  | "alienantes";
+  | "alienantes"
+  | "import_history";
 
 interface CrudOptions {
   select?: string;

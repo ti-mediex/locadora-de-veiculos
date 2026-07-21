@@ -11,6 +11,8 @@ import { Field } from "@/components/shared/field";
 import { parseDetran, type DetranParsed } from "@/lib/detran-parse";
 import { extrairTextoPdf } from "@/lib/pdf-text";
 import { useImportDetran, type ImportDetranOpcoes } from "@/hooks/use-pendencias";
+import { useSaveImport } from "@/hooks/use-import-history";
+import { ImportHistoryList } from "@/components/shared/import-history-list";
 import { formatCurrency } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 
@@ -23,21 +25,23 @@ export function ImportarDetranDialog({
   vehicleIdInicial?: string;
 }) {
   const importar = useImportDetran();
+  const salvarImport = useSaveImport();
   const [vehicleId, setVehicleId] = useState(vehicleIdInicial ?? "");
   const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [lendo, setLendo] = useState(false);
   const [erro, setErro] = useState("");
   const [parsed, setParsed] = useState<DetranParsed | null>(null);
   const [opcoes, setOpcoes] = useState<ImportDetranOpcoes>({ restricoes: true, debitos: true, multas: true, marcarAlienacao: true });
 
   function reset() {
-    setFileName(""); setParsed(null); setErro(""); setLendo(false);
+    setFileName(""); setFile(null); setParsed(null); setErro(""); setLendo(false);
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setErro(""); setLendo(true); setParsed(null); setFileName(file.name);
+    setErro(""); setLendo(true); setParsed(null); setFileName(file.name); setFile(file);
     try {
       const texto = await extrairTextoPdf(file);
       const p = parseDetran(texto);
@@ -60,7 +64,13 @@ export function ImportarDetranDialog({
   function confirmar() {
     if (!vehicleId || !parsed) return;
     importar.mutate({ vehicleId, parsed, opcoes }, {
-      onSuccess: () => { onOpenChange(false); reset(); setVehicleId(vehicleIdInicial ?? ""); },
+      onSuccess: (r) => {
+        if (file) {
+          const placa = vehicles.find((v) => v.id === vehicleId)?.placa ?? parsed.placa ?? null;
+          salvarImport.mutate({ vehicleId, placa, tipo: "detran", file, resumo: { ...r, placa } });
+        }
+        onOpenChange(false); reset(); setVehicleId(vehicleIdInicial ?? "");
+      },
     });
   }
 
@@ -89,6 +99,8 @@ export function ImportarDetranDialog({
             <span>{fileName || "Selecionar PDF do 'Detalhamento de débitos'"}</span>
             <input type="file" accept="application/pdf" className="hidden" onChange={onFile} />
           </label>
+
+          <ImportHistoryList vehicleId={vehicleId || undefined} tipo="detran" />
 
           {erro && (
             <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
