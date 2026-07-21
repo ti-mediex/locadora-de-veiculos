@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, Wand2,
+  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, Wand2, ReceiptText, X,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -27,7 +27,8 @@ import {
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import {
-  usePendencias, usePendenciasSummary, useGenerateDefaultPendencias, vencimentoStatus, type PendenciaRow,
+  usePendencias, usePendenciasSummary, useGenerateDefaultPendencias, useCreateMultasLote,
+  vencimentoStatus, type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
 import {
   PENDENCIA_CATEGORIA, PENDENCIA_STATUS, PENDENCIA_PRIORIDADE,
@@ -86,6 +87,7 @@ export default function PendenciasPage() {
   const update = useUpdate("vehicle_pendencias", "Pendência");
   const remove = useDelete("vehicle_pendencias", "Pendência");
   const genDefaults = useGenerateDefaultPendencias();
+  const multasLote = useCreateMultasLote();
   const canWrite = useCanWrite("pendencias");
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -94,6 +96,39 @@ export default function PendenciasPage() {
   const [search, setSearch] = useState(searchParams.get("veiculo") ?? "");
   const [fCategoria, setFCategoria] = useState("todas");
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
+
+  // Cadastro de multas em lote
+  const emptyMulta = (): MultaLinha => ({ documento: "", infracao: "", data_ocorrencia: "", vencimento: "", valor: "", local: "" });
+  const [loteOpen, setLoteOpen] = useState(false);
+  const [loteVeiculo, setLoteVeiculo] = useState("");
+  const [loteResp, setLoteResp] = useState("");
+  const [lotePrio, setLotePrio] = useState("media");
+  const [linhas, setLinhas] = useState<MultaLinha[]>([emptyMulta()]);
+  const setLinha = (i: number, campo: keyof MultaLinha, val: string) =>
+    setLinhas((ls) => ls.map((l, idx) => (idx === i ? { ...l, [campo]: val } : l)));
+  const subtotalLote = linhas.reduce((s, l) => s + (l.valor ? Number(l.valor.replace(/\./g, "").replace(",", ".")) || 0 : 0), 0);
+  function openLote() {
+    setLoteVeiculo(""); setLoteResp(""); setLotePrio("media"); setLinhas([emptyMulta()]);
+    setLoteOpen(true);
+  }
+  function salvarLote() {
+    multasLote.mutate(
+      { vehicle_id: loteVeiculo, responsavel: loteResp, prioridade: lotePrio, multas: linhas },
+      { onSuccess: () => setLoteOpen(false) }
+    );
+  }
+
+  // Soma automática do valor total das multas cadastradas (não canceladas).
+  const totalMultas = useMemo(
+    () => rows.filter((r) => r.categoria.toLowerCase().includes("multa") && r.status !== "cancelada")
+      .reduce((s, r) => s + (r.valor ?? 0), 0),
+    [rows]
+  );
+  const totalMultasAbertas = useMemo(
+    () => rows.filter((r) => r.categoria.toLowerCase().includes("multa") && (r.status === "aberta" || r.status === "em_andamento"))
+      .reduce((s, r) => s + (r.valor ?? 0), 0),
+    [rows]
+  );
 
   // Pré-filtra pela placa vinda por link (ex.: da tela de Veículos).
   useEffect(() => {
@@ -166,9 +201,12 @@ export default function PendenciasPage() {
         description="Controle de rastreador, documentos, vencimentos e multas da frota"
         actions={
           canWrite && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => genDefaults.mutate()} disabled={genDefaults.isPending}>
                 <Wand2 className="h-4 w-4" /> Itens de controle padrão
+              </Button>
+              <Button variant="outline" onClick={openLote}>
+                <ReceiptText className="h-4 w-4" /> Multas em lote
               </Button>
               <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova pendência</Button>
             </div>
@@ -183,6 +221,24 @@ export default function PendenciasPage() {
         <StatCard title="Vence em 30 dias" value={summary?.a_vencer_30 ?? 0} tone="warning" icon={<Clock className="h-5 w-5" />} />
         <StatCard title="Abertas críticas" value={summary?.criticas ?? 0} tone="destructive" icon={<ListTodo className="h-5 w-5" />} />
         <StatCard title="Ituran inativos" value={summary?.ituran_inativos ?? 0} tone="warning" icon={<Radio className="h-5 w-5" />} />
+      </div>
+
+      {/* Total de multas (soma automática) */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <StatCard
+          title="Valor total de multas"
+          value={formatCurrency(totalMultas)}
+          hint="Todas as multas cadastradas (exceto canceladas)"
+          tone="warning"
+          icon={<ReceiptText className="h-5 w-5" />}
+        />
+        <StatCard
+          title="Multas em aberto"
+          value={formatCurrency(totalMultasAbertas)}
+          hint="Multas ainda não resolvidas"
+          tone="destructive"
+          icon={<ReceiptText className="h-5 w-5" />}
+        />
       </div>
 
       <Card>
@@ -371,6 +427,90 @@ export default function PendenciasPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cadastro de multas em lote */}
+      <Dialog open={loteOpen} onOpenChange={setLoteOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Lançar multas em lote</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Veículo">
+                <Select value={loteVeiculo} onValueChange={setLoteVeiculo}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Responsável / condutor">
+                <Input value={loteResp} onChange={(e) => setLoteResp(e.target.value)} placeholder="Nome do condutor" />
+              </Field>
+              <Field label="Prioridade">
+                <Select value={lotePrio} onValueChange={setLotePrio}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PENDENCIA_PRIORIDADE.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs text-muted-foreground">
+                    <th className="p-2 font-medium">Nº do auto</th>
+                    <th className="p-2 font-medium">Infração</th>
+                    <th className="p-2 font-medium">Data infração</th>
+                    <th className="p-2 font-medium">Vencimento</th>
+                    <th className="p-2 font-medium">Valor (R$)</th>
+                    <th className="p-2 font-medium">Local</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhas.map((l, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="p-1"><Input value={l.documento} onChange={(e) => setLinha(i, "documento", e.target.value)} className="min-w-28" placeholder="000014325-1" /></td>
+                      <td className="p-1"><Input value={l.infracao} onChange={(e) => setLinha(i, "infracao", e.target.value)} className="min-w-48" placeholder="Ex.: 5002-0 Não identificação do condutor" /></td>
+                      <td className="p-1"><Input type="date" value={l.data_ocorrencia} onChange={(e) => setLinha(i, "data_ocorrencia", e.target.value)} /></td>
+                      <td className="p-1"><Input type="date" value={l.vencimento} onChange={(e) => setLinha(i, "vencimento", e.target.value)} /></td>
+                      <td className="p-1"><Input value={l.valor} onChange={(e) => setLinha(i, "valor", e.target.value)} className="min-w-24" placeholder="262,92" /></td>
+                      <td className="p-1"><Input value={l.local} onChange={(e) => setLinha(i, "local", e.target.value)} className="min-w-40" placeholder="Av. Cruz Cabugá, Recife" /></td>
+                      <td className="p-1 text-center">
+                        {linhas.length > 1 && (
+                          <button type="button" onClick={() => setLinhas((ls) => ls.filter((_, idx) => idx !== i))} title="Remover">
+                            <X className="h-4 w-4 text-destructive" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Button type="button" variant="outline" size="sm" onClick={() => setLinhas((ls) => [...ls, emptyMulta()])}>
+                <Plus className="h-4 w-4" /> Adicionar multa
+              </Button>
+              <div className="text-sm">
+                Total das multas: <span className="font-semibold">{formatCurrency(subtotalLote)}</span>
+                <span className="text-muted-foreground"> · {linhas.filter((l) => l.infracao.trim() || l.documento.trim() || l.valor.trim()).length} item(ns)</span>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setLoteOpen(false)}>Cancelar</Button>
+              <Button type="button" onClick={salvarLote} disabled={!loteVeiculo || multasLote.isPending}>
+                Lançar multas
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

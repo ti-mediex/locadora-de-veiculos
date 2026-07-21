@@ -183,6 +183,9 @@ export interface VehiclePendencia {
   ativo: boolean | null;
   responsavel: string | null;
   observacoes: string | null;
+  documento: string | null;
+  data_ocorrencia: string | null;
+  local: string | null;
   resolvido_em: string | null;
   created_by: string | null;
   created_at: string;

@@ -98,6 +98,53 @@ export function useGenerateDefaultPendencias() {
   });
 }
 
+export interface MultaLinha {
+  documento: string;       // nº do auto
+  infracao: string;        // descrição da infração
+  data_ocorrencia: string; // data da infração
+  vencimento: string;
+  valor: string;
+  local: string;
+}
+
+/** Cadastro em lote de multas (categoria "Multa") para um veículo/responsável. */
+export function useCreateMultasLote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      vehicle_id: string;
+      responsavel: string;
+      prioridade: string;
+      multas: MultaLinha[];
+    }) => {
+      const rows = payload.multas
+        .filter((m) => m.infracao.trim() || m.documento.trim() || m.valor.trim())
+        .map((m) => ({
+          vehicle_id: payload.vehicle_id,
+          categoria: "Multa",
+          titulo: m.infracao.trim() || (m.documento.trim() ? `Multa ${m.documento.trim()}` : "Multa"),
+          status: "aberta",
+          prioridade: payload.prioridade || "media",
+          vencimento: m.vencimento || null,
+          valor: m.valor ? Number(m.valor.replace(/\./g, "").replace(",", ".")) : null,
+          responsavel: payload.responsavel || null,
+          documento: m.documento.trim() || null,
+          data_ocorrencia: m.data_ocorrencia || null,
+          local: m.local.trim() || null,
+        }));
+      if (rows.length === 0) throw new Error("Nenhuma multa preenchida");
+      const { error } = await supabase.from("vehicle_pendencias").insert(rows as never);
+      if (error) throw error;
+      return rows.length;
+    },
+    onSuccess: (n) => {
+      qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
+      toast.success(`${n} multa(s) lançada(s)`);
+    },
+    onError: (e: Error) => toast.error("Erro ao lançar multas: " + e.message),
+  });
+}
+
 /** Classificação derivada do vencimento. */
 export type VencStatus = "sem" | "vencida" | "vence7" | "vence30" | "em_dia";
 export function vencimentoStatus(venc: string | null, status: string): VencStatus {
