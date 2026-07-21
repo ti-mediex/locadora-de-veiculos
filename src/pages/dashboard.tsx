@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet,
@@ -10,6 +11,8 @@ import {
   AlertTriangle,
   Clock,
   ChevronRight,
+  Receipt,
+  ShieldAlert,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -46,11 +49,20 @@ import {
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   useFinanceSummary,
   useFinanceMonthly,
   useFinanceByVehicle,
 } from "@/hooks/use-finance";
-import { usePendenciasSummary } from "@/hooks/use-pendencias";
+import {
+  usePendenciasSummary,
+  usePendenciasFinanceirasPorVeiculo,
+  usePendenciasFinanceirasResumo,
+} from "@/hooks/use-pendencias";
+import { useList } from "@/hooks/use-crud";
+import type { Vehicle } from "@/types/database";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -58,7 +70,17 @@ export default function DashboardPage() {
   const { data: monthly = [] } = useFinanceMonthly(12);
   const { data: byVehicle = [] } = useFinanceByVehicle();
   const { data: pend } = usePendenciasSummary();
+  const { data: finResumo } = usePendenciasFinanceirasResumo();
+  const { data: finPorVeiculo = [] } = usePendenciasFinanceirasPorVeiculo();
+  const { data: veiculos = [] } = useList<Vehicle>("vehicles");
   const totalAlertas = (pend?.vencidas ?? 0) + (pend?.a_vencer_7 ?? 0) + (pend?.ituran_inativos ?? 0);
+  const [showFin, setShowFin] = useState(false);
+
+  const restricaoCritica = useMemo(
+    () => veiculos.filter((v) => v.busca_apreensao || v.bloqueio_judicial),
+    [veiculos]
+  );
+  const alienados = useMemo(() => veiculos.filter((v) => v.alienacao_fiduciaria).length, [veiculos]);
 
   const topVehicles = byVehicle.slice(0, 8).map((v) => ({ nome: v.placa, resultado: v.resultado }));
 
@@ -132,6 +154,72 @@ export default function DashboardPage() {
           icon={<Percent className="h-5 w-5" />}
         />
       </div>
+
+      {/* Gestão de pendências e riscos */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <button type="button" onClick={() => setShowFin(true)} className="text-left">
+          <StatCard
+            title="Pendências financeiras (em aberto)"
+            value={formatCurrency(finResumo?.total ?? 0)}
+            hint={`${finPorVeiculo.length} veículo(s) · clique para detalhar`}
+            tone="warning"
+            icon={<Receipt className="h-5 w-5" />}
+          />
+        </button>
+        <button type="button" onClick={() => setShowFin(true)} className="text-left">
+          <StatCard
+            title="Financeiro vencido"
+            value={formatCurrency(finResumo?.vencido ?? 0)}
+            hint="IPVA, multas, taxas e seguros vencidos"
+            tone="destructive"
+            icon={<AlertTriangle className="h-5 w-5" />}
+          />
+        </button>
+        <button type="button" onClick={() => navigate("/veiculos")} className="text-left">
+          <StatCard
+            title="Restrições críticas"
+            value={restricaoCritica.length}
+            hint={`${alienados} alienado(s) · busca/apreensão e bloqueio judicial`}
+            tone={restricaoCritica.length > 0 ? "destructive" : undefined}
+            icon={<ShieldAlert className="h-5 w-5" />}
+          />
+        </button>
+      </div>
+
+      {/* Detalhamento das pendências financeiras por veículo */}
+      <Dialog open={showFin} onOpenChange={setShowFin}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Pendências financeiras por veículo — total {formatCurrency(finResumo?.total ?? 0)}</DialogTitle>
+          </DialogHeader>
+          {finPorVeiculo.length === 0 ? (
+            <EmptyState message="Nenhuma pendência financeira em aberto" />
+          ) : (
+            <div className="max-h-[60vh] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Veículo</TableHead>
+                    <TableHead className="text-right">Itens</TableHead>
+                    <TableHead className="text-right">Vencido</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {finPorVeiculo.map((v) => (
+                    <TableRow key={v.vehicle_id} className="cursor-pointer" onClick={() => { setShowFin(false); navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`); }}>
+                      <TableCell><span className="font-mono font-medium">{v.placa}</span> <span className="text-xs text-muted-foreground">{v.modelo}</span></TableCell>
+                      <TableCell className="text-right">{v.qtd}</TableCell>
+                      <TableCell className="text-right text-destructive">{v.vencido > 0 ? formatCurrency(v.vencido) : "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrency(v.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Receita x Despesa mensal */}
       <Card>

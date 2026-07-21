@@ -56,6 +56,46 @@ export function usePendenciasPorVeiculo() {
   });
 }
 
+export interface PendenciaFinanceiraVeiculo {
+  vehicle_id: string;
+  placa: string;
+  modelo: string;
+  total: number;
+  vencido: number;
+  qtd: number;
+}
+export interface PendenciasFinanceirasResumo {
+  total: number;
+  vencido: number;
+  por_categoria: Record<string, number>;
+}
+
+/** Pendências financeiras (com valor) em aberto, agrupadas por veículo. */
+export function usePendenciasFinanceirasPorVeiculo() {
+  return useQuery<PendenciaFinanceiraVeiculo[]>({
+    queryKey: ["vehicle_pendencias", "financeiras-por-veiculo"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("pendencias_financeiras_por_veiculo");
+      if (error) throw error;
+      return ((data ?? []) as PendenciaFinanceiraVeiculo[]).map((r) => ({
+        ...r, total: Number(r.total), vencido: Number(r.vencido), qtd: Number(r.qtd),
+      }));
+    },
+  });
+}
+
+/** Resumo financeiro geral das pendências em aberto (total, vencido, por categoria). */
+export function usePendenciasFinanceirasResumo() {
+  return useQuery<PendenciasFinanceirasResumo>({
+    queryKey: ["vehicle_pendencias", "financeiras-resumo"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("pendencias_financeiras_resumo");
+      if (error) throw error;
+      return data as PendenciasFinanceirasResumo;
+    },
+  });
+}
+
 /** Gera os itens de controle padrão para os veículos que ainda não os têm. */
 export function useGenerateDefaultPendencias() {
   const qc = useQueryClient();
