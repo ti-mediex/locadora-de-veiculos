@@ -300,6 +300,13 @@ export default function PendenciasPage() {
                         </span>
                       )}
                       {r.valor != null && <span className="text-xs text-muted-foreground"> · {formatCurrency(r.valor)}{r.pago ? " (pago)" : ""}</span>}
+                      {(r.documento || r.local || r.data_ocorrencia) && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {r.documento && <span>Auto {r.documento}</span>}
+                          {r.data_ocorrencia && <span>{r.documento ? " · " : ""}Infração {formatDate(r.data_ocorrencia)}</span>}
+                          {r.local && <span className="block truncate max-w-[240px]">{r.local}</span>}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>{r.responsavel ?? "—"}</TableCell>
                     <TableCell><VencBadge venc={r.vencimento} status={r.status} /></TableCell>
