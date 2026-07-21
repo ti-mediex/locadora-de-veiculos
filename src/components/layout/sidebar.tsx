@@ -5,6 +5,7 @@ import {
   TrendingDown,
   AlertTriangle,
   FileBarChart,
+  FolderDown,
   Car,
   Upload,
   Settings,
@@ -29,6 +30,7 @@ const NAV: {
   { to: "/pendencias", label: "Pendências", icon: AlertTriangle, roles: ALL },
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "financeiro"] },
   { to: "/veiculos", label: "Veículos", icon: Car, roles: ALL },
+  { to: "/importacoes", label: "Importações", icon: FolderDown, roles: ["admin", "financeiro", "operador"] },
   { to: "/importar", label: "Importar dados", icon: Upload, roles: ["admin"] },
   { to: "/configuracoes", label: "Configurações", icon: Settings, roles: ["admin"] },
 ];
