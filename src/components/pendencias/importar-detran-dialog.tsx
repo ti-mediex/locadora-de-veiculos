@@ -9,25 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/shared/field";
 import { parseDetran, type DetranParsed } from "@/lib/detran-parse";
+import { extrairTextoPdf } from "@/lib/pdf-text";
 import { useImportDetran, type ImportDetranOpcoes } from "@/hooks/use-pendencias";
 import { formatCurrency } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
-
-// Carrega o pdf.js sob demanda (mantém-no fora do bundle inicial).
-async function extrairTextoPdf(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist");
-  const pdfWorkerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
-  let texto = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    texto += content.items.map((it) => ("str" in it ? it.str : "")).join(" ") + "\n";
-  }
-  return texto;
-}
 
 export function ImportarDetranDialog({
   open, onOpenChange, vehicles, vehicleIdInicial,

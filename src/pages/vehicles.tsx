@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -38,6 +38,7 @@ import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo } from "@/hooks/use-pendencias";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
+import { ImportarConsultaPlacaDialog } from "@/components/vehicles/importar-consulta-placa-dialog";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
 import type { Vehicle, Alienante } from "@/types/database";
@@ -50,6 +51,12 @@ const schema = z.object({
   ano_modelo: z.coerce.number().int().optional().or(z.literal("")),
   cor: z.string().optional(),
   categoria: z.string().optional(),
+  especie_tipo: z.string().optional(),
+  combustivel: z.string().optional(),
+  capacidade_passageiros: z.coerce.number().int().optional().or(z.literal("")),
+  potencia: z.string().optional(),
+  cilindrada: z.coerce.number().int().optional().or(z.literal("")),
+  parcelamento_cotas: z.string().optional(),
   renavam: z.string().optional(),
   chassi: z.string().optional(),
   km_atual: z.coerce.number().int().min(0).default(0),
@@ -89,6 +96,7 @@ export default function VehiclesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [search, setSearch] = useState("");
+  const [importPlacaOpen, setImportPlacaOpen] = useState(false);
 
   const {
     register,
@@ -128,6 +136,12 @@ export default function VehiclesPage() {
       ano_modelo: v.ano_modelo ?? undefined,
       cor: v.cor ?? "",
       categoria: v.categoria ?? "",
+      especie_tipo: v.especie_tipo ?? "",
+      combustivel: v.combustivel ?? "",
+      capacidade_passageiros: v.capacidade_passageiros ?? undefined,
+      potencia: v.potencia ?? "",
+      cilindrada: v.cilindrada ?? undefined,
+      parcelamento_cotas: v.parcelamento_cotas ?? "",
       renavam: v.renavam ?? "",
       chassi: v.chassi ?? "",
       km_atual: v.km_atual,
@@ -157,6 +171,8 @@ export default function VehiclesPage() {
       placa: data.placa.toUpperCase().replace(/\s/g, ""),
       ano_fabricacao: data.ano_fabricacao || null,
       ano_modelo: data.ano_modelo || null,
+      capacidade_passageiros: data.capacidade_passageiros === "" ? null : data.capacidade_passageiros,
+      cilindrada: data.cilindrada === "" ? null : data.cilindrada,
       valor_aquisicao: data.valor_aquisicao || null,
       valor_fipe: data.valor_fipe || null,
       alienante: data.alienacao_fiduciaria ? data.alienante || null : null,
@@ -193,7 +209,10 @@ export default function VehiclesPage() {
         description="Cadastro e gestão da frota"
         actions={
           canWrite && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setImportPlacaOpen(true)}>
+                <FileUp className="h-4 w-4" /> Importar Consulta Placa
+              </Button>
               <Button variant="outline" onClick={() => updateFipe.mutate({ all: true })} disabled={updateFipe.isPending}>
                 <RefreshCw className={`h-4 w-4 ${updateFipe.isPending ? "animate-spin" : ""}`} /> Atualizar FIPE
               </Button>
@@ -398,6 +417,24 @@ export default function VehiclesPage() {
               <Field label="Chassi">
                 <Input {...register("chassi")} />
               </Field>
+              <Field label="Espécie / Tipo">
+                <Input {...register("especie_tipo")} placeholder="PAS / AUTOMOVEL" />
+              </Field>
+              <Field label="Combustível">
+                <Input {...register("combustivel")} placeholder="GAS/ALC/GNV" />
+              </Field>
+              <Field label="Capacidade (passageiros)">
+                <Input type="number" {...register("capacidade_passageiros")} />
+              </Field>
+              <Field label="Potência (cv)">
+                <Input {...register("potencia")} />
+              </Field>
+              <Field label="Cilindrada (cc)">
+                <Input type="number" {...register("cilindrada")} />
+              </Field>
+              <Field label="Parcelamento / Cotas (IPVA)">
+                <Input {...register("parcelamento_cotas")} placeholder="3 X 0,00" />
+              </Field>
               <Field label="Fornecedor">
                 <Input {...register("fornecedor")} />
               </Field>
@@ -484,6 +521,8 @@ export default function VehiclesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImportarConsultaPlacaDialog open={importPlacaOpen} onOpenChange={setImportPlacaOpen} vehicles={vehicles} />
     </div>
   );
 }

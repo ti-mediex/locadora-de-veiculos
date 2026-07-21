@@ -285,6 +285,12 @@ export interface Vehicle {
   busca_apreensao_solicitante: string | null;
   bloqueio_judicial: boolean;
   bloqueio_judicial_solicitante: string | null;
+  especie_tipo: string | null;
+  combustivel: string | null;
+  capacidade_passageiros: number | null;
+  potencia: string | null;
+  cilindrada: number | null;
+  parcelamento_cotas: string | null;
   created_at: string;
   updated_at: string;
 }
