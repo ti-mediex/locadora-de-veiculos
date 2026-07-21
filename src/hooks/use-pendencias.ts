@@ -107,41 +107,56 @@ export interface MultaLinha {
   local: string;
 }
 
-/** Cadastro em lote de multas (categoria "Multa") para um veículo/responsável. */
-export function useCreateMultasLote() {
+export const parseValor = (v: string) => (v ? Number(v.replace(/\./g, "").replace(",", ".")) || 0 : 0);
+
+/** Itens de multa de uma pendência (várias multas numa mesma pendência). */
+export function usePendenciaMultasItens(pendenciaId?: string) {
+  return useQuery<MultaLinha[]>({
+    queryKey: ["pendencia_multas", pendenciaId],
+    enabled: !!pendenciaId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pendencia_multas")
+        .select("*")
+        .eq("pendencia_id", pendenciaId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        documento: (r.documento as string) ?? "",
+        infracao: (r.infracao as string) ?? "",
+        data_ocorrencia: (r.data_ocorrencia as string) ?? "",
+        vencimento: (r.vencimento as string) ?? "",
+        valor: r.valor != null ? String(r.valor) : "",
+        local: (r.local as string) ?? "",
+      }));
+    },
+  });
+}
+
+/** Substitui os itens de multa de uma pendência (delete + insert). */
+export function useSavePendenciaMultasItens() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: {
-      vehicle_id: string;
-      responsavel: string;
-      prioridade: string;
-      multas: MultaLinha[];
-    }) => {
-      const rows = payload.multas
+    mutationFn: async ({ pendenciaId, itens }: { pendenciaId: string; itens: MultaLinha[] }) => {
+      const del = await supabase.from("pendencia_multas").delete().eq("pendencia_id", pendenciaId);
+      if (del.error) throw del.error;
+      const rows = itens
         .filter((m) => m.infracao.trim() || m.documento.trim() || m.valor.trim())
         .map((m) => ({
-          vehicle_id: payload.vehicle_id,
-          categoria: "Multa",
-          titulo: m.infracao.trim() || (m.documento.trim() ? `Multa ${m.documento.trim()}` : "Multa"),
-          status: "aberta",
-          prioridade: payload.prioridade || "media",
-          vencimento: m.vencimento || null,
-          valor: m.valor ? Number(m.valor.replace(/\./g, "").replace(",", ".")) : null,
-          responsavel: payload.responsavel || null,
+          pendencia_id: pendenciaId,
           documento: m.documento.trim() || null,
+          infracao: m.infracao.trim() || null,
           data_ocorrencia: m.data_ocorrencia || null,
+          vencimento: m.vencimento || null,
+          valor: m.valor ? parseValor(m.valor) : null,
           local: m.local.trim() || null,
         }));
-      if (rows.length === 0) throw new Error("Nenhuma multa preenchida");
-      const { error } = await supabase.from("vehicle_pendencias").insert(rows as never);
-      if (error) throw error;
-      return rows.length;
+      if (rows.length) {
+        const { error } = await supabase.from("pendencia_multas").insert(rows as never);
+        if (error) throw error;
+      }
     },
-    onSuccess: (n) => {
-      qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
-      toast.success(`${n} multa(s) lançada(s)`);
-    },
-    onError: (e: Error) => toast.error("Erro ao lançar multas: " + e.message),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pendencia_multas"] }),
   });
 }
 

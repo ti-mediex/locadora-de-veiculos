@@ -29,6 +29,7 @@ type TableName =
   | "billing_items"
   | "finance_entries"
   | "vehicle_pendencias"
+  | "pendencia_multas"
   | "alienantes";
 
 interface CrudOptions {

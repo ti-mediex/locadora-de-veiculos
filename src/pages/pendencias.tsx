@@ -27,7 +27,8 @@ import {
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import {
-  usePendencias, usePendenciasSummary, useGenerateDefaultPendencias, useCreateMultasLote,
+  usePendencias, usePendenciasSummary, useGenerateDefaultPendencias,
+  usePendenciaMultasItens, useSavePendenciaMultasItens, parseValor,
   vencimentoStatus, type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
 import {
@@ -87,7 +88,7 @@ export default function PendenciasPage() {
   const update = useUpdate("vehicle_pendencias", "Pendência");
   const remove = useDelete("vehicle_pendencias", "Pendência");
   const genDefaults = useGenerateDefaultPendencias();
-  const multasLote = useCreateMultasLote();
+  const saveMultas = useSavePendenciaMultasItens();
   const canWrite = useCanWrite("pendencias");
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -97,26 +98,22 @@ export default function PendenciasPage() {
   const [fCategoria, setFCategoria] = useState("todas");
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
 
-  // Cadastro de multas em lote
+  // Itens de multa da pendência (várias multas numa mesma pendência)
   const emptyMulta = (): MultaLinha => ({ documento: "", infracao: "", data_ocorrencia: "", vencimento: "", valor: "", local: "" });
-  const [loteOpen, setLoteOpen] = useState(false);
-  const [loteVeiculo, setLoteVeiculo] = useState("");
-  const [loteResp, setLoteResp] = useState("");
-  const [lotePrio, setLotePrio] = useState("media");
-  const [linhas, setLinhas] = useState<MultaLinha[]>([emptyMulta()]);
-  const setLinha = (i: number, campo: keyof MultaLinha, val: string) =>
-    setLinhas((ls) => ls.map((l, idx) => (idx === i ? { ...l, [campo]: val } : l)));
-  const subtotalLote = linhas.reduce((s, l) => s + (l.valor ? Number(l.valor.replace(/\./g, "").replace(",", ".")) || 0 : 0), 0);
-  function openLote() {
-    setLoteVeiculo(""); setLoteResp(""); setLotePrio("media"); setLinhas([emptyMulta()]);
-    setLoteOpen(true);
-  }
-  function salvarLote() {
-    multasLote.mutate(
-      { vehicle_id: loteVeiculo, responsavel: loteResp, prioridade: lotePrio, multas: linhas },
-      { onSuccess: () => setLoteOpen(false) }
-    );
-  }
+  const [itensMulta, setItensMulta] = useState<MultaLinha[]>([emptyMulta()]);
+  const setItemMulta = (i: number, campo: keyof MultaLinha, val: string) =>
+    setItensMulta((ls) => ls.map((l, idx) => (idx === i ? { ...l, [campo]: val } : l)));
+  const totalItensMulta = itensMulta.reduce((s, l) => s + parseValor(l.valor), 0);
+
+  // Carrega os itens ao editar uma pendência de multa.
+  const editandoMulta = open && editing?.categoria === "Multa";
+  const { data: itensCarregados } = usePendenciaMultasItens(editandoMulta ? editing?.id : undefined);
+  useEffect(() => {
+    if (editandoMulta && itensCarregados) {
+      setItensMulta(itensCarregados.length ? itensCarregados : [emptyMulta()]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editandoMulta, itensCarregados]);
 
   // Soma automática do valor total das multas cadastradas (não canceladas).
   const totalMultas = useMemo(
@@ -164,11 +161,13 @@ export default function PendenciasPage() {
 
   function openNew() {
     setEditing(null);
+    setItensMulta([emptyMulta()]);
     reset({ categoria: "IPVA", prioridade: "media", status: "aberta", pago: false });
     setOpen(true);
   }
   function openEdit(r: PendenciaRow) {
     setEditing(r);
+    if (r.categoria !== "Multa") setItensMulta([emptyMulta()]);
     reset({
       vehicle_id: r.vehicle_id, categoria: r.categoria, titulo: r.titulo, descricao: r.descricao ?? "",
       prioridade: r.prioridade, status: r.status, vencimento: r.vencimento ?? "",
@@ -177,16 +176,27 @@ export default function PendenciasPage() {
     });
     setOpen(true);
   }
-  function onSubmit(data: FormData) {
+  async function onSubmit(data: FormData) {
+    const isMulta = controle === "multa";
     const payload = {
       ...data,
       vencimento: data.vencimento || null,
-      valor: data.valor === "" ? null : data.valor,
+      // Para multa, o valor é a soma automática dos itens.
+      valor: isMulta ? totalItensMulta : data.valor === "" ? null : data.valor,
       ativo: controle === "ativo" ? !!data.ativo : null,
       resolvido_em: data.status === "resolvida" ? new Date().toISOString().slice(0, 10) : null,
     };
-    if (editing) update.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) });
-    else create.mutate(payload, { onSuccess: () => setOpen(false) });
+    const persistIdItens = async (saved: { id?: string } | undefined) => {
+      if (isMulta && saved?.id) {
+        await saveMultas.mutateAsync({ pendenciaId: saved.id, itens: itensMulta });
+      }
+      setOpen(false);
+    };
+    if (editing) {
+      update.mutate({ id: editing.id, ...payload }, { onSuccess: (d) => persistIdItens(d as { id?: string }) });
+    } else {
+      create.mutate(payload, { onSuccess: (d) => persistIdItens(d as { id?: string }) });
+    }
   }
   function resolver(r: PendenciaRow) {
     update.mutate({ id: r.id, status: "resolvida", resolvido_em: new Date().toISOString().slice(0, 10) });
@@ -204,9 +214,6 @@ export default function PendenciasPage() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => genDefaults.mutate()} disabled={genDefaults.isPending}>
                 <Wand2 className="h-4 w-4" /> Itens de controle padrão
-              </Button>
-              <Button variant="outline" onClick={openLote}>
-                <ReceiptText className="h-4 w-4" /> Multas em lote
               </Button>
               <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova pendência</Button>
             </div>
@@ -340,7 +347,7 @@ export default function PendenciasPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className={controle === "multa" ? "max-w-4xl" : "max-w-xl"}>
           <DialogHeader>
             <DialogTitle>{editing ? "Editar pendência" : "Nova pendência"}</DialogTitle>
           </DialogHeader>
@@ -370,12 +377,12 @@ export default function PendenciasPage() {
                 <Input {...register("titulo")} />
               </Field>
 
-              {(controle === "vencimento" || controle === "multa") && (
+              {controle === "vencimento" && (
                 <Field label="Vencimento">
                   <Input type="date" {...register("vencimento")} />
                 </Field>
               )}
-              {(controle === "multa" || controle === "vencimento") && (
+              {controle === "vencimento" && (
                 <Field label="Valor (R$)">
                   <Input type="number" step="0.01" {...register("valor")} />
                 </Field>
@@ -410,13 +417,59 @@ export default function PendenciasPage() {
               </Field>
             </div>
 
+            {controle === "multa" && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold">Multas desta pendência</h4>
+                  <div className="text-sm">Total: <span className="font-semibold">{formatCurrency(totalItensMulta)}</span></div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs text-muted-foreground">
+                        <th className="p-1 font-medium">Nº do auto</th>
+                        <th className="p-1 font-medium">Infração</th>
+                        <th className="p-1 font-medium">Data</th>
+                        <th className="p-1 font-medium">Vencimento</th>
+                        <th className="p-1 font-medium">Valor</th>
+                        <th className="p-1 font-medium">Local</th>
+                        <th className="w-6"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itensMulta.map((l, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="p-1"><Input value={l.documento} onChange={(e) => setItemMulta(i, "documento", e.target.value)} className="min-w-24" placeholder="000014325-1" /></td>
+                          <td className="p-1"><Input value={l.infracao} onChange={(e) => setItemMulta(i, "infracao", e.target.value)} className="min-w-44" placeholder="Ex.: 5002-0 Não identificação" /></td>
+                          <td className="p-1"><Input type="date" value={l.data_ocorrencia} onChange={(e) => setItemMulta(i, "data_ocorrencia", e.target.value)} /></td>
+                          <td className="p-1"><Input type="date" value={l.vencimento} onChange={(e) => setItemMulta(i, "vencimento", e.target.value)} /></td>
+                          <td className="p-1"><Input value={l.valor} onChange={(e) => setItemMulta(i, "valor", e.target.value)} className="min-w-20" placeholder="262,92" /></td>
+                          <td className="p-1"><Input value={l.local} onChange={(e) => setItemMulta(i, "local", e.target.value)} className="min-w-32" placeholder="Local" /></td>
+                          <td className="p-1 text-center">
+                            {itensMulta.length > 1 && (
+                              <button type="button" onClick={() => setItensMulta((ls) => ls.filter((_, idx) => idx !== i))} title="Remover">
+                                <X className="h-4 w-4 text-destructive" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setItensMulta((ls) => [...ls, emptyMulta()])}>
+                  <Plus className="h-4 w-4" /> Adicionar multa
+                </Button>
+              </div>
+            )}
+
             {controle === "ativo" && (
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="h-4 w-4" checked={!!watch("ativo")} onChange={(e) => setValue("ativo", e.target.checked)} />
                 Rastreador ativo
               </label>
             )}
-            {(controle === "vencimento" || controle === "multa") && (
+            {controle === "vencimento" && (
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="h-4 w-4" {...register("pago")} />
                 Pago / quitado
@@ -434,90 +487,6 @@ export default function PendenciasPage() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cadastro de multas em lote */}
-      <Dialog open={loteOpen} onOpenChange={setLoteOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Lançar multas em lote</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Veículo">
-                <Select value={loteVeiculo} onValueChange={setLoteVeiculo}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Responsável / condutor">
-                <Input value={loteResp} onChange={(e) => setLoteResp(e.target.value)} placeholder="Nome do condutor" />
-              </Field>
-              <Field label="Prioridade">
-                <Select value={lotePrio} onValueChange={setLotePrio}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PENDENCIA_PRIORIDADE.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="p-2 font-medium">Nº do auto</th>
-                    <th className="p-2 font-medium">Infração</th>
-                    <th className="p-2 font-medium">Data infração</th>
-                    <th className="p-2 font-medium">Vencimento</th>
-                    <th className="p-2 font-medium">Valor (R$)</th>
-                    <th className="p-2 font-medium">Local</th>
-                    <th className="w-8"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhas.map((l, i) => (
-                    <tr key={i} className="border-b">
-                      <td className="p-1"><Input value={l.documento} onChange={(e) => setLinha(i, "documento", e.target.value)} className="min-w-28" placeholder="000014325-1" /></td>
-                      <td className="p-1"><Input value={l.infracao} onChange={(e) => setLinha(i, "infracao", e.target.value)} className="min-w-48" placeholder="Ex.: 5002-0 Não identificação do condutor" /></td>
-                      <td className="p-1"><Input type="date" value={l.data_ocorrencia} onChange={(e) => setLinha(i, "data_ocorrencia", e.target.value)} /></td>
-                      <td className="p-1"><Input type="date" value={l.vencimento} onChange={(e) => setLinha(i, "vencimento", e.target.value)} /></td>
-                      <td className="p-1"><Input value={l.valor} onChange={(e) => setLinha(i, "valor", e.target.value)} className="min-w-24" placeholder="262,92" /></td>
-                      <td className="p-1"><Input value={l.local} onChange={(e) => setLinha(i, "local", e.target.value)} className="min-w-40" placeholder="Av. Cruz Cabugá, Recife" /></td>
-                      <td className="p-1 text-center">
-                        {linhas.length > 1 && (
-                          <button type="button" onClick={() => setLinhas((ls) => ls.filter((_, idx) => idx !== i))} title="Remover">
-                            <X className="h-4 w-4 text-destructive" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Button type="button" variant="outline" size="sm" onClick={() => setLinhas((ls) => [...ls, emptyMulta()])}>
-                <Plus className="h-4 w-4" /> Adicionar multa
-              </Button>
-              <div className="text-sm">
-                Total das multas: <span className="font-semibold">{formatCurrency(subtotalLote)}</span>
-                <span className="text-muted-foreground"> · {linhas.filter((l) => l.infracao.trim() || l.documento.trim() || l.valor.trim()).length} item(ns)</span>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setLoteOpen(false)}>Cancelar</Button>
-              <Button type="button" onClick={salvarLote} disabled={!loteVeiculo || multasLote.isPending}>
-                Lançar multas
-              </Button>
-            </DialogFooter>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
