@@ -57,6 +57,40 @@ export function useFinanceMonthly(meses = 12) {
   });
 }
 
+export interface FinanceEntryRow {
+  id: string;
+  tipo: "receita" | "despesa";
+  data: string;
+  vehicle_id: string | null;
+  categoria: string | null;
+  descricao: string;
+  valor: number;
+  placa: string | null;
+}
+
+/** Lançamentos financeiros detalhados (para relatórios), com placa do veículo. */
+export function useFinanceEntries(inicio?: string, fim?: string) {
+  return useQuery<FinanceEntryRow[]>({
+    queryKey: ["finance", "entries", inicio, fim],
+    queryFn: async () => {
+      let q = supabase
+        .from("finance_entries")
+        .select("id, tipo, data, vehicle_id, categoria, descricao, valor, vehicles(placa)")
+        .order("data", { ascending: false })
+        .limit(5000);
+      if (inicio) q = q.gte("data", inicio);
+      if (fim) q = q.lte("data", fim);
+      const { data, error } = await q;
+      if (error) throw error;
+      return ((data ?? []) as unknown as (Omit<FinanceEntryRow, "placa" | "valor"> & { valor: number | string; vehicles: { placa: string } | null })[]).map((r) => ({
+        id: r.id, tipo: r.tipo, data: r.data, vehicle_id: r.vehicle_id,
+        categoria: r.categoria, descricao: r.descricao, valor: Number(r.valor),
+        placa: r.vehicles?.placa ?? null,
+      }));
+    },
+  });
+}
+
 export function useFinanceByVehicle() {
   return useQuery<FinanceByVehicle[]>({
     queryKey: ["finance", "by-vehicle"],

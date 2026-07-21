@@ -162,6 +162,19 @@ export default function PendenciasPage() {
     });
   }, [rows, search, fCategoria, fStatus]);
 
+  // Subtotais por categoria das pendências filtradas (com valor).
+  const subtotais = useMemo(() => {
+    const map = new Map<string, number>();
+    let total = 0;
+    for (const r of filtered) {
+      if (r.valor && r.status !== "cancelada") {
+        map.set(r.categoria, (map.get(r.categoria) ?? 0) + r.valor);
+        total += r.valor;
+      }
+    }
+    return { itens: [...map.entries()].sort((a, b) => b[1] - a[1]), total };
+  }, [filtered]);
+
   function openNew() {
     setEditing(null);
     setItensMulta([emptyMulta()]);
@@ -278,6 +291,17 @@ export default function PendenciasPage() {
               </SelectContent>
             </Select>
           </div>
+          {subtotais.total > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-4 py-2 text-sm">
+              <span className="text-muted-foreground">Subtotais:</span>
+              {subtotais.itens.map(([cat, val]) => (
+                <span key={cat} className="inline-flex items-center gap-1 rounded-full bg-background px-2 py-0.5">
+                  <span className="font-medium">{cat}</span> {formatCurrency(val)}
+                </span>
+              ))}
+              <span className="ml-auto font-semibold">Total: {formatCurrency(subtotais.total)}</span>
+            </div>
+          )}
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
           ) : filtered.length === 0 ? (
