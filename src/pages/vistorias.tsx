@@ -53,39 +53,56 @@ export default function VistoriasPage() {
   const [fDataFim, setFDataFim] = useState("");
   const [fVistoriador, setFVistoriador] = useState("");
 
-  // Anexar laudo externo (PDF de outro sistema, ex.: Vex)
+  // Anexar laudos externos em lote (PDFs de outro sistema, ex.: Vex)
+  interface ItemLote { file: File; placaLida: string | null; vehicleId: string; tipo: string; data: string; locatario: string; }
   const [extOpen, setExtOpen] = useState(false);
-  const [extVeic, setExtVeic] = useState("");
-  const [extTipo, setExtTipo] = useState("liberacao");
-  const [extData, setExtData] = useState(new Date().toISOString().slice(0, 10));
-  const [extLoc, setExtLoc] = useState("");
-  const [extFile, setExtFile] = useState<File | null>(null);
+  const [extItens, setExtItens] = useState<ItemLote[]>([]);
   const [extLendo, setExtLendo] = useState(false);
-  // Ao selecionar o PDF, lê a placa e demais dados do laudo (Vex) e pré-preenche.
-  async function onExtFile(file: File | null) {
-    setExtFile(file);
-    if (!file) return;
+  const [extSalvando, setExtSalvando] = useState(false);
+  const hojeStr = () => new Date().toISOString().slice(0, 10);
+
+  // Lê cada PDF, extrai placa/tipo/data/locatário e vincula o veículo.
+  async function onExtFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
     setExtLendo(true);
-    try {
-      const texto = await extrairTextoPdf(file);
-      const p = parseLaudoVex(texto);
-      if (p.placa) {
-        const veic = vehicles.find((v) => v.placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === p.placa);
-        if (veic) { setExtVeic(veic.id); toast.success(`Placa ${p.placa} reconhecida — veículo vinculado`); }
-        else toast.warning(`Placa ${p.placa} lida, mas não há veículo cadastrado com ela`);
-      }
-      if (p.tipo) setExtTipo(p.tipo);
-      if (p.data) setExtData(p.data);
-      if (p.locatario) setExtLoc(p.locatario);
-    } catch { /* mantém preenchimento manual */ } finally { setExtLendo(false); }
+    const novos: ItemLote[] = [];
+    for (const file of Array.from(files)) {
+      let placa: string | null = null, tipo = "liberacao", data = hojeStr(), locatario = "", vehicleId = "";
+      try {
+        const p = parseLaudoVex(await extrairTextoPdf(file));
+        placa = p.placa;
+        if (p.tipo) tipo = p.tipo;
+        if (p.data) data = p.data;
+        if (p.locatario) locatario = p.locatario;
+        if (p.placa) {
+          const veic = vehicles.find((v) => v.placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === p.placa);
+          if (veic) vehicleId = veic.id;
+        }
+      } catch { /* preenche manual */ }
+      novos.push({ file, placaLida: placa, vehicleId, tipo, data, locatario });
+    }
+    setExtItens((prev) => [...prev, ...novos]);
+    setExtLendo(false);
+    const semVeic = novos.filter((n) => !n.vehicleId).length;
+    toast.success(`${novos.length} laudo(s) lido(s)${semVeic ? ` · ${semVeic} sem veículo vinculado` : ""}`);
   }
-  function salvarExterna() {
-    if (!extFile) return;
-    const placa = vehicles.find((v) => v.id === extVeic)?.placa ?? null;
-    createExterna.mutate(
-      { vehicle_id: extVeic || null, placa, tipo: extTipo, data: extData, locatario_nome: extLoc, file: extFile },
-      { onSuccess: () => { setExtOpen(false); setExtVeic(""); setExtTipo("liberacao"); setExtData(new Date().toISOString().slice(0, 10)); setExtLoc(""); setExtFile(null); } }
-    );
+  const setItem = (i: number, patch: Partial<ItemLote>) => setExtItens((its) => its.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
+
+  async function salvarLote() {
+    const validos = extItens.filter((t) => t.vehicleId);
+    if (validos.length === 0) { toast.error("Selecione o veículo de ao menos um laudo"); return; }
+    setExtSalvando(true);
+    let ok = 0;
+    for (const t of validos) {
+      const placa = vehicles.find((v) => v.id === t.vehicleId)?.placa ?? null;
+      try {
+        await createExterna.mutateAsync({ vehicle_id: t.vehicleId, placa, tipo: t.tipo, data: t.data, locatario_nome: t.locatario, file: t.file });
+        ok++;
+      } catch { /* segue para o próximo */ }
+    }
+    setExtSalvando(false);
+    toast.success(`${ok} laudo(s) anexado(s)`);
+    setExtItens([]); setExtOpen(false);
   }
 
   // Estado do formulário de nova vistoria
@@ -163,7 +180,7 @@ export default function VistoriasPage() {
         description="Checklist com fotos na liberação, devolução e sinistro"
         actions={canWrite && (
           <>
-            <Button variant="outline" onClick={() => setExtOpen(true)}><FileUp className="h-4 w-4" /> Anexar laudo (Vex)</Button>
+            <Button variant="outline" onClick={() => setExtOpen(true)}><FileUp className="h-4 w-4" /> Anexar laudos (Vex)</Button>
             <Button onClick={abrirNova}><Plus className="h-4 w-4" /> Nova vistoria</Button>
           </>
         )}
@@ -372,42 +389,72 @@ export default function VistoriasPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Anexar laudo externo (PDF do Vex ou outro sistema) */}
-      <Dialog open={extOpen} onOpenChange={setExtOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Anexar laudo de outro sistema</DialogTitle></DialogHeader>
+      {/* Anexar laudos externos em lote (PDFs do Vex ou outro sistema) */}
+      <Dialog open={extOpen} onOpenChange={(o) => { setExtOpen(o); if (!o) setExtItens([]); }}>
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+          <DialogHeader><DialogTitle>Anexar laudos de outro sistema</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Registre uma vistoria feita anteriormente em outro software (ex.: Vex) anexando o laudo em PDF.</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Veículo">
-                <Select value={extVeic} onValueChange={setExtVeic}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Tipo de operação">
-                <Select value={extTipo} onValueChange={setExtTipo}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {VISTORIA_TIPO.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Data da vistoria"><Input type="date" value={extData} onChange={(e) => setExtData(e.target.value)} /></Field>
-              <Field label="Locatário (opcional)"><Input value={extLoc} onChange={(e) => setExtLoc(e.target.value)} /></Field>
-            </div>
+            <p className="text-sm text-muted-foreground">Selecione um ou vários laudos em PDF (ex.: Vex) de uma vez. A placa é lida de cada um e o veículo é vinculado automaticamente.</p>
+
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground hover:bg-accent">
               {extLendo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
-              <span>{extLendo ? "Lendo o PDF..." : extFile ? extFile.name : "Selecionar laudo em PDF (a placa é lida automaticamente)"}</span>
-              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => onExtFile(e.target.files?.[0] ?? null)} />
+              <span>{extLendo ? "Lendo os PDFs..." : "Selecionar laudos em PDF (vários de uma vez)"}</span>
+              <input type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => { onExtFiles(e.target.files); e.target.value = ""; }} />
             </label>
+
+            {extItens.length > 0 && (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                      <th className="p-2 font-medium">Arquivo / Placa</th>
+                      <th className="p-2 font-medium">Veículo</th>
+                      <th className="p-2 font-medium">Tipo</th>
+                      <th className="p-2 font-medium">Data</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extItens.map((t, i) => (
+                      <tr key={i} className="border-b align-top">
+                        <td className="p-2">
+                          <div className="max-w-40 truncate text-xs">{t.file.name}</div>
+                          {t.placaLida ? <span className="font-mono text-xs font-medium">{t.placaLida}</span> : <span className="text-xs text-warning">placa não lida</span>}
+                        </td>
+                        <td className="p-2">
+                          <Select value={t.vehicleId} onValueChange={(v) => setItem(i, { vehicleId: v })}>
+                            <SelectTrigger className="h-8 min-w-40 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                            <SelectContent>
+                              {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="p-2">
+                          <Select value={t.tipo} onValueChange={(v) => setItem(i, { tipo: v })}>
+                            <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {VISTORIA_TIPO.map((x) => <SelectItem key={x.value} value={x.value}>{x.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="p-2"><Input type="date" className="h-8 w-36 text-xs" value={t.data} onChange={(e) => setItem(i, { data: e.target.value })} /></td>
+                        <td className="p-2 text-center">
+                          <button type="button" onClick={() => setExtItens((its) => its.filter((_, idx) => idx !== i))}><X className="h-4 w-4 text-destructive" /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {extItens.length > 0 && (
+              <p className="text-xs text-muted-foreground">{extItens.filter((t) => t.vehicleId).length} de {extItens.length} laudo(s) prontos para anexar. Ajuste o veículo onde a placa não foi reconhecida.</p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setExtOpen(false)}>Cancelar</Button>
-            <Button onClick={salvarExterna} disabled={!extVeic || !extFile || createExterna.isPending}>
-              {createExterna.isPending ? "Enviando..." : "Anexar laudo"}
+            <Button variant="outline" onClick={() => { setExtOpen(false); setExtItens([]); }}>Cancelar</Button>
+            <Button onClick={salvarLote} disabled={extItens.filter((t) => t.vehicleId).length === 0 || extSalvando || extLendo}>
+              {extSalvando ? <><Loader2 className="h-4 w-4 animate-spin" /> Anexando...</> : `Anexar ${extItens.filter((t) => t.vehicleId).length || ""} laudo(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>
