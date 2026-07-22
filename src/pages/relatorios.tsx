@@ -210,36 +210,35 @@ export default function RelatoriosPage() {
     <div className="space-y-6">
       <PageHeader title="Relatórios" description="Gestão operacional, financeira e auditoria da frota" />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Período — início</label>
-          <Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-44" />
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3 sm:p-4">
+        <div className="w-[calc(50%-0.375rem)] sm:w-auto">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Início</label>
+          <Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-full sm:w-44" />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Período — fim</label>
-          <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-44" />
+        <div className="w-[calc(50%-0.375rem)] sm:w-auto">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Fim</label>
+          <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full sm:w-44" />
         </div>
-        <div>
+        <div className="w-full sm:w-auto">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Veículo</label>
           <Select value={fVeiculo} onValueChange={setFVeiculo}>
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Frota toda</SelectItem>
               {veiculosAll.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-        <div>
+        <div className="w-full sm:w-auto">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Situação</label>
           <Select value={fSituacao} onValueChange={(v) => setFSituacao(v as "ativos" | "todos")} disabled={fVeiculo !== "todos"}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ativos">Somente ativos</SelectItem>
               <SelectItem value="todos">Todos os veículos</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <span className="text-xs text-muted-foreground">Filtre por um veículo ou pela frota. O período afeta Receitas e Despesas.</span>
       </div>
 
       <Tabs defaultValue="receitas">

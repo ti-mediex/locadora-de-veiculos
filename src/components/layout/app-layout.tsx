@@ -32,7 +32,7 @@ export function AppLayout() {
   return (
     <div className="min-h-screen">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="lg:pl-64">
+      <div className="min-w-0 lg:pl-64">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-card/80 px-4 backdrop-blur sm:px-6">
           <Button
             variant="ghost"
@@ -69,7 +69,7 @@ export function AppLayout() {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+        <main className="mx-auto w-full min-w-0 max-w-7xl space-y-5 overflow-x-hidden p-3 sm:space-y-6 sm:p-6">
           <Outlet />
         </main>
       </div>

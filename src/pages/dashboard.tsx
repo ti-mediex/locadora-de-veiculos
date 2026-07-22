@@ -155,21 +155,21 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard financeiro" description={`Visão da ${escopoLabel} — receitas, despesas e pendências`} />
 
       {/* Filtros de escopo */}
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div>
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3 sm:p-4">
+        <div className="w-full sm:w-auto">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Veículo</label>
           <Select value={fVeiculo} onValueChange={setFVeiculo}>
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Frota toda</SelectItem>
               {veiculosAll.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-        <div>
+        <div className="w-full sm:w-auto">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Situação</label>
           <Select value={fSituacao} onValueChange={(v) => setFSituacao(v as "ativos" | "todos")} disabled={fVeiculo !== "todos"}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ativos">Somente ativos</SelectItem>
               <SelectItem value="todos">Todos os veículos</SelectItem>
