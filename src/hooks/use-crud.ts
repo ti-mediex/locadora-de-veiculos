@@ -31,7 +31,9 @@ type TableName =
   | "vehicle_pendencias"
   | "pendencia_multas"
   | "alienantes"
-  | "import_history";
+  | "import_history"
+  | "vistorias"
+  | "vistoria_fotos";
 
 interface CrudOptions {
   select?: string;

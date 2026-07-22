@@ -301,6 +301,43 @@ export interface Alienante {
   created_at: string;
 }
 
+export interface ChecklistItem {
+  item: string;
+  situacao: "ok" | "avaria" | "na";
+  observacao?: string;
+}
+
+export interface Vistoria {
+  id: string;
+  vehicle_id: string | null;
+  placa: string | null;
+  tipo: "liberacao" | "devolucao" | "sinistro";
+  locatario_nome: string | null;
+  locatario_documento: string | null;
+  vistoriador: string | null;
+  km: number | null;
+  combustivel: string | null;
+  checklist: ChecklistItem[] | null;
+  observacoes: string | null;
+  avarias: string | null;
+  assinatura_path: string | null;
+  gps_lat: number | null;
+  gps_lng: number | null;
+  status: "rascunho" | "concluida";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface VistoriaFoto {
+  id: string;
+  vistoria_id: string;
+  parte: string;
+  storage_path: string;
+  avaria: boolean;
+  observacao: string | null;
+  created_at: string;
+}
+
 export interface Renter {
   id: string;
   nome: string;

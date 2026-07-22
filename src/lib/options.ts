@@ -308,3 +308,34 @@ export const FORMA_PAGAMENTO = [
   { value: "transferencia", label: "Transferência" },
   { value: "boleto", label: "Boleto" },
 ];
+
+// ---- Vistoria de veículos ----
+export const VISTORIA_TIPO = [
+  { value: "liberacao", label: "Liberação (entrega)" },
+  { value: "devolucao", label: "Devolução (retorno)" },
+  { value: "sinistro", label: "Sinistro (acidente)" },
+];
+
+export const VISTORIA_COMBUSTIVEL = [
+  { value: "reserva", label: "Reserva" },
+  { value: "1/4", label: "1/4" },
+  { value: "1/2", label: "1/2" },
+  { value: "3/4", label: "3/4" },
+  { value: "cheio", label: "Cheio" },
+];
+
+// Partes fotografadas do veículo (externo e interno).
+export const VISTORIA_PARTES = [
+  "Frente", "Traseira",
+  "Lateral dianteira direita", "Lateral traseira direita",
+  "Lateral dianteira esquerda", "Lateral traseira esquerda",
+  "Teto", "Capô / motor",
+  "Painel / KM", "Bancos dianteiros", "Bancos traseiros", "Porta-malas",
+  "Estepe", "Pneus", "CRLV / documento",
+];
+
+export const VISTORIA_CHECKLIST_ITENS = [
+  "Estepe", "Macaco", "Chave de roda", "Triângulo", "Extintor",
+  "Tapetes", "Manual do proprietário", "CRLV", "Chave reserva",
+  "Antena", "Calotas", "Limpadores", "Retrovisores", "Rádio / multimídia",
+];
