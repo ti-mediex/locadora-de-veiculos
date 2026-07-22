@@ -195,6 +195,19 @@ export async function salvarLaudoPdfLink(vistoriaId: string, pdfBlob: Blob): Pro
   return data?.signedUrl ?? null;
 }
 
+/** Substitui uma foto da vistoria no Storage (após marcação/edição). */
+export function useAtualizarFotoVistoria() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ storagePath, file }: { storagePath: string; file: File }) => {
+      const up = await supabase.storage.from(BUCKET_V).upload(storagePath, file, { contentType: "image/jpeg", upsert: true });
+      if (up.error) throw up.error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["vistorias"] }); toast.success("Foto atualizada"); },
+    onError: (e: Error) => toast.error("Erro ao salvar foto: " + e.message),
+  });
+}
+
 export function useDeleteVistoria() {
   const qc = useQueryClient();
   return useMutation({

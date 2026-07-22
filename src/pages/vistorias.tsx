@@ -21,7 +21,7 @@ import { EditorFoto } from "@/components/vistorias/editor-foto";
 import { carimbarFoto } from "@/lib/foto-carimbo";
 import {
   useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria, useCreateVistoriaExterna,
-  useUpdateVistoriaContato, salvarLaudoPdfLink, nomeArquivoLaudo, urlToDataUrl,
+  useUpdateVistoriaContato, useAtualizarFotoVistoria, salvarLaudoPdfLink, nomeArquivoLaudo, urlToDataUrl,
   type FotoInput, type VistoriaDetalhe,
 } from "@/hooks/use-vistorias";
 import { gerarLaudoPdf } from "@/lib/laudo-pdf";
@@ -515,6 +515,20 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
   const { data: v, isLoading } = useVistoriaDetalhe(id ?? undefined);
   const { data: config } = useAppConfig();
   const updateContato = useUpdateVistoriaContato();
+  const atualizarFoto = useAtualizarFotoVistoria();
+  const canWrite = useCanWrite("vistorias");
+  const [editFoto, setEditFoto] = useState<{ path: string; parte: string; file: File } | null>(null);
+  const [abrindoEditor, setAbrindoEditor] = useState<string | null>(null);
+
+  // Abre o editor com a foto existente (baixa a imagem do Storage).
+  async function marcarFotoExistente(f: { url: string | null; storage_path: string; parte: string }) {
+    if (!f.url) return;
+    setAbrindoEditor(f.storage_path);
+    try {
+      const blob = await (await fetch(f.url)).blob();
+      setEditFoto({ path: f.storage_path, parte: f.parte, file: new File([blob], "foto.jpg", { type: blob.type || "image/jpeg" }) });
+    } catch { toast.error("Não foi possível abrir a foto"); } finally { setAbrindoEditor(null); }
+  }
   const [enviando, setEnviando] = useState<"whatsapp" | "email" | null>(null);
   const [contatoOpen, setContatoOpen] = useState<null | "whatsapp" | "email">(null);
   const [cTel, setCTel] = useState("");
@@ -707,10 +721,19 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
                 <h4 className="mb-2 text-sm font-semibold">Fotos ({v.fotos.length})</h4>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {v.fotos.map((f) => (
-                    <a key={f.id} href={f.url ?? "#"} target="_blank" rel="noreferrer" className="block">
-                      {f.url && <img src={f.url} alt={f.parte} className="h-28 w-full rounded-lg border object-cover" />}
-                      <div className="mt-0.5 text-[11px] text-muted-foreground">{f.parte} {f.avaria && <span className="text-destructive">· avaria</span>}</div>
-                    </a>
+                    <div key={f.id} className="group relative">
+                      <a href={f.url ?? "#"} target="_blank" rel="noreferrer" className="block">
+                        {f.url && <img src={f.url} alt={f.parte} className="h-28 w-full rounded-lg border object-cover" />}
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">{f.parte} {f.avaria && <span className="text-destructive">· avaria</span>}</div>
+                      </a>
+                      {canWrite && (
+                        <button type="button" title="Marcar avarias"
+                          className="absolute right-1 top-1 rounded-md bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                          onClick={() => marcarFotoExistente(f)} disabled={abrindoEditor === f.storage_path}>
+                          {abrindoEditor === f.storage_path ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -777,6 +800,14 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Editor de marcação de foto já salva */}
+      <EditorFoto
+        file={editFoto?.file ?? null}
+        parte={editFoto?.parte ?? ""}
+        onClose={() => setEditFoto(null)}
+        onSave={(novo) => { if (editFoto) atualizarFoto.mutate({ storagePath: editFoto.path, file: novo }); }}
+      />
     </Dialog>
   );
 }
