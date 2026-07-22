@@ -54,7 +54,7 @@ export default function VistoriasPage() {
   const [fVistoriador, setFVistoriador] = useState("");
 
   // Anexar laudos externos em lote (PDFs de outro sistema, ex.: Vex)
-  interface ItemLote { file: File; placaLida: string | null; vehicleId: string; tipo: string; data: string; locatario: string; }
+  interface ItemLote { file: File; placaLida: string | null; vehicleId: string; tipo: string; data: string; locatario: string; duplicado: boolean; motivoDup: string; }
   const [extOpen, setExtOpen] = useState(false);
   const [extItens, setExtItens] = useState<ItemLote[]>([]);
   const [extLendo, setExtLendo] = useState(false);
@@ -65,6 +65,17 @@ export default function VistoriasPage() {
   async function onExtFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     setExtLendo(true);
+    // Chaves de vistorias já anexadas (por nome de arquivo e por placa+data+tipo).
+    const existentes = new Set<string>();
+    for (const r of rows) {
+      if (r.laudo_arquivo_nome) existentes.add("f:" + r.laudo_arquivo_nome.toLowerCase());
+      const pn = (r.vehicles?.placa ?? r.placa ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      if (pn) existentes.add("pd:" + pn + "|" + r.created_at.slice(0, 10) + "|" + r.tipo);
+    }
+    for (const t of extItens) {
+      existentes.add("f:" + t.file.name.toLowerCase());
+      if (t.placaLida) existentes.add("pd:" + t.placaLida + "|" + t.data + "|" + t.tipo);
+    }
     const novos: ItemLote[] = [];
     for (const file of Array.from(files)) {
       let placa: string | null = null, tipo = "liberacao", data = hojeStr(), locatario = "", vehicleId = "";
@@ -79,18 +90,24 @@ export default function VistoriasPage() {
           if (veic) vehicleId = veic.id;
         }
       } catch { /* preenche manual */ }
-      novos.push({ file, placaLida: placa, vehicleId, tipo, data, locatario });
+      let duplicado = false, motivoDup = "";
+      if (existentes.has("f:" + file.name.toLowerCase())) { duplicado = true; motivoDup = "mesmo arquivo"; }
+      else if (placa && existentes.has("pd:" + placa + "|" + data + "|" + tipo)) { duplicado = true; motivoDup = "placa/data já anexada"; }
+      existentes.add("f:" + file.name.toLowerCase());
+      if (placa) existentes.add("pd:" + placa + "|" + data + "|" + tipo);
+      novos.push({ file, placaLida: placa, vehicleId, tipo, data, locatario, duplicado, motivoDup });
     }
     setExtItens((prev) => [...prev, ...novos]);
     setExtLendo(false);
-    const semVeic = novos.filter((n) => !n.vehicleId).length;
-    toast.success(`${novos.length} laudo(s) lido(s)${semVeic ? ` · ${semVeic} sem veículo vinculado` : ""}`);
+    const dups = novos.filter((n) => n.duplicado).length;
+    const semVeic = novos.filter((n) => !n.vehicleId && !n.duplicado).length;
+    toast.success(`${novos.length} laudo(s) lido(s)` + (dups ? ` · ${dups} já anexado(s)` : "") + (semVeic ? ` · ${semVeic} sem veículo` : ""));
   }
   const setItem = (i: number, patch: Partial<ItemLote>) => setExtItens((its) => its.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
 
   async function salvarLote() {
-    const validos = extItens.filter((t) => t.vehicleId);
-    if (validos.length === 0) { toast.error("Selecione o veículo de ao menos um laudo"); return; }
+    const validos = extItens.filter((t) => t.vehicleId && !t.duplicado);
+    if (validos.length === 0) { toast.error("Nenhum laudo novo para anexar (verifique veículo e duplicatas)"); return; }
     setExtSalvando(true);
     let ok = 0;
     for (const t of validos) {
@@ -416,10 +433,11 @@ export default function VistoriasPage() {
                   </thead>
                   <tbody>
                     {extItens.map((t, i) => (
-                      <tr key={i} className="border-b align-top">
+                      <tr key={i} className={cn("border-b align-top", t.duplicado && "bg-destructive/5")}>
                         <td className="p-2">
                           <div className="max-w-40 truncate text-xs">{t.file.name}</div>
                           {t.placaLida ? <span className="font-mono text-xs font-medium">{t.placaLida}</span> : <span className="text-xs text-warning">placa não lida</span>}
+                          {t.duplicado && <Badge variant="destructive" className="ml-1">já anexado ({t.motivoDup})</Badge>}
                         </td>
                         <td className="p-2">
                           <Select value={t.vehicleId} onValueChange={(v) => setItem(i, { vehicleId: v })}>
@@ -448,13 +466,13 @@ export default function VistoriasPage() {
               </div>
             )}
             {extItens.length > 0 && (
-              <p className="text-xs text-muted-foreground">{extItens.filter((t) => t.vehicleId).length} de {extItens.length} laudo(s) prontos para anexar. Ajuste o veículo onde a placa não foi reconhecida.</p>
+              <p className="text-xs text-muted-foreground">{extItens.filter((t) => t.vehicleId && !t.duplicado).length} de {extItens.length} laudo(s) prontos para anexar. Duplicados são ignorados; ajuste o veículo onde a placa não foi reconhecida.</p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setExtOpen(false); setExtItens([]); }}>Cancelar</Button>
-            <Button onClick={salvarLote} disabled={extItens.filter((t) => t.vehicleId).length === 0 || extSalvando || extLendo}>
-              {extSalvando ? <><Loader2 className="h-4 w-4 animate-spin" /> Anexando...</> : `Anexar ${extItens.filter((t) => t.vehicleId).length || ""} laudo(s)`}
+            <Button onClick={salvarLote} disabled={extItens.filter((t) => t.vehicleId && !t.duplicado).length === 0 || extSalvando || extLendo}>
+              {extSalvando ? <><Loader2 className="h-4 w-4 animate-spin" /> Anexando...</> : `Anexar ${extItens.filter((t) => t.vehicleId && !t.duplicado).length || ""} laudo(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>

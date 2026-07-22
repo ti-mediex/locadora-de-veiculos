@@ -324,6 +324,7 @@ export interface Vistoria {
   avarias: string | null;
   assinatura_path: string | null;
   laudo_externo_path: string | null;
+  laudo_arquivo_nome: string | null;
   gps_lat: number | null;
   gps_lng: number | null;
   status: "rascunho" | "concluida";

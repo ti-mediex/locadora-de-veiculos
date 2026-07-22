@@ -39,6 +39,7 @@ export function useCreateVistoriaExterna() {
       const insert: Record<string, unknown> = {
         vehicle_id: v.vehicle_id, placa: v.placa, tipo: v.tipo,
         locatario_nome: v.locatario_nome || null, status: "concluida", created_by: prof.user?.id ?? null,
+        laudo_arquivo_nome: v.file.name,
       };
       if (v.data) insert.created_at = `${v.data}T12:00:00`;
       const { data: ins, error } = await supabase.from("vistorias").insert(insert as never).select("id").single();
