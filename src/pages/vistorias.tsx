@@ -23,6 +23,7 @@ import {
   type FotoInput, type VistoriaDetalhe,
 } from "@/hooks/use-vistorias";
 import { gerarLaudoPdf } from "@/lib/laudo-pdf";
+import { useAppConfig, aplicarTemplate } from "@/hooks/use-app-config";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -397,6 +398,7 @@ export default function VistoriasPage() {
 
 function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { data: v, isLoading } = useVistoriaDetalhe(id ?? undefined);
+  const { data: config } = useAppConfig();
   const updateContato = useUpdateVistoriaContato();
   const [enviando, setEnviando] = useState<"whatsapp" | "email" | null>(null);
   const [contatoOpen, setContatoOpen] = useState<null | "whatsapp" | "email">(null);
@@ -439,18 +441,22 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
     if (!v) return;
     setEnviando(canal);
     try {
-      const titulo = `Laudo de vistoria (${tipoLabel(v.tipo)}) — ${v.vehicles?.placa ?? v.placa ?? ""}`;
+      const baseVars = {
+        nome: v.locatario_nome ?? "", placa: v.vehicles?.placa ?? v.placa ?? "",
+        tipo: tipoLabel(v.tipo), empresa: config?.empresa_nome ?? "VIP CARS",
+      };
       if (canal === "whatsapp") {
-        // WhatsApp: mensagem com o link do laudo (externo, ou HTML gerado no Storage).
+        // WhatsApp: mensagem (template) com o link do laudo (externo, ou HTML no Storage).
         const link = v.laudo_externo_url ?? await gerarLinkLaudo(v, (fotos, assinatura) =>
           buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
-        const msg = `Olá${v.locatario_nome ? ` ${v.locatario_nome}` : ""}! Segue o laudo da vistoria do veículo ${v.vehicles?.placa ?? v.placa ?? ""} (${tipoLabel(v.tipo)}).\n\nLaudo: ${link}\n\nVIP CARS`;
+        const msg = aplicarTemplate(config?.laudo_whatsapp_msg ?? "", { ...baseVars, link: link ?? "" });
         const tel = telLimpo(telefone ?? v.locatario_telefone ?? "");
         const num = tel.length <= 11 ? `55${tel}` : tel;
         window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
       } else {
         // E-mail: envia o PDF anexado (o externo, ou um gerado a partir das fotos).
         const dest = email ?? v.locatario_email ?? "";
+        const titulo = aplicarTemplate(config?.laudo_email_assunto ?? "", { ...baseVars, link: "" });
         let base64: string;
         if (v.laudo_externo_url) {
           const blob = await (await fetch(v.laudo_externo_url)).blob();
@@ -469,7 +475,7 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
         const { data, error } = await supabase.functions.invoke("enviar-laudo-email", {
           body: {
             to: dest, subject: titulo, filename: `${nomeArquivoLaudo(v)}.pdf`, pdfBase64: base64,
-            html: `<p>Olá${v.locatario_nome ? ` ${v.locatario_nome}` : ""},</p><p>Segue em anexo o laudo da vistoria do veículo <strong>${v.vehicles?.placa ?? v.placa ?? ""}</strong> (${tipoLabel(v.tipo)}).</p><p>VIP CARS</p>`,
+            html: `<div style="font-family:Arial;font-size:14px;color:#111;white-space:pre-line">${aplicarTemplate(config?.laudo_email_corpo ?? "", { ...baseVars, link: "" })}</div>`,
           },
         });
         let erroMsg = error?.message;

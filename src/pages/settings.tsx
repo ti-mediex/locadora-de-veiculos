@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Users, ShieldCheck, Info, Plus, Trash2, KeyRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, ShieldCheck, Info, Plus, Trash2, KeyRound, MessageSquare } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Field } from "@/components/shared/field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useAppConfig, useUpdateAppConfig, CONFIG_DEFAULTS, type AppConfig } from "@/hooks/use-app-config";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,6 +40,12 @@ export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [papel, setPapel] = useState("operador");
+
+  // Mensagens configuráveis (envio de laudo)
+  const { data: config } = useAppConfig();
+  const updateConfig = useUpdateAppConfig();
+  const [msg, setMsg] = useState<AppConfig>(CONFIG_DEFAULTS);
+  useEffect(() => { if (config) setMsg(config); }, [config]);
 
   function criar() {
     createUser.mutate({ full_name: nome, email, password: senha, role: papel }, {
@@ -151,6 +159,38 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mensagens de envio do laudo */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Mensagens de envio do laudo</CardTitle>
+            <CardDescription>
+              Personalize o texto enviado ao locatário. Variáveis:{" "}
+              <code className="rounded bg-muted px-1">{"{nome}"}</code> <code className="rounded bg-muted px-1">{"{placa}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{tipo}"}</code> <code className="rounded bg-muted px-1">{"{link}"}</code>{" "}
+              <code className="rounded bg-muted px-1">{"{empresa}"}</code>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nome da empresa"><Input value={msg.empresa_nome ?? ""} onChange={(e) => setMsg((m) => ({ ...m, empresa_nome: e.target.value }))} /></Field>
+              <Field label="Assunto do e-mail"><Input value={msg.laudo_email_assunto ?? ""} onChange={(e) => setMsg((m) => ({ ...m, laudo_email_assunto: e.target.value }))} /></Field>
+            </div>
+            <Field label="Mensagem do WhatsApp">
+              <Textarea rows={4} value={msg.laudo_whatsapp_msg ?? ""} onChange={(e) => setMsg((m) => ({ ...m, laudo_whatsapp_msg: e.target.value }))} />
+            </Field>
+            <Field label="Corpo do e-mail">
+              <Textarea rows={4} value={msg.laudo_email_corpo ?? ""} onChange={(e) => setMsg((m) => ({ ...m, laudo_email_corpo: e.target.value }))} />
+            </Field>
+            <div className="flex justify-end">
+              <Button onClick={() => updateConfig.mutate(msg)} disabled={updateConfig.isPending}>
+                {updateConfig.isPending ? "Salvando..." : "Salvar mensagens"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Novo usuário */}
       <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
