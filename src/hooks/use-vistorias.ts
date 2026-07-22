@@ -183,14 +183,11 @@ export async function urlToDataUrl(url: string | null): Promise<string | null> {
   } catch { return null; }
 }
 
-/** Gera o HTML autocontido do laudo (imagens embutidas), guarda no Storage e
- *  devolve um link assinado de longa duração para compartilhar. */
-export async function gerarLinkLaudo(v: VistoriaDetalhe, htmlBuilder: (fotos: { parte: string; avaria: boolean; observacao: string | null; dataUrl: string | null }[], assinatura: string | null) => string): Promise<string | null> {
-  const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, dataUrl: await urlToDataUrl(f.url) })));
-  const assinatura = await urlToDataUrl(v.assinatura_url);
-  const html = htmlBuilder(fotos, assinatura);
-  const path = `${v.id}/laudo.html`;
-  const up = await supabase.storage.from(BUCKET_V).upload(path, new Blob([html], { type: "text/html" }), { contentType: "text/html", upsert: true });
+/** Guarda o PDF do laudo no Storage e devolve um link assinado de 7 dias.
+ *  PDF é aberto nativamente pelo WhatsApp e navegador (ao contrário do HTML). */
+export async function salvarLaudoPdfLink(vistoriaId: string, pdfBlob: Blob): Promise<string | null> {
+  const path = `${vistoriaId}/laudo.pdf`;
+  const up = await supabase.storage.from(BUCKET_V).upload(path, pdfBlob, { contentType: "application/pdf", upsert: true });
   if (up.error) throw up.error;
   const { data, error } = await supabase.storage.from(BUCKET_V).createSignedUrl(path, 604800); // 7 dias
   if (error) throw error;

@@ -19,11 +19,13 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { AssinaturaCanvas } from "@/components/vistorias/assinatura-canvas";
 import {
   useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria, useCreateVistoriaExterna,
-  useUpdateVistoriaContato, gerarLinkLaudo, nomeArquivoLaudo, urlToDataUrl,
+  useUpdateVistoriaContato, salvarLaudoPdfLink, nomeArquivoLaudo, urlToDataUrl,
   type FotoInput, type VistoriaDetalhe,
 } from "@/hooks/use-vistorias";
 import { gerarLaudoPdf } from "@/lib/laudo-pdf";
 import { VIPCAR_LOGO } from "@/lib/laudo-logo";
+import { extrairTextoPdf } from "@/lib/pdf-text";
+import { parseLaudoVex } from "@/lib/laudo-vex-parse";
 import { useAppConfig, aplicarTemplate } from "@/hooks/use-app-config";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,25 @@ export default function VistoriasPage() {
   const [extData, setExtData] = useState(new Date().toISOString().slice(0, 10));
   const [extLoc, setExtLoc] = useState("");
   const [extFile, setExtFile] = useState<File | null>(null);
+  const [extLendo, setExtLendo] = useState(false);
+  // Ao selecionar o PDF, lê a placa e demais dados do laudo (Vex) e pré-preenche.
+  async function onExtFile(file: File | null) {
+    setExtFile(file);
+    if (!file) return;
+    setExtLendo(true);
+    try {
+      const texto = await extrairTextoPdf(file);
+      const p = parseLaudoVex(texto);
+      if (p.placa) {
+        const veic = vehicles.find((v) => v.placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === p.placa);
+        if (veic) { setExtVeic(veic.id); toast.success(`Placa ${p.placa} reconhecida — veículo vinculado`); }
+        else toast.warning(`Placa ${p.placa} lida, mas não há veículo cadastrado com ela`);
+      }
+      if (p.tipo) setExtTipo(p.tipo);
+      if (p.data) setExtData(p.data);
+      if (p.locatario) setExtLoc(p.locatario);
+    } catch { /* mantém preenchimento manual */ } finally { setExtLendo(false); }
+  }
   function salvarExterna() {
     if (!extFile) return;
     const placa = vehicles.find((v) => v.id === extVeic)?.placa ?? null;
@@ -378,9 +399,9 @@ export default function VistoriasPage() {
               <Field label="Locatário (opcional)"><Input value={extLoc} onChange={(e) => setExtLoc(e.target.value)} /></Field>
             </div>
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground hover:bg-accent">
-              <Upload className="h-5 w-5" />
-              <span>{extFile ? extFile.name : "Selecionar laudo em PDF"}</span>
-              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setExtFile(e.target.files?.[0] ?? null)} />
+              {extLendo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+              <span>{extLendo ? "Lendo o PDF..." : extFile ? extFile.name : "Selecionar laudo em PDF (a placa é lida automaticamente)"}</span>
+              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => onExtFile(e.target.files?.[0] ?? null)} />
             </label>
           </div>
           <DialogFooter>
@@ -489,37 +510,36 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
         nome: v.locatario_nome ?? "", placa: v.vehicles?.placa ?? v.placa ?? "",
         tipo: tipoLabel(v.tipo), empresa: config?.empresa_nome ?? "VIP CARS",
       };
-      const gerarLink = async () => v.laudo_externo_url ?? await gerarLinkLaudo(v, (fotos, assinatura) =>
-        buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
+      // Gera o PDF do laudo (o externo, ou um a partir das fotos) uma única vez.
+      let base64: string, blob: Blob;
+      if (v.laudo_externo_url) {
+        blob = await (await fetch(v.laudo_externo_url)).blob();
+        base64 = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res((r.result as string).split(",")[1]); r.readAsDataURL(blob); });
+      } else {
+        const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao ?? "", dataUrl: await urlToDataUrl(f.url) })));
+        const assinatura = await urlToDataUrl(v.assinatura_url);
+        const pdf = await gerarLaudoPdf({
+          tipoLabel: tipoLabel(v.tipo), placa: v.vehicles?.placa ?? v.placa ?? "—", modelo: v.vehicles?.modelo ?? "",
+          km: String(v.km ?? "—"), combustivel: v.combustivel ?? "—", locatario: v.locatario_nome ?? "—",
+          documento: v.locatario_documento ? `(${v.locatario_documento})` : "", vistoriador: v.vistoriador ?? "—",
+          data: new Date(v.created_at).toLocaleString("pt-BR"), avarias: v.avarias ?? "",
+          fotos, checklist: (v.checklist ?? []).map((c) => ({ item: c.item, situacao: c.situacao, observacao: c.observacao })), assinatura,
+        });
+        base64 = pdf.base64; blob = pdf.blob;
+      }
+      // Link do PDF (aberto nativamente no WhatsApp/navegador).
+      const link = v.laudo_externo_url ?? await salvarLaudoPdfLink(v.id, blob);
 
       if (canal === "whatsapp") {
-        const link = await gerarLink();
         const msg = aplicarTemplate(config?.laudo_whatsapp_msg ?? "", { ...baseVars, link: link ?? "" });
         const tel = telLimpo(telefone ?? v.locatario_telefone ?? "");
         const num = tel.length <= 11 ? `55${tel}` : tel;
         const url = `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
         if (win) win.location.href = url; else window.location.href = url;
       } else {
-        // E-mail: gera o PDF e envia automaticamente (Resend); se o servidor não
-        // estiver configurado, abre o app de e-mail com o link (fallback).
         const dest = email ?? v.locatario_email ?? "";
-        const titulo = aplicarTemplate(config?.laudo_email_assunto ?? "", { ...baseVars, link: "" });
-        const corpo = aplicarTemplate(config?.laudo_email_corpo ?? "", { ...baseVars, link: "" });
-        let base64: string;
-        if (v.laudo_externo_url) {
-          const blob = await (await fetch(v.laudo_externo_url)).blob();
-          base64 = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res((r.result as string).split(",")[1]); r.readAsDataURL(blob); });
-        } else {
-          const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao ?? "", dataUrl: await urlToDataUrl(f.url) })));
-          const assinatura = await urlToDataUrl(v.assinatura_url);
-          base64 = (await gerarLaudoPdf({
-            tipoLabel: tipoLabel(v.tipo), placa: v.vehicles?.placa ?? v.placa ?? "—", modelo: v.vehicles?.modelo ?? "",
-            km: String(v.km ?? "—"), combustivel: v.combustivel ?? "—", locatario: v.locatario_nome ?? "—",
-            documento: v.locatario_documento ? `(${v.locatario_documento})` : "", vistoriador: v.vistoriador ?? "—",
-            data: new Date(v.created_at).toLocaleString("pt-BR"), avarias: v.avarias ?? "",
-            fotos, checklist: (v.checklist ?? []).map((c) => ({ item: c.item, situacao: c.situacao, observacao: c.observacao })), assinatura,
-          })).base64;
-        }
+        const titulo = aplicarTemplate(config?.laudo_email_assunto ?? "", { ...baseVars, link: link ?? "" });
+        const corpo = aplicarTemplate(config?.laudo_email_corpo ?? "", { ...baseVars, link: link ?? "" });
         const { data, error } = await supabase.functions.invoke("enviar-laudo-email", {
           body: {
             to: dest, subject: titulo, filename: `${nomeArquivoLaudo(v)}.pdf`, pdfBase64: base64,
@@ -529,8 +549,6 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
         let erroMsg = error?.message;
         try { const ctx = (error as { context?: Response })?.context; const j = ctx && "json" in ctx ? await ctx.json() : null; if (j?.error) erroMsg = j.error; } catch { /* */ }
         if (error || data?.error) {
-          // Fallback: abre o app de e-mail com o link do laudo.
-          const link = await gerarLink();
           const body = `${corpo}\n\nLaudo: ${link ?? ""}`;
           const murl = `mailto:${encodeURIComponent(dest)}?subject=${encodeURIComponent(titulo)}&body=${encodeURIComponent(body)}`;
           if (win) win.location.href = murl; else window.location.href = murl;
