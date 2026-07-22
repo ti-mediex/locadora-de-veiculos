@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail, Upload, FileUp,
+  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail, Upload, FileUp, Pencil,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { AssinaturaCanvas } from "@/components/vistorias/assinatura-canvas";
+import { EditorFoto } from "@/components/vistorias/editor-foto";
+import { carimbarFoto } from "@/lib/foto-carimbo";
 import {
   useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria, useCreateVistoriaExterna,
   useUpdateVistoriaContato, salvarLaudoPdfLink, nomeArquivoLaudo, urlToDataUrl,
@@ -140,6 +142,18 @@ export default function VistoriasPage() {
   const [fotos, setFotos] = useState<FotoInput[]>(emptyFotos());
   const [assinatura, setAssinatura] = useState<string | null>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [editorIdx, setEditorIdx] = useState<number | null>(null);
+  const [carimbando, setCarimbando] = useState<number | null>(null);
+
+  // Ao capturar a foto, grava o local (parte) + data/hora na imagem.
+  async function onFotoSelecionada(i: number, raw: File | null) {
+    if (!raw) { setFoto(i, { file: null }); return; }
+    setCarimbando(i);
+    try {
+      const carimbada = await carimbarFoto(raw, fotos[i].parte);
+      setFoto(i, { file: carimbada });
+    } finally { setCarimbando(null); }
+  }
 
   function abrirNova() {
     setVehicleId(""); setTipo("liberacao"); setLocNome(""); setLocDoc(""); setLocTel(""); setLocEmail(""); setVistoriador("");
@@ -335,24 +349,31 @@ export default function VistoriasPage() {
                   <div key={f.parte} className="rounded-lg border p-2">
                     <div className="mb-1 text-xs font-medium">{f.parte}</div>
                     <label className="flex cursor-pointer items-center justify-center gap-2 rounded border border-dashed py-2 text-xs text-muted-foreground hover:bg-accent">
-                      {f.file ? (
+                      {carimbando === i ? (
+                        <div className="flex h-20 w-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                      ) : f.file ? (
                         <img src={URL.createObjectURL(f.file)} alt={f.parte} className="h-20 w-full rounded object-cover" />
                       ) : (
                         <><Camera className="h-4 w-4" /> Tirar / escolher foto</>
                       )}
                       <input type="file" accept="image/*" capture="environment" className="hidden"
-                        onChange={(e) => setFoto(i, { file: e.target.files?.[0] ?? null })} />
+                        onChange={(e) => onFotoSelecionada(i, e.target.files?.[0] ?? null)} />
                     </label>
                     {f.file && (
-                      <div className="mt-1 flex items-center justify-between gap-2 text-xs">
-                        <label className="flex items-center gap-1">
-                          <input type="checkbox" checked={f.avaria} onChange={(e) => setFoto(i, { avaria: e.target.checked })} /> Avaria
-                        </label>
-                        <button type="button" onClick={() => setFoto(i, { file: null, avaria: false })}><X className="h-3.5 w-3.5 text-destructive" /></button>
-                      </div>
-                    )}
-                    {f.file && f.avaria && (
-                      <Input className="mt-1 h-8 text-xs" placeholder="Descrição da avaria" value={f.observacao} onChange={(e) => setFoto(i, { observacao: e.target.value })} />
+                      <>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+                          <label className="flex items-center gap-1">
+                            <input type="checkbox" checked={f.avaria} onChange={(e) => setFoto(i, { avaria: e.target.checked })} /> Avaria
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <button type="button" className="inline-flex items-center gap-1 text-primary" onClick={() => setEditorIdx(i)}><Pencil className="h-3.5 w-3.5" /> Marcar</button>
+                            <button type="button" onClick={() => setFoto(i, { file: null, avaria: false })}><X className="h-3.5 w-3.5 text-destructive" /></button>
+                          </div>
+                        </div>
+                        {f.avaria && (
+                          <Input className="mt-1 h-8 text-xs" placeholder="Descrição da avaria" value={f.observacao} onChange={(e) => setFoto(i, { observacao: e.target.value })} />
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
@@ -477,6 +498,13 @@ export default function VistoriasPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditorFoto
+        file={editorIdx != null ? fotos[editorIdx].file : null}
+        parte={editorIdx != null ? fotos[editorIdx].parte : ""}
+        onClose={() => setEditorIdx(null)}
+        onSave={(novo) => { if (editorIdx != null) setFoto(editorIdx, { file: novo, avaria: true }); }}
+      />
 
       <VerVistoriaDialog id={viewId} onClose={() => setViewId(null)} />
     </div>
