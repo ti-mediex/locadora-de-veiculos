@@ -36,7 +36,7 @@ export type MaintenanceStage =
   | "cancelada";
 export type FineStatus = "lancada" | "repassada" | "paga" | "recorrida" | "cancelada";
 export type ExpenseStatus = "pendente" | "pago" | "cancelado";
-export type AppRole = "admin" | "financeiro" | "operador";
+export type AppRole = "admin" | "financeiro" | "operador" | "vistoriador";
 
 export type OccurrenceType =
   | "manutencao"

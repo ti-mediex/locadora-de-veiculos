@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { Menu, LogOut } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,11 @@ import { useAuth } from "@/contexts/auth-context";
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { profile, user, signOut } = useAuth();
+  const location = useLocation();
+  // Vistoriador tem acesso apenas ao módulo de Vistorias.
+  if (profile?.role === "vistoriador" && !location.pathname.startsWith("/vistorias")) {
+    return <Navigate to="/vistorias" replace />;
+  }
   const name = profile?.full_name ?? user?.email ?? "Usuário";
   const initials = name
     .split(" ")

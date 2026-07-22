@@ -1,62 +1,67 @@
-import { Users, ShieldCheck, Info } from "lucide-react";
+import { useState } from "react";
+import { Users, ShieldCheck, Info, Plus, Trash2, KeyRound } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Field } from "@/components/shared/field";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useList, useUpdate } from "@/hooks/use-crud";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useList } from "@/hooks/use-crud";
+import { useCreateUser, useUpdateUser, useDeleteUser, useResetPassword } from "@/hooks/use-admin-users";
 import { useAuth } from "@/contexts/auth-context";
 import { formatDate } from "@/lib/format";
 import type { Profile } from "@/types/database";
 
 const ROLES = [
-  { value: "admin", label: "Administrador" },
-  { value: "financeiro", label: "Financeiro" },
-  { value: "operador", label: "Operador" },
+  { value: "admin", label: "Administrador", desc: "Acesso total, incluindo gestão de usuários." },
+  { value: "financeiro", label: "Financeiro", desc: "Receitas, despesas, pendências e relatórios." },
+  { value: "operador", label: "Operador", desc: "Cadastros de veículos, pendências e vistorias." },
+  { value: "vistoriador", label: "Vistoriador", desc: "Acesso apenas ao módulo de Vistorias." },
 ];
+const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const { data: profiles = [], isLoading } = useList<Profile>("profiles", {
-    orderBy: { column: "created_at", ascending: true },
-  });
-  const update = useUpdate<Profile>("profiles", "Usuário");
+  const { data: profiles = [], isLoading } = useList<Profile>("profiles", { orderBy: { column: "created_at", ascending: true } });
+  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+  const deleteUser = useDeleteUser();
+  const resetPass = useResetPassword();
   const isAdmin = profile?.role === "admin";
+
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [papel, setPapel] = useState("operador");
+
+  function criar() {
+    createUser.mutate({ full_name: nome, email, password: senha, role: papel }, {
+      onSuccess: () => { setNovoOpen(false); setNome(""); setEmail(""); setSenha(""); setPapel("operador"); },
+    });
+  }
+  function redefinirSenha(p: Profile) {
+    const nova = prompt(`Nova senha para ${p.email} (mín. 6 caracteres):`);
+    if (nova && nova.length >= 6) resetPass.mutate({ id: p.id, password: nova });
+    else if (nova) alert("Senha muito curta.");
+  }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Configurações" description="Usuários, permissões e parâmetros do sistema" />
+      <PageHeader
+        title="Configurações"
+        description="Usuários, permissões e parâmetros do sistema"
+        actions={isAdmin && <Button onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4" /> Novo usuário</Button>}
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" /> Usuários
-          </CardTitle>
-          <CardDescription>
-            {isAdmin
-              ? "Gerencie os papéis de acesso dos usuários do sistema"
-              : "Apenas administradores podem alterar papéis"}
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Usuários</CardTitle>
+          <CardDescription>{isAdmin ? "Crie, edite papéis, redefina senhas e exclua usuários" : "Apenas administradores podem gerenciar usuários"}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -72,6 +77,7 @@ export default function SettingsPage() {
                   <TableHead>Papel</TableHead>
                   <TableHead>Cadastrado em</TableHead>
                   <TableHead>Status</TableHead>
+                  {isAdmin && <TableHead className="w-24"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -81,33 +87,36 @@ export default function SettingsPage() {
                     <TableCell>{p.email}</TableCell>
                     <TableCell>
                       {isAdmin ? (
-                        <Select
-                          value={p.role}
-                          onValueChange={(v) => update.mutate({ id: p.id, role: v as Profile["role"] })}
-                        >
+                        <Select value={p.role} onValueChange={(v) => updateUser.mutate({ id: p.id, role: v })}>
                           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {ROLES.map((r) => (
-                              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                            ))}
+                            {ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge variant="secondary">{p.role}</Badge>
+                        <Badge variant="secondary">{roleLabel(p.role)}</Badge>
                       )}
                     </TableCell>
                     <TableCell>{formatDate(p.created_at)}</TableCell>
                     <TableCell>
                       {isAdmin ? (
-                        <button onClick={() => update.mutate({ id: p.id, active: !p.active })}>
+                        <button onClick={() => updateUser.mutate({ id: p.id, active: !p.active })}>
                           {p.active ? <Badge variant="success">Ativo</Badge> : <Badge variant="muted">Inativo</Badge>}
                         </button>
-                      ) : p.active ? (
-                        <Badge variant="success">Ativo</Badge>
-                      ) : (
-                        <Badge variant="muted">Inativo</Badge>
-                      )}
+                      ) : p.active ? <Badge variant="success">Ativo</Badge> : <Badge variant="muted">Inativo</Badge>}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" title="Redefinir senha" onClick={() => redefinirSenha(p)}><KeyRound className="h-4 w-4" /></Button>
+                          {p.id !== profile?.id && (
+                            <Button variant="ghost" size="icon" title="Excluir" onClick={() => confirm(`Excluir o usuário ${p.email}?`) && deleteUser.mutate(p.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -119,40 +128,56 @@ export default function SettingsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5" /> Papéis de acesso
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Papéis de acesso</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex gap-3">
-              <Badge>Administrador</Badge>
-              <span className="text-muted-foreground">Acesso total, incluindo gestão de usuários.</span>
-            </div>
-            <div className="flex gap-3">
-              <Badge variant="secondary">Financeiro</Badge>
-              <span className="text-muted-foreground">Cobranças, despesas, relatórios e contratos.</span>
-            </div>
-            <div className="flex gap-3">
-              <Badge variant="muted">Operador</Badge>
-              <span className="text-muted-foreground">Cadastros de veículos, locatários e manutenções.</span>
-            </div>
+            {ROLES.map((r) => (
+              <div key={r.value} className="flex gap-3">
+                <Badge variant={r.value === "admin" ? "default" : r.value === "vistoriador" ? "warning" : "secondary"} className="shrink-0">{r.label}</Badge>
+                <span className="text-muted-foreground">{r.desc}</span>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" /> Sobre o sistema
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2"><Info className="h-5 w-5" /> Sobre o sistema</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p><strong className="text-foreground">VIP CARS</strong> · v1.0</p>
-            <p>Gestão financeira de frota para locação de veículos a motoristas de aplicativo.</p>
-            <p>Ciclo de cobrança padrão: <strong className="text-foreground">semanal</strong>.</p>
+            <p><strong className="text-foreground">VIP CARS</strong> · v2.1</p>
+            <p>Gestão de frota para locação: financeiro, pendências, vistorias e relatórios.</p>
             <p>Backend: Supabase (PostgreSQL, Auth, Storage). Frontend: React + Vite.</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Novo usuário */}
+      <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Novo usuário</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Field label="Nome completo"><Input value={nome} onChange={(e) => setNome(e.target.value)} /></Field>
+            <Field label="E-mail"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario@empresa.com" /></Field>
+            <Field label="Senha inicial"><Input type="text" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6 caracteres" /></Field>
+            <Field label="Papel">
+              <Select value={papel} onValueChange={setPapel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <p className="text-xs text-muted-foreground">{ROLES.find((r) => r.value === papel)?.desc}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNovoOpen(false)}>Cancelar</Button>
+            <Button onClick={criar} disabled={!email || senha.length < 6 || createUser.isPending}>
+              {createUser.isPending ? "Criando..." : "Criar usuário"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
