@@ -94,7 +94,7 @@ export function Sidebar({
           ))}
         </nav>
         <div className="border-t p-4 text-xs text-muted-foreground">
-          VIP CARS · v2.0
+          VIP CARS · v2.1
         </div>
       </aside>
     </>
