@@ -20,16 +20,23 @@ export interface LaudoPdfData {
 /** Gera o PDF e devolve o conteúdo em base64 (para anexo) e um Blob. */
 export async function gerarLaudoPdf(d: LaudoPdfData): Promise<{ base64: string; blob: Blob }> {
   const { jsPDF } = await import("jspdf");
+  const { VIPCAR_LOGO } = await import("./laudo-logo");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = 210, M = 12, BOTTOM = 285;
   let y = M;
 
+  // Cabeçalho: logo + título
+  try { doc.addImage(VIPCAR_LOGO, "PNG", M, y, 18, 18); } catch { /* ignora */ }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text("VIP CARS — Laudo de Vistoria", M, y);
-  y += 6;
+  doc.text("VIP CARS — Laudo de Vistoria", M + 22, y + 7);
   doc.setFontSize(11);
-  doc.text(d.tipoLabel, M, y);
+  doc.setTextColor(90);
+  doc.text(d.tipoLabel, M + 22, y + 13);
+  doc.setTextColor(20);
+  y += 21;
+  doc.setFillColor(201, 201, 201);
+  doc.rect(M, y, W - 2 * M, 2, "F");
   y += 7;
 
   doc.setFont("helvetica", "normal");
@@ -55,16 +62,18 @@ export async function gerarLaudoPdf(d: LaudoPdfData): Promise<{ base64: string; 
   const fw = (W - 2 * M - gap * (cols - 1)) / cols;
   const fh = fw * 0.72;
   let col = 0;
-  for (const f of d.fotos) {
-    if (!f.dataUrl) continue;
+  const comFoto = d.fotos.filter((f) => f.dataUrl);
+  comFoto.forEach((f, idx) => {
     if (y + fh + 8 > BOTTOM) { doc.addPage(); y = M; col = 0; }
     const x = M + col * (fw + gap);
-    try { doc.addImage(f.dataUrl, "JPEG", x, y, fw, fh); } catch { /* imagem inválida */ }
+    try { doc.addImage(f.dataUrl!, "JPEG", x, y, fw, fh); } catch { /* imagem inválida */ }
     doc.setFontSize(7);
-    doc.text(`${f.parte}${f.avaria ? " (avaria)" : ""}`, x, y + fh + 3, { maxWidth: fw });
+    doc.setTextColor(f.avaria ? 220 : 60, f.avaria ? 40 : 60, f.avaria ? 40 : 60);
+    doc.text(`${idx + 1}/${comFoto.length} - ${f.parte}${f.avaria ? " (AVARIA)" : ""}`, x, y + fh + 3, { maxWidth: fw });
+    doc.setTextColor(20);
     col++;
     if (col >= cols) { col = 0; y += fh + 8; }
-  }
+  });
   if (col > 0) { y += fh + 8; }
 
   // Checklist

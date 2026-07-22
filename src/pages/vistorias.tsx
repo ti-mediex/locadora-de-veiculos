@@ -23,6 +23,7 @@ import {
   type FotoInput, type VistoriaDetalhe,
 } from "@/hooks/use-vistorias";
 import { gerarLaudoPdf } from "@/lib/laudo-pdf";
+import { VIPCAR_LOGO } from "@/lib/laudo-logo";
 import { useAppConfig, aplicarTemplate } from "@/hooks/use-app-config";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -405,23 +406,63 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
   const [cTel, setCTel] = useState("");
   const [cEmail, setCEmail] = useState("");
 
-  // Monta o HTML do laudo; recebe as fotos com o src já resolvido (url ou dataURL).
+  // Monta o HTML do laudo no padrão VIP CARS (inspirado no laudo Vex).
   function buildHtml(vv: VistoriaDetalhe, fotos: { parte: string; avaria: boolean; observacao: string | null; src: string | null }[], assinatura: string | null) {
-    const fotosHtml = fotos.map((f) => `<div class="foto"><div class="cap">${f.parte}${f.avaria ? " — AVARIA" : ""}${f.observacao ? `: ${f.observacao}` : ""}</div>${f.src ? `<img src="${f.src}">` : ""}</div>`).join("");
-    const chk = (vv.checklist ?? []).map((c) => `<tr><td>${c.item}${c.situacao === "avaria" && c.observacao ? ` — ${c.observacao}` : ""}</td><td>${c.situacao.toUpperCase()}</td></tr>`).join("");
+    const empresa = config?.empresa_nome ?? "VIP CARS";
+    const esc = (s: string | null | undefined) => (s ?? "").replace(/[<>&]/g, (m) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[m] as string));
+    const campo = (label: string, valor: string) => `<div class="fld"><div class="lbl">${label}</div><div class="val">${valor || "—"}</div></div>`;
+    const fotosHtml = fotos.map((f, i) => `<figure class="foto"><figcaption class="fcap-top">${i + 1}/${fotos.length} - ${esc(f.parte).toUpperCase()}${f.avaria ? ' <span class="av">AVARIA</span>' : ""}</figcaption>${f.src ? `<img src="${f.src}" alt="${esc(f.parte)}">` : '<div class="semfoto">sem foto</div>'}<figcaption class="fcap-bot">${esc(f.parte)}${f.avaria && f.observacao ? ` — ${esc(f.observacao)}` : ""}</figcaption></figure>`).join("");
+    const chk = (vv.checklist ?? []).map((c) => {
+      const cor = c.situacao === "ok" ? "#16a34a" : c.situacao === "avaria" ? "#dc2626" : "#6b7280";
+      const txt = c.situacao === "ok" ? "OK" : c.situacao === "avaria" ? "AVARIA" : "N/A";
+      return `<tr><td>${esc(c.item)}${c.situacao === "avaria" && c.observacao ? ` <span class="obs">(${esc(c.observacao)})</span>` : ""}</td><td style="text-align:right"><span class="pill" style="background:${cor}">${txt}</span></td></tr>`;
+    }).join("");
+    const header = `<div class="hd"><img class="logo" src="${VIPCAR_LOGO}"><div class="hd-r"><div>${empresa} — Laudo de Vistoria</div><div class="hd-tag">${esc(vv.vehicles?.placa ?? vv.placa ?? "")} · ${new Date(vv.created_at).toLocaleDateString("pt-BR")}</div></div></div><div class="bar"></div>`;
+    const footer = `<div class="ft">${empresa} — Laudo de vistoria gerado pelo sistema · ${new Date().toLocaleString("pt-BR")}</div>`;
     return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivoLaudo(vv)}</title>
-      <style>body{font-family:Arial;margin:24px;color:#111} h1{font-size:18px} .meta{font-size:12px;color:#555;margin-bottom:12px}
-      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .foto img{width:100%;height:150px;object-fit:cover;border:1px solid #ddd;border-radius:6px}
-      .cap{font-size:10px;margin:4px 0} table{border-collapse:collapse;width:60%;font-size:12px;margin-top:10px} td{border:1px solid #ddd;padding:4px 8px}
-      .sig{margin-top:12px} .sig img{border:1px solid #ddd;max-width:320px}</style></head><body>
-      <h1>VIP CARS — Laudo de Vistoria (${tipoLabel(vv.tipo)})</h1>
-      <div class="meta">Veículo: ${vv.vehicles?.placa ?? vv.placa ?? "—"} ${vv.vehicles?.modelo ?? ""} · KM: ${vv.km ?? "—"} · Combustível: ${vv.combustivel ?? "—"}<br>
-      Locatário: ${vv.locatario_nome ?? "—"} ${vv.locatario_documento ? `(${vv.locatario_documento})` : ""} · Vistoriador: ${vv.vistoriador ?? "—"}<br>
-      Data: ${new Date(vv.created_at).toLocaleString("pt-BR")}</div>
-      ${vv.avarias ? `<p><strong>Avarias:</strong> ${vv.avarias}</p>` : ""}
-      <div class="grid">${fotosHtml}</div>
-      <table>${chk}</table>
-      ${assinatura ? `<div class="sig"><div class="cap">Assinatura do locatário</div><img src="${assinatura}"></div>` : ""}
+      <style>
+      *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:28px;color:#1a1a1a}
+      .hd{display:flex;align-items:center;justify-content:space-between} .logo{height:60px;border-radius:8px}
+      .hd-r{text-align:right;font-size:13px;font-weight:bold;color:#333} .hd-tag{font-weight:normal;color:#666;font-size:12px;margin-top:2px}
+      .bar{height:8px;background:#c9c9c9;border-radius:4px;margin:10px 0 18px}
+      h2{font-size:17px;font-weight:600;margin:18px 0 10px}
+      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 14px;border-top:1px solid #eee;padding-top:10px}
+      .fld .lbl{font-size:10px;font-weight:bold;color:#333;text-transform:none} .fld .val{font-size:12px;color:#111;margin-top:1px}
+      .obsbox{margin-top:10px;font-size:12px;background:#fff5f5;border:1px solid #fdd;border-radius:6px;padding:8px}
+      .leg{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:#444;margin-bottom:10px}
+      .legdot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+      .fotos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+      .foto{border:1px solid #ddd;border-radius:6px;overflow:hidden;margin:0}
+      .foto img{width:100%;height:200px;object-fit:cover;display:block} .semfoto{height:200px;display:flex;align-items:center;justify-content:center;color:#aaa;background:#fafafa}
+      .fcap-top{background:#333;color:#fff;font-size:10px;padding:3px 6px} .fcap-top .av{background:#dc2626;padding:0 4px;border-radius:3px;margin-left:4px}
+      .fcap-bot{font-size:11px;color:#444;padding:4px 6px}
+      table{border-collapse:collapse;width:100%;font-size:12px;margin-top:6px} td{border:1px solid #e5e5e5;padding:5px 8px}
+      .pill{color:#fff;font-size:10px;font-weight:bold;padding:2px 8px;border-radius:10px} .obs{color:#dc2626;font-size:11px}
+      .sig{margin-top:16px} .sig img{border:1px solid #ddd;max-width:300px;background:#fff}
+      .ft{margin-top:24px;border-top:1px solid #eee;padding-top:8px;font-size:10px;color:#888;text-align:center}
+      @media print{body{padding:0}}
+      </style></head><body>
+      ${header}
+      <h2>Dados Principais</h2>
+      <div class="grid">
+        ${campo("Tipo / Operação", esc(tipoLabel(vv.tipo)))}
+        ${campo("Data / Hora", esc(new Date(vv.created_at).toLocaleString("pt-BR")))}
+        ${campo("Veículo", esc(`${vv.vehicles?.placa ?? vv.placa ?? ""} ${vv.vehicles?.modelo ?? ""}`))}
+        ${campo("KM / Odômetro", esc(String(vv.km ?? "")))}
+        ${campo("Combustível", esc(vv.combustivel ?? ""))}
+        ${campo("Vistoriador", esc(vv.vistoriador ?? ""))}
+        ${campo("Locatário", esc(vv.locatario_nome ?? ""))}
+        ${campo("Documento", esc(vv.locatario_documento ?? ""))}
+        ${campo("Telefone", esc(vv.locatario_telefone ?? ""))}
+        ${campo("E-mail", esc(vv.locatario_email ?? ""))}
+      </div>
+      ${vv.avarias ? `<div class="obsbox"><strong>Avarias / observações:</strong> ${esc(vv.avarias)}</div>` : ""}
+      ${fotos.length ? `<h2>Fotos da vistoria</h2>
+      <div class="leg"><span><span class="legdot" style="background:#16a34a"></span>OK</span><span><span class="legdot" style="background:#dc2626"></span>Avaria</span></div>
+      <div class="fotos">${fotosHtml}</div>` : ""}
+      ${chk ? `<h2>Checklist</h2><table>${chk}</table>` : ""}
+      ${assinatura ? `<div class="sig"><h2>Assinatura do locatário</h2><img src="${assinatura}"></div>` : ""}
+      ${footer}
       </body></html>`;
   }
 
@@ -439,51 +480,68 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
 
   async function enviar(canal: "whatsapp" | "email", telefone?: string, email?: string) {
     if (!v) return;
+    // Abre a aba/app IMEDIATAMENTE no clique, evitando o bloqueio de pop-up
+    // que ocorre quando window.open é chamado depois de um await.
+    const win = window.open("", "_blank");
     setEnviando(canal);
     try {
       const baseVars = {
         nome: v.locatario_nome ?? "", placa: v.vehicles?.placa ?? v.placa ?? "",
         tipo: tipoLabel(v.tipo), empresa: config?.empresa_nome ?? "VIP CARS",
       };
+      const gerarLink = async () => v.laudo_externo_url ?? await gerarLinkLaudo(v, (fotos, assinatura) =>
+        buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
+
       if (canal === "whatsapp") {
-        // WhatsApp: mensagem (template) com o link do laudo (externo, ou HTML no Storage).
-        const link = v.laudo_externo_url ?? await gerarLinkLaudo(v, (fotos, assinatura) =>
-          buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
+        const link = await gerarLink();
         const msg = aplicarTemplate(config?.laudo_whatsapp_msg ?? "", { ...baseVars, link: link ?? "" });
         const tel = telLimpo(telefone ?? v.locatario_telefone ?? "");
         const num = tel.length <= 11 ? `55${tel}` : tel;
-        window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+        const url = `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+        if (win) win.location.href = url; else window.location.href = url;
       } else {
-        // E-mail: envia o PDF anexado (o externo, ou um gerado a partir das fotos).
+        // E-mail: gera o PDF e envia automaticamente (Resend); se o servidor não
+        // estiver configurado, abre o app de e-mail com o link (fallback).
         const dest = email ?? v.locatario_email ?? "";
         const titulo = aplicarTemplate(config?.laudo_email_assunto ?? "", { ...baseVars, link: "" });
+        const corpo = aplicarTemplate(config?.laudo_email_corpo ?? "", { ...baseVars, link: "" });
         let base64: string;
         if (v.laudo_externo_url) {
           const blob = await (await fetch(v.laudo_externo_url)).blob();
           base64 = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res((r.result as string).split(",")[1]); r.readAsDataURL(blob); });
         } else {
-        const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao ?? "", dataUrl: await urlToDataUrl(f.url) })));
-        const assinatura = await urlToDataUrl(v.assinatura_url);
-        base64 = (await gerarLaudoPdf({
-          tipoLabel: tipoLabel(v.tipo), placa: v.vehicles?.placa ?? v.placa ?? "—", modelo: v.vehicles?.modelo ?? "",
-          km: String(v.km ?? "—"), combustivel: v.combustivel ?? "—", locatario: v.locatario_nome ?? "—",
-          documento: v.locatario_documento ? `(${v.locatario_documento})` : "", vistoriador: v.vistoriador ?? "—",
-          data: new Date(v.created_at).toLocaleString("pt-BR"), avarias: v.avarias ?? "",
-          fotos, checklist: (v.checklist ?? []).map((c) => ({ item: c.item, situacao: c.situacao })), assinatura,
-        })).base64;
+          const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao ?? "", dataUrl: await urlToDataUrl(f.url) })));
+          const assinatura = await urlToDataUrl(v.assinatura_url);
+          base64 = (await gerarLaudoPdf({
+            tipoLabel: tipoLabel(v.tipo), placa: v.vehicles?.placa ?? v.placa ?? "—", modelo: v.vehicles?.modelo ?? "",
+            km: String(v.km ?? "—"), combustivel: v.combustivel ?? "—", locatario: v.locatario_nome ?? "—",
+            documento: v.locatario_documento ? `(${v.locatario_documento})` : "", vistoriador: v.vistoriador ?? "—",
+            data: new Date(v.created_at).toLocaleString("pt-BR"), avarias: v.avarias ?? "",
+            fotos, checklist: (v.checklist ?? []).map((c) => ({ item: c.item, situacao: c.situacao, observacao: c.observacao })), assinatura,
+          })).base64;
         }
         const { data, error } = await supabase.functions.invoke("enviar-laudo-email", {
           body: {
             to: dest, subject: titulo, filename: `${nomeArquivoLaudo(v)}.pdf`, pdfBase64: base64,
-            html: `<div style="font-family:Arial;font-size:14px;color:#111;white-space:pre-line">${aplicarTemplate(config?.laudo_email_corpo ?? "", { ...baseVars, link: "" })}</div>`,
+            html: `<div style="font-family:Arial;font-size:14px;color:#111;white-space:pre-line">${corpo}</div>`,
           },
         });
         let erroMsg = error?.message;
         try { const ctx = (error as { context?: Response })?.context; const j = ctx && "json" in ctx ? await ctx.json() : null; if (j?.error) erroMsg = j.error; } catch { /* */ }
-        if (error || data?.error) throw new Error(erroMsg || data?.error);
-        toast.success(`Laudo enviado para ${dest}`);
+        if (error || data?.error) {
+          // Fallback: abre o app de e-mail com o link do laudo.
+          const link = await gerarLink();
+          const body = `${corpo}\n\nLaudo: ${link ?? ""}`;
+          const murl = `mailto:${encodeURIComponent(dest)}?subject=${encodeURIComponent(titulo)}&body=${encodeURIComponent(body)}`;
+          if (win) win.location.href = murl; else window.location.href = murl;
+          toast.info("Servidor de e-mail não configurado — abrindo seu app de e-mail com o link do laudo.");
+        } else {
+          if (win) win.close();
+          toast.success(`Laudo enviado para ${dest}`);
+        }
       }
     } catch (e) {
+      if (win) win.close();
       toast.error("Erro no envio: " + (e as Error).message);
     } finally {
       setEnviando(null);
