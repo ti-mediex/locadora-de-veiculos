@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X,
+  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -18,7 +18,9 @@ import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { AssinaturaCanvas } from "@/components/vistorias/assinatura-canvas";
 import {
-  useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria, type FotoInput,
+  useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria,
+  useUpdateVistoriaContato, gerarLinkLaudo, nomeArquivoLaudo,
+  type FotoInput, type VistoriaDetalhe,
 } from "@/hooks/use-vistorias";
 import { VISTORIA_TIPO, VISTORIA_COMBUSTIVEL, VISTORIA_PARTES, VISTORIA_CHECKLIST_ITENS } from "@/lib/options";
 import { formatDate } from "@/lib/format";
@@ -46,6 +48,8 @@ export default function VistoriasPage() {
   const [tipo, setTipo] = useState("liberacao");
   const [locNome, setLocNome] = useState("");
   const [locDoc, setLocDoc] = useState("");
+  const [locTel, setLocTel] = useState("");
+  const [locEmail, setLocEmail] = useState("");
   const [vistoriador, setVistoriador] = useState("");
   const [km, setKm] = useState("");
   const [combustivel, setCombustivel] = useState("1/2");
@@ -57,7 +61,7 @@ export default function VistoriasPage() {
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
 
   function abrirNova() {
-    setVehicleId(""); setTipo("liberacao"); setLocNome(""); setLocDoc(""); setVistoriador("");
+    setVehicleId(""); setTipo("liberacao"); setLocNome(""); setLocDoc(""); setLocTel(""); setLocEmail(""); setVistoriador("");
     setKm(""); setCombustivel("1/2"); setChecklist(emptyChecklist()); setObservacoes(""); setAvarias("");
     setFotos(emptyFotos()); setAssinatura(null); setGps(null);
     // GPS opcional
@@ -79,6 +83,7 @@ export default function VistoriasPage() {
     create.mutate(
       {
         vehicle_id: vehicleId || null, placa, tipo, locatario_nome: locNome, locatario_documento: locDoc,
+        locatario_telefone: locTel, locatario_email: locEmail,
         vistoriador, km, combustivel, checklist, observacoes, avarias, fotos, assinaturaDataUrl: assinatura, gps,
       },
       { onSuccess: () => setOpen(false) }
@@ -196,6 +201,8 @@ export default function VistoriasPage() {
               </Field>
               <Field label="Locatário / responsável"><Input value={locNome} onChange={(e) => setLocNome(e.target.value)} /></Field>
               <Field label="CPF/CNPJ"><Input value={locDoc} onChange={(e) => setLocDoc(e.target.value)} /></Field>
+              <Field label="WhatsApp / telefone"><Input type="tel" inputMode="tel" value={locTel} onChange={(e) => setLocTel(e.target.value)} placeholder="(81) 99999-9999" /></Field>
+              <Field label="E-mail"><Input type="email" value={locEmail} onChange={(e) => setLocEmail(e.target.value)} placeholder="locatario@email.com" /></Field>
               <Field label="Vistoriador"><Input value={vistoriador} onChange={(e) => setVistoriador(e.target.value)} /></Field>
               <Field label="KM atual"><Input type="number" inputMode="numeric" value={km} onChange={(e) => setKm(e.target.value)} /></Field>
               <Field label="Nível de combustível">
@@ -286,27 +293,79 @@ export default function VistoriasPage() {
 
 function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { data: v, isLoading } = useVistoriaDetalhe(id ?? undefined);
+  const updateContato = useUpdateVistoriaContato();
+  const [enviando, setEnviando] = useState<"whatsapp" | "email" | null>(null);
+  const [contatoOpen, setContatoOpen] = useState<null | "whatsapp" | "email">(null);
+  const [cTel, setCTel] = useState("");
+  const [cEmail, setCEmail] = useState("");
 
-  function laudo() {
-    if (!v) return;
-    const fotos = v.fotos.map((f) => `<div class="foto"><div class="cap">${f.parte}${f.avaria ? " — AVARIA" : ""}${f.observacao ? `: ${f.observacao}` : ""}</div>${f.url ? `<img src="${f.url}">` : ""}</div>`).join("");
-    const chk = (v.checklist ?? []).map((c) => `<tr><td>${c.item}</td><td>${c.situacao.toUpperCase()}</td></tr>`).join("");
-    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Laudo de vistoria</title>
+  // Monta o HTML do laudo; recebe as fotos com o src já resolvido (url ou dataURL).
+  function buildHtml(vv: VistoriaDetalhe, fotos: { parte: string; avaria: boolean; observacao: string | null; src: string | null }[], assinatura: string | null) {
+    const fotosHtml = fotos.map((f) => `<div class="foto"><div class="cap">${f.parte}${f.avaria ? " — AVARIA" : ""}${f.observacao ? `: ${f.observacao}` : ""}</div>${f.src ? `<img src="${f.src}">` : ""}</div>`).join("");
+    const chk = (vv.checklist ?? []).map((c) => `<tr><td>${c.item}</td><td>${c.situacao.toUpperCase()}</td></tr>`).join("");
+    return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivoLaudo(vv)}</title>
       <style>body{font-family:Arial;margin:24px;color:#111} h1{font-size:18px} .meta{font-size:12px;color:#555;margin-bottom:12px}
       .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .foto img{width:100%;height:150px;object-fit:cover;border:1px solid #ddd;border-radius:6px}
       .cap{font-size:10px;margin:4px 0} table{border-collapse:collapse;width:60%;font-size:12px;margin-top:10px} td{border:1px solid #ddd;padding:4px 8px}
       .sig{margin-top:12px} .sig img{border:1px solid #ddd;max-width:320px}</style></head><body>
-      <h1>VIP CARS — Laudo de Vistoria (${tipoLabel(v.tipo)})</h1>
-      <div class="meta">Veículo: ${v.vehicles?.placa ?? v.placa ?? "—"} ${v.vehicles?.modelo ?? ""} · KM: ${v.km ?? "—"} · Combustível: ${v.combustivel ?? "—"}<br>
-      Locatário: ${v.locatario_nome ?? "—"} ${v.locatario_documento ? `(${v.locatario_documento})` : ""} · Vistoriador: ${v.vistoriador ?? "—"}<br>
-      Data: ${new Date(v.created_at).toLocaleString("pt-BR")}</div>
-      ${v.avarias ? `<p><strong>Avarias:</strong> ${v.avarias}</p>` : ""}
-      <div class="grid">${fotos}</div>
+      <h1>VIP CARS — Laudo de Vistoria (${tipoLabel(vv.tipo)})</h1>
+      <div class="meta">Veículo: ${vv.vehicles?.placa ?? vv.placa ?? "—"} ${vv.vehicles?.modelo ?? ""} · KM: ${vv.km ?? "—"} · Combustível: ${vv.combustivel ?? "—"}<br>
+      Locatário: ${vv.locatario_nome ?? "—"} ${vv.locatario_documento ? `(${vv.locatario_documento})` : ""} · Vistoriador: ${vv.vistoriador ?? "—"}<br>
+      Data: ${new Date(vv.created_at).toLocaleString("pt-BR")}</div>
+      ${vv.avarias ? `<p><strong>Avarias:</strong> ${vv.avarias}</p>` : ""}
+      <div class="grid">${fotosHtml}</div>
       <table>${chk}</table>
-      ${v.assinatura_url ? `<div class="sig"><div class="cap">Assinatura do locatário</div><img src="${v.assinatura_url}"></div>` : ""}
+      ${assinatura ? `<div class="sig"><div class="cap">Assinatura do locatário</div><img src="${assinatura}"></div>` : ""}
       </body></html>`;
+  }
+
+  // Abre o laudo para impressão/salvar em PDF (nome do arquivo = placa-data-tipo).
+  function laudo() {
+    if (!v) return;
+    const html = buildHtml(v, v.fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.url })), v.assinatura_url);
     const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
+    if (w) { w.document.write(html); w.document.close(); w.document.title = nomeArquivoLaudo(v); setTimeout(() => w.print(), 400); }
+  }
+
+  const telLimpo = (t: string) => t.replace(/\D/g, "").replace(/^0+/, "");
+
+  async function enviar(canal: "whatsapp" | "email", telefone?: string, email?: string) {
+    if (!v) return;
+    setEnviando(canal);
+    try {
+      const link = await gerarLinkLaudo(v, (fotos, assinatura) =>
+        buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
+      const titulo = `Laudo de vistoria (${tipoLabel(v.tipo)}) — ${v.vehicles?.placa ?? v.placa ?? ""}`;
+      const msg = `Olá${v.locatario_nome ? ` ${v.locatario_nome}` : ""}! Segue o laudo da vistoria do veículo ${v.vehicles?.placa ?? v.placa ?? ""} (${tipoLabel(v.tipo)}).\n\nLaudo: ${link}\n\nVIP CARS`;
+      if (canal === "whatsapp") {
+        const tel = telLimpo(telefone ?? v.locatario_telefone ?? "");
+        const num = tel.length <= 11 ? `55${tel}` : tel;
+        window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+      } else {
+        const dest = email ?? v.locatario_email ?? "";
+        window.open(`mailto:${dest}?subject=${encodeURIComponent(titulo)}&body=${encodeURIComponent(msg)}`, "_blank");
+      }
+    } catch (e) {
+      alert("Erro ao gerar o laudo: " + (e as Error).message);
+    } finally {
+      setEnviando(null);
+    }
+  }
+
+  function onEnviarClick(canal: "whatsapp" | "email") {
+    if (!v) return;
+    const temContato = canal === "whatsapp" ? !!v.locatario_telefone : !!v.locatario_email;
+    if (temContato) { enviar(canal); return; }
+    setCTel(v.locatario_telefone ?? ""); setCEmail(v.locatario_email ?? "");
+    setContatoOpen(canal);
+  }
+
+  function confirmarContato() {
+    if (!v || !contatoOpen) return;
+    const canal = contatoOpen;
+    updateContato.mutate({ id: v.id, telefone: cTel || undefined, email: cEmail || undefined });
+    setContatoOpen(null);
+    enviar(canal, cTel, cEmail);
   }
 
   return (
@@ -362,12 +421,43 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button type="button" variant="outline" onClick={laudo}><FileText className="h-4 w-4" /> Laudo (PDF)</Button>
+              <Button type="button" variant="outline" className="border-green-600 text-green-700 hover:bg-green-50" onClick={() => onEnviarClick("whatsapp")} disabled={enviando !== null}>
+                {enviando === "whatsapp" ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />} Enviar por WhatsApp
+              </Button>
+              <Button type="button" variant="outline" onClick={() => onEnviarClick("email")} disabled={enviando !== null}>
+                {enviando === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Enviar por e-mail
+              </Button>
             </DialogFooter>
           </div>
         )}
       </DialogContent>
+
+      {/* Preenchimento de contato no momento do envio */}
+      <Dialog open={contatoOpen !== null} onOpenChange={(o) => !o && setContatoOpen(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{contatoOpen === "whatsapp" ? "Enviar por WhatsApp" : "Enviar por e-mail"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Informe o contato do locatário para envio do laudo. Ele será salvo na vistoria.</p>
+            {contatoOpen === "whatsapp" ? (
+              <Field label="WhatsApp / telefone">
+                <Input type="tel" inputMode="tel" value={cTel} onChange={(e) => setCTel(e.target.value)} placeholder="(81) 99999-9999" autoFocus />
+              </Field>
+            ) : (
+              <Field label="E-mail">
+                <Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="locatario@email.com" autoFocus />
+              </Field>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setContatoOpen(null)}>Cancelar</Button>
+            <Button type="button" onClick={confirmarContato} disabled={contatoOpen === "whatsapp" ? !cTel : !cEmail}>Enviar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

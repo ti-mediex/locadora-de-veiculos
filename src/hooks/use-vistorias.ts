@@ -66,6 +66,8 @@ export interface NovaVistoria {
   tipo: string;
   locatario_nome: string;
   locatario_documento: string;
+  locatario_telefone: string;
+  locatario_email: string;
   vistoriador: string;
   km: string;
   combustivel: string;
@@ -85,6 +87,7 @@ export function useCreateVistoria() {
       const { data: ins, error } = await supabase.from("vistorias").insert({
         vehicle_id: v.vehicle_id, placa: v.placa, tipo: v.tipo,
         locatario_nome: v.locatario_nome || null, locatario_documento: v.locatario_documento || null,
+        locatario_telefone: v.locatario_telefone || null, locatario_email: v.locatario_email || null,
         vistoriador: v.vistoriador || null, km: v.km ? Number(v.km) : null, combustivel: v.combustivel || null,
         checklist: v.checklist, observacoes: v.observacoes || null, avarias: v.avarias || null,
         gps_lat: v.gps?.lat ?? null, gps_lng: v.gps?.lng ?? null, status: "concluida",
@@ -120,6 +123,51 @@ export function useCreateVistoria() {
     },
     onError: (e: Error) => toast.error("Erro ao salvar vistoria: " + e.message),
   });
+}
+
+/** Atualiza os contatos do locatário de uma vistoria (usado no envio do laudo). */
+export function useUpdateVistoriaContato() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, telefone, email }: { id: string; telefone?: string; email?: string }) => {
+      const patch: Record<string, unknown> = {};
+      if (telefone !== undefined) patch.locatario_telefone = telefone || null;
+      if (email !== undefined) patch.locatario_email = email || null;
+      const { error } = await supabase.from("vistorias").update(patch as never).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["vistorias"] }),
+  });
+}
+
+/** Nome padronizado do laudo: Laudo-PLACA-AAAA-MM-DD-tipo. */
+export function nomeArquivoLaudo(v: { placa: string | null; vehicles: { placa: string } | null; tipo: string; created_at: string }) {
+  const placa = (v.vehicles?.placa ?? v.placa ?? "veiculo").replace(/[^A-Za-z0-9]/g, "");
+  const data = v.created_at.slice(0, 10);
+  return `Laudo-${placa}-${data}-${v.tipo}`;
+}
+
+const BUCKET_V = "vistorias";
+async function urlToDataUrl(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const blob = await (await fetch(url)).blob();
+    return await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(blob); });
+  } catch { return null; }
+}
+
+/** Gera o HTML autocontido do laudo (imagens embutidas), guarda no Storage e
+ *  devolve um link assinado de longa duração para compartilhar. */
+export async function gerarLinkLaudo(v: VistoriaDetalhe, htmlBuilder: (fotos: { parte: string; avaria: boolean; observacao: string | null; dataUrl: string | null }[], assinatura: string | null) => string): Promise<string | null> {
+  const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, dataUrl: await urlToDataUrl(f.url) })));
+  const assinatura = await urlToDataUrl(v.assinatura_url);
+  const html = htmlBuilder(fotos, assinatura);
+  const path = `${v.id}/laudo.html`;
+  const up = await supabase.storage.from(BUCKET_V).upload(path, new Blob([html], { type: "text/html" }), { contentType: "text/html", upsert: true });
+  if (up.error) throw up.error;
+  const { data, error } = await supabase.storage.from(BUCKET_V).createSignedUrl(path, 604800); // 7 dias
+  if (error) throw error;
+  return data?.signedUrl ?? null;
 }
 
 export function useDeleteVistoria() {

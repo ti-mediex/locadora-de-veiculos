@@ -314,6 +314,8 @@ export interface Vistoria {
   tipo: "liberacao" | "devolucao" | "sinistro";
   locatario_nome: string | null;
   locatario_documento: string | null;
+  locatario_telefone: string | null;
+  locatario_email: string | null;
   vistoriador: string | null;
   km: number | null;
   combustivel: string | null;
