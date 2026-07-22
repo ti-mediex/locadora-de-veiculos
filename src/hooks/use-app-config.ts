@@ -6,6 +6,8 @@ export type AppConfig = Record<string, string>;
 
 export const CONFIG_DEFAULTS: AppConfig = {
   empresa_nome: "VIP CARS",
+  empresa_cnpj: "18.537.443/0001-81",
+  empresa_endereco: "Rua José Álvaro de Melo, Piedade, Jaboatão dos Guararapes - PE",
   laudo_whatsapp_msg: "Olá {nome}! Segue o laudo da vistoria do veículo {placa} ({tipo}).\n\nLaudo: {link}\n\n{empresa}",
   laudo_email_assunto: "Laudo de vistoria ({tipo}) — {placa}",
   laudo_email_corpo: "Olá {nome},\n\nSegue em anexo o laudo da vistoria do veículo {placa} ({tipo}).\n\nAtenciosamente,\n{empresa}",

@@ -301,6 +301,38 @@ export interface Alienante {
   created_at: string;
 }
 
+export interface Contrato {
+  id: string;
+  numero: string;
+  vehicle_id: string | null;
+  placa: string | null;
+  cliente_nome: string;
+  cliente_cpf: string | null;
+  cliente_cnh: string | null;
+  cliente_cnh_cat: string | null;
+  cliente_email: string | null;
+  cliente_telefone: string | null;
+  cliente_endereco: string | null;
+  atendente: string | null;
+  local_entrega: string | null;
+  data_entrega: string | null;
+  hora_entrega: string | null;
+  local_devolucao: string | null;
+  devolucao_prevista: string | null;
+  grupo: string | null;
+  km_entrega: number | null;
+  valor_locacao: number | null;
+  semanas: number | null;
+  valor_total: number | null;
+  pre_autorizacao: number | null;
+  informacoes_adicionais: string | null;
+  status: "ativo" | "encerrado" | "renovado" | "cancelado";
+  contrato_pai_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChecklistItem {
   item: string;
   situacao: "ok" | "avaria" | "na";
