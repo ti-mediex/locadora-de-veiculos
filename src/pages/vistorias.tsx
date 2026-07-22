@@ -381,6 +381,9 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
               <span className="text-muted-foreground">KM: <strong className="text-foreground">{v.km ?? "—"}</strong></span>
               <span className="text-muted-foreground">Combustível: <strong className="text-foreground">{v.combustivel ?? "—"}</strong></span>
               <span className="text-muted-foreground">Locatário: <strong className="text-foreground">{v.locatario_nome ?? "—"}</strong></span>
+              {v.locatario_documento && <span className="text-muted-foreground">Doc.: <strong className="text-foreground">{v.locatario_documento}</strong></span>}
+              <span className="text-muted-foreground">WhatsApp: <strong className="text-foreground">{v.locatario_telefone ?? "—"}</strong></span>
+              <span className="text-muted-foreground">E-mail: <strong className="text-foreground">{v.locatario_email ?? "—"}</strong></span>
               <span className="text-muted-foreground">Vistoriador: <strong className="text-foreground">{v.vistoriador ?? "—"}</strong></span>
               <span className="text-muted-foreground">{formatDate(v.created_at)}</span>
             </div>
