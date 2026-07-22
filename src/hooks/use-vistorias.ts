@@ -27,6 +27,33 @@ export interface VistoriaDetalhe extends Vistoria {
   vehicles: { placa: string; modelo: string } | null;
   fotos: (VistoriaFoto & { url: string | null })[];
   assinatura_url: string | null;
+  laudo_externo_url: string | null;
+}
+
+/** Cria uma vistoria a partir de um laudo em PDF de outro sistema (ex.: Vex). */
+export function useCreateVistoriaExterna() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { vehicle_id: string | null; placa: string | null; tipo: string; data: string; locatario_nome: string; file: File }) => {
+      const { data: prof } = await supabase.auth.getUser();
+      const insert: Record<string, unknown> = {
+        vehicle_id: v.vehicle_id, placa: v.placa, tipo: v.tipo,
+        locatario_nome: v.locatario_nome || null, status: "concluida", created_by: prof.user?.id ?? null,
+      };
+      if (v.data) insert.created_at = `${v.data}T12:00:00`;
+      const { data: ins, error } = await supabase.from("vistorias").insert(insert as never).select("id").single();
+      if (error) throw error;
+      const id = (ins as { id: string }).id;
+      const path = `${id}/laudo-externo.pdf`;
+      const up = await supabase.storage.from(BUCKET_V).upload(path, v.file, { contentType: "application/pdf", upsert: true });
+      if (up.error) throw up.error;
+      const { error: uErr } = await supabase.from("vistorias").update({ laudo_externo_path: path } as never).eq("id", id);
+      if (uErr) throw uErr;
+      return id;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["vistorias"] }); toast.success("Laudo externo anexado"); },
+    onError: (e: Error) => toast.error("Erro ao anexar laudo: " + e.message),
+  });
 }
 
 async function signedUrl(path: string | null): Promise<string | null> {
@@ -48,7 +75,7 @@ export function useVistoriaDetalhe(id?: string) {
       if (error) throw error;
       const v = data as unknown as Vistoria & { vehicles: { placa: string; modelo: string } | null; fotos: VistoriaFoto[] };
       const fotos = await Promise.all((v.fotos ?? []).map(async (f) => ({ ...f, url: await signedUrl(f.storage_path) })));
-      return { ...v, fotos, assinatura_url: await signedUrl(v.assinatura_path) } as VistoriaDetalhe;
+      return { ...v, fotos, assinatura_url: await signedUrl(v.assinatura_path), laudo_externo_url: await signedUrl(v.laudo_externo_path) } as VistoriaDetalhe;
     },
   });
 }
@@ -148,7 +175,7 @@ export function nomeArquivoLaudo(v: { placa: string | null; vehicles: { placa: s
 }
 
 const BUCKET_V = "vistorias";
-async function urlToDataUrl(url: string | null): Promise<string | null> {
+export async function urlToDataUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
   try {
     const blob = await (await fetch(url)).blob();

@@ -323,6 +323,7 @@ export interface Vistoria {
   observacoes: string | null;
   avarias: string | null;
   assinatura_path: string | null;
+  laudo_externo_path: string | null;
   gps_lat: number | null;
   gps_lng: number | null;
   status: "rascunho" | "concluida";

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail,
+  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail, Upload, FileUp,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -18,10 +18,14 @@ import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { AssinaturaCanvas } from "@/components/vistorias/assinatura-canvas";
 import {
-  useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria,
-  useUpdateVistoriaContato, gerarLinkLaudo, nomeArquivoLaudo,
+  useVistorias, useVistoriaDetalhe, useCreateVistoria, useDeleteVistoria, useCreateVistoriaExterna,
+  useUpdateVistoriaContato, gerarLinkLaudo, nomeArquivoLaudo, urlToDataUrl,
   type FotoInput, type VistoriaDetalhe,
 } from "@/hooks/use-vistorias";
+import { gerarLaudoPdf } from "@/lib/laudo-pdf";
+import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { VISTORIA_TIPO, VISTORIA_COMBUSTIVEL, VISTORIA_PARTES, VISTORIA_CHECKLIST_ITENS } from "@/lib/options";
 import { formatDate } from "@/lib/format";
 import type { Vehicle, ChecklistItem } from "@/types/database";
@@ -33,6 +37,7 @@ export default function VistoriasPage() {
   const { data: rows = [], isLoading } = useVistorias();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const create = useCreateVistoria();
+  const createExterna = useCreateVistoriaExterna();
   const remove = useDeleteVistoria();
   const canWrite = useCanWrite("vistorias");
 
@@ -40,6 +45,25 @@ export default function VistoriasPage() {
   const [viewId, setViewId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [fTipo, setFTipo] = useState("todos");
+  const [fDataIni, setFDataIni] = useState("");
+  const [fDataFim, setFDataFim] = useState("");
+  const [fVistoriador, setFVistoriador] = useState("");
+
+  // Anexar laudo externo (PDF de outro sistema, ex.: Vex)
+  const [extOpen, setExtOpen] = useState(false);
+  const [extVeic, setExtVeic] = useState("");
+  const [extTipo, setExtTipo] = useState("liberacao");
+  const [extData, setExtData] = useState(new Date().toISOString().slice(0, 10));
+  const [extLoc, setExtLoc] = useState("");
+  const [extFile, setExtFile] = useState<File | null>(null);
+  function salvarExterna() {
+    if (!extFile) return;
+    const placa = vehicles.find((v) => v.id === extVeic)?.placa ?? null;
+    createExterna.mutate(
+      { vehicle_id: extVeic || null, placa, tipo: extTipo, data: extData, locatario_nome: extLoc, file: extFile },
+      { onSuccess: () => { setExtOpen(false); setExtVeic(""); setExtTipo("liberacao"); setExtData(new Date().toISOString().slice(0, 10)); setExtLoc(""); setExtFile(null); } }
+    );
+  }
 
   // Estado do formulário de nova vistoria
   const emptyChecklist = (): ChecklistItem[] => VISTORIA_CHECKLIST_ITENS.map((item) => ({ item, situacao: "ok" as const, observacao: "" }));
@@ -92,12 +116,18 @@ export default function VistoriasPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+    const vq = fVistoriador.toLowerCase();
     return rows.filter((r) => {
       const matchTipo = fTipo === "todos" || r.tipo === fTipo;
-      const matchSearch = !q || (r.vehicles?.placa ?? "").toLowerCase().includes(q) || (r.locatario_nome ?? "").toLowerCase().includes(q);
-      return matchTipo && matchSearch;
+      const matchSearch = !q || (r.vehicles?.placa ?? "").toLowerCase().includes(q) ||
+        (r.locatario_nome ?? "").toLowerCase().includes(q) || (r.vehicles?.modelo ?? "").toLowerCase().includes(q);
+      const matchVist = !vq || (r.vistoriador ?? "").toLowerCase().includes(vq);
+      const dia = r.created_at.slice(0, 10);
+      const matchIni = !fDataIni || dia >= fDataIni;
+      const matchFim = !fDataFim || dia <= fDataFim;
+      return matchTipo && matchSearch && matchVist && matchIni && matchFim;
     });
-  }, [rows, search, fTipo]);
+  }, [rows, search, fTipo, fVistoriador, fDataIni, fDataFim]);
 
   const fotosPreenchidas = fotos.filter((f) => f.file).length;
   const hoje = new Date().toISOString().slice(0, 10);
@@ -108,7 +138,12 @@ export default function VistoriasPage() {
       <PageHeader
         title="Vistoria de veículos"
         description="Checklist com fotos na liberação, devolução e sinistro"
-        actions={canWrite && <Button onClick={abrirNova}><Plus className="h-4 w-4" /> Nova vistoria</Button>}
+        actions={canWrite && (
+          <>
+            <Button variant="outline" onClick={() => setExtOpen(true)}><FileUp className="h-4 w-4" /> Anexar laudo (Vex)</Button>
+            <Button onClick={abrirNova}><Plus className="h-4 w-4" /> Nova vistoria</Button>
+          </>
+        )}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -119,18 +154,29 @@ export default function VistoriasPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:items-center">
-            <div className="flex flex-1 items-center gap-2">
+          <div className="space-y-2 border-b p-3 sm:p-4">
+            <div className="flex items-center gap-2 rounded-md border px-2">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por placa ou locatário..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
+              <Input placeholder="Buscar por placa, modelo ou locatário..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
             </div>
-            <Select value={fTipo} onValueChange={setFTipo}>
-              <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                {VISTORIA_TIPO.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-2">
+              <Select value={fTipo} onValueChange={setFTipo}>
+                <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  {VISTORIA_TIPO.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input placeholder="Vistoriador" value={fVistoriador} onChange={(e) => setFVistoriador(e.target.value)} className="w-full sm:w-44" />
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-muted-foreground">De</label>
+                <Input type="date" value={fDataIni} onChange={(e) => setFDataIni(e.target.value)} className="w-[9.5rem]" />
+              </div>
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-muted-foreground">Até</label>
+                <Input type="date" value={fDataFim} onChange={(e) => setFDataFim(e.target.value)} className="w-[9.5rem]" />
+              </div>
+            </div>
           </div>
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
@@ -140,24 +186,32 @@ export default function VistoriasPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Veículo</TableHead>
+                  <TableHead className="whitespace-nowrap">Data/Hora</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Placa</TableHead>
+                  <TableHead>Modelo</TableHead>
                   <TableHead>Locatário</TableHead>
+                  <TableHead>Vistoriador</TableHead>
                   <TableHead className="text-right">KM</TableHead>
-                  <TableHead>Fotos</TableHead>
-                  <TableHead className="w-24"></TableHead>
+                  <TableHead className="text-center">Fotos</TableHead>
+                  <TableHead className="text-center">Laudo</TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((r) => (
                   <TableRow key={r.id} className="cursor-pointer" onClick={() => setViewId(r.id)}>
-                    <TableCell className="whitespace-nowrap text-sm">{new Date(r.created_at).toLocaleDateString("pt-BR")}</TableCell>
-                    <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? r.placa ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">{new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</TableCell>
                     <TableCell><Badge variant={tipoBadge[r.tipo]}>{tipoLabel(r.tipo)}</Badge></TableCell>
+                    <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? r.placa ?? "—"}</TableCell>
+                    <TableCell className="max-w-40 truncate text-xs text-muted-foreground">{r.vehicles?.modelo ?? "—"}</TableCell>
                     <TableCell>{r.locatario_nome ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{r.vistoriador ?? "—"}</TableCell>
                     <TableCell className="text-right">{r.km ?? "—"}</TableCell>
-                    <TableCell>{r.fotos?.[0]?.count ?? 0}</TableCell>
+                    <TableCell className="text-center">{r.fotos?.[0]?.count ?? 0}</TableCell>
+                    <TableCell className="text-center">
+                      {r.laudo_externo_path ? <Badge variant="secondary">Vex</Badge> : <FileText className="mx-auto h-4 w-4 text-muted-foreground" />}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setViewId(r.id)}><Eye className="h-4 w-4" /></Button>
@@ -253,16 +307,25 @@ export default function VistoriasPage() {
               <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold"><ClipboardCheck className="h-4 w-4" /> Checklist</h4>
               <div className="grid gap-2 sm:grid-cols-2">
                 {checklist.map((c, i) => (
-                  <div key={c.item} className="flex items-center justify-between gap-2 rounded border px-2 py-1 text-sm">
-                    <span>{c.item}</span>
-                    <Select value={c.situacao} onValueChange={(v) => setChk(i, { situacao: v as ChecklistItem["situacao"] })}>
-                      <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ok">OK</SelectItem>
-                        <SelectItem value="avaria">Avaria</SelectItem>
-                        <SelectItem value="na">N/A</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div key={c.item} className="rounded-lg border p-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{c.item}</span>
+                      <div className="flex gap-1">
+                        {([
+                          { v: "ok", label: "OK", on: "bg-success text-white border-success", off: "border-success/40 text-success" },
+                          { v: "avaria", label: "Avaria", on: "bg-destructive text-white border-destructive", off: "border-destructive/40 text-destructive" },
+                          { v: "na", label: "N/A", on: "bg-muted-foreground text-white border-muted-foreground", off: "border-muted text-muted-foreground" },
+                        ] as const).map((opt) => (
+                          <button key={opt.v} type="button" onClick={() => setChk(i, { situacao: opt.v, ...(opt.v !== "avaria" ? { observacao: "" } : {}) })}
+                            className={cn("rounded-full border px-2.5 py-1 text-xs font-medium transition", c.situacao === opt.v ? opt.on : "bg-background " + opt.off)}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {c.situacao === "avaria" && (
+                      <Input className="mt-2 h-8 text-xs" placeholder="Descreva o problema observado" value={c.observacao ?? ""} onChange={(e) => setChk(i, { observacao: e.target.value })} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -286,6 +349,47 @@ export default function VistoriasPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Anexar laudo externo (PDF do Vex ou outro sistema) */}
+      <Dialog open={extOpen} onOpenChange={setExtOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Anexar laudo de outro sistema</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Registre uma vistoria feita anteriormente em outro software (ex.: Vex) anexando o laudo em PDF.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Veículo">
+                <Select value={extVeic} onValueChange={setExtVeic}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Tipo de operação">
+                <Select value={extTipo} onValueChange={setExtTipo}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VISTORIA_TIPO.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Data da vistoria"><Input type="date" value={extData} onChange={(e) => setExtData(e.target.value)} /></Field>
+              <Field label="Locatário (opcional)"><Input value={extLoc} onChange={(e) => setExtLoc(e.target.value)} /></Field>
+            </div>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground hover:bg-accent">
+              <Upload className="h-5 w-5" />
+              <span>{extFile ? extFile.name : "Selecionar laudo em PDF"}</span>
+              <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setExtFile(e.target.files?.[0] ?? null)} />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtOpen(false)}>Cancelar</Button>
+            <Button onClick={salvarExterna} disabled={!extVeic || !extFile || createExterna.isPending}>
+              {createExterna.isPending ? "Enviando..." : "Anexar laudo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <VerVistoriaDialog id={viewId} onClose={() => setViewId(null)} />
     </div>
   );
@@ -302,7 +406,7 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
   // Monta o HTML do laudo; recebe as fotos com o src já resolvido (url ou dataURL).
   function buildHtml(vv: VistoriaDetalhe, fotos: { parte: string; avaria: boolean; observacao: string | null; src: string | null }[], assinatura: string | null) {
     const fotosHtml = fotos.map((f) => `<div class="foto"><div class="cap">${f.parte}${f.avaria ? " — AVARIA" : ""}${f.observacao ? `: ${f.observacao}` : ""}</div>${f.src ? `<img src="${f.src}">` : ""}</div>`).join("");
-    const chk = (vv.checklist ?? []).map((c) => `<tr><td>${c.item}</td><td>${c.situacao.toUpperCase()}</td></tr>`).join("");
+    const chk = (vv.checklist ?? []).map((c) => `<tr><td>${c.item}${c.situacao === "avaria" && c.observacao ? ` — ${c.observacao}` : ""}</td><td>${c.situacao.toUpperCase()}</td></tr>`).join("");
     return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivoLaudo(vv)}</title>
       <style>body{font-family:Arial;margin:24px;color:#111} h1{font-size:18px} .meta{font-size:12px;color:#555;margin-bottom:12px}
       .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .foto img{width:100%;height:150px;object-fit:cover;border:1px solid #ddd;border-radius:6px}
@@ -319,9 +423,11 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
       </body></html>`;
   }
 
-  // Abre o laudo para impressão/salvar em PDF (nome do arquivo = placa-data-tipo).
+  // Abre o laudo. Se for importado de outro sistema, abre o PDF original;
+  // caso contrário, gera para impressão/salvar em PDF (nome = placa-data-tipo).
   function laudo() {
     if (!v) return;
+    if (v.laudo_externo_url) { window.open(v.laudo_externo_url, "_blank"); return; }
     const html = buildHtml(v, v.fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.url })), v.assinatura_url);
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.document.title = nomeArquivoLaudo(v); setTimeout(() => w.print(), 400); }
@@ -333,20 +439,46 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
     if (!v) return;
     setEnviando(canal);
     try {
-      const link = await gerarLinkLaudo(v, (fotos, assinatura) =>
-        buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
       const titulo = `Laudo de vistoria (${tipoLabel(v.tipo)}) — ${v.vehicles?.placa ?? v.placa ?? ""}`;
-      const msg = `Olá${v.locatario_nome ? ` ${v.locatario_nome}` : ""}! Segue o laudo da vistoria do veículo ${v.vehicles?.placa ?? v.placa ?? ""} (${tipoLabel(v.tipo)}).\n\nLaudo: ${link}\n\nVIP CARS`;
       if (canal === "whatsapp") {
+        // WhatsApp: mensagem com o link do laudo (externo, ou HTML gerado no Storage).
+        const link = v.laudo_externo_url ?? await gerarLinkLaudo(v, (fotos, assinatura) =>
+          buildHtml(v, fotos.map((f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao, src: f.dataUrl })), assinatura));
+        const msg = `Olá${v.locatario_nome ? ` ${v.locatario_nome}` : ""}! Segue o laudo da vistoria do veículo ${v.vehicles?.placa ?? v.placa ?? ""} (${tipoLabel(v.tipo)}).\n\nLaudo: ${link}\n\nVIP CARS`;
         const tel = telLimpo(telefone ?? v.locatario_telefone ?? "");
         const num = tel.length <= 11 ? `55${tel}` : tel;
         window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
       } else {
+        // E-mail: envia o PDF anexado (o externo, ou um gerado a partir das fotos).
         const dest = email ?? v.locatario_email ?? "";
-        window.open(`mailto:${dest}?subject=${encodeURIComponent(titulo)}&body=${encodeURIComponent(msg)}`, "_blank");
+        let base64: string;
+        if (v.laudo_externo_url) {
+          const blob = await (await fetch(v.laudo_externo_url)).blob();
+          base64 = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res((r.result as string).split(",")[1]); r.readAsDataURL(blob); });
+        } else {
+        const fotos = await Promise.all(v.fotos.map(async (f) => ({ parte: f.parte, avaria: f.avaria, observacao: f.observacao ?? "", dataUrl: await urlToDataUrl(f.url) })));
+        const assinatura = await urlToDataUrl(v.assinatura_url);
+        base64 = (await gerarLaudoPdf({
+          tipoLabel: tipoLabel(v.tipo), placa: v.vehicles?.placa ?? v.placa ?? "—", modelo: v.vehicles?.modelo ?? "",
+          km: String(v.km ?? "—"), combustivel: v.combustivel ?? "—", locatario: v.locatario_nome ?? "—",
+          documento: v.locatario_documento ? `(${v.locatario_documento})` : "", vistoriador: v.vistoriador ?? "—",
+          data: new Date(v.created_at).toLocaleString("pt-BR"), avarias: v.avarias ?? "",
+          fotos, checklist: (v.checklist ?? []).map((c) => ({ item: c.item, situacao: c.situacao })), assinatura,
+        })).base64;
+        }
+        const { data, error } = await supabase.functions.invoke("enviar-laudo-email", {
+          body: {
+            to: dest, subject: titulo, filename: `${nomeArquivoLaudo(v)}.pdf`, pdfBase64: base64,
+            html: `<p>Olá${v.locatario_nome ? ` ${v.locatario_nome}` : ""},</p><p>Segue em anexo o laudo da vistoria do veículo <strong>${v.vehicles?.placa ?? v.placa ?? ""}</strong> (${tipoLabel(v.tipo)}).</p><p>VIP CARS</p>`,
+          },
+        });
+        let erroMsg = error?.message;
+        try { const ctx = (error as { context?: Response })?.context; const j = ctx && "json" in ctx ? await ctx.json() : null; if (j?.error) erroMsg = j.error; } catch { /* */ }
+        if (error || data?.error) throw new Error(erroMsg || data?.error);
+        toast.success(`Laudo enviado para ${dest}`);
       }
     } catch (e) {
-      alert("Erro ao gerar o laudo: " + (e as Error).message);
+      toast.error("Erro no envio: " + (e as Error).message);
     } finally {
       setEnviando(null);
     }
@@ -388,6 +520,12 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
               <span className="text-muted-foreground">{formatDate(v.created_at)}</span>
             </div>
             {v.avarias && <div className="rounded-lg bg-destructive/10 p-3 text-sm"><strong>Avarias:</strong> {v.avarias}</div>}
+            {v.laudo_externo_url && (
+              <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-3 text-sm">
+                <FileText className="h-4 w-4 shrink-0 text-primary" />
+                <span>Laudo importado de outro sistema — clique em <strong>“Laudo (PDF)”</strong> para abrir o documento original.</span>
+              </div>
+            )}
 
             {v.fotos.length > 0 && (
               <div>
@@ -408,9 +546,12 @@ function VerVistoriaDialog({ id, onClose }: { id: string | null; onClose: () => 
                 <h4 className="mb-2 text-sm font-semibold">Checklist</h4>
                 <div className="grid grid-cols-2 gap-1 text-sm sm:grid-cols-3">
                   {v.checklist!.map((c) => (
-                    <div key={c.item} className="flex items-center justify-between rounded border px-2 py-1">
-                      <span>{c.item}</span>
-                      <Badge variant={c.situacao === "ok" ? "success" : c.situacao === "avaria" ? "destructive" : "muted"}>{c.situacao.toUpperCase()}</Badge>
+                    <div key={c.item} className="rounded border px-2 py-1">
+                      <div className="flex items-center justify-between">
+                        <span>{c.item}</span>
+                        <Badge variant={c.situacao === "ok" ? "success" : c.situacao === "avaria" ? "destructive" : "muted"}>{c.situacao.toUpperCase()}</Badge>
+                      </div>
+                      {c.situacao === "avaria" && c.observacao && <div className="mt-0.5 text-xs text-destructive">{c.observacao}</div>}
                     </div>
                   ))}
                 </div>
