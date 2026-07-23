@@ -30,8 +30,9 @@ import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-di
 import {
   usePendencias, usePendenciasSummary,
   usePendenciaMultasItens, useSavePendenciaMultasItens, parseValor,
-  vencimentoStatus, type PendenciaRow, type MultaLinha,
+  vencimentoStatus, restricaoEhJudicial, type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
+import { soAlfa } from "@/lib/format";
 import {
   PENDENCIA_CATEGORIA, PENDENCIA_STATUS, PENDENCIA_PRIORIDADE,
 } from "@/lib/options";
@@ -44,15 +45,12 @@ import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehi
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const RANK_PRIO: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
-const soAlfa = (s: string) => (s ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-// Restrição de natureza judicial (bloqueio/penhora/busca e apreensão/RENAJUD).
-const ehJudicial = (titulo: string) => /judicial|renajud|busca e apreens|penhor|bloqueio/i.test(titulo ?? "");
 
 // Atalhos de recorte por tipo de restrição (categoria "Restrição").
 type RestrKey = "off" | "todas" | "judicial" | "alienacao" | "csv" | "ipva";
 const RESTR_ATALHOS: { key: Exclude<RestrKey, "off">; label: string; judicial?: boolean; match: (t: string) => boolean }[] = [
   { key: "todas", label: "Restrições", match: () => true },
-  { key: "judicial", label: "Restrição judicial / RENAJUD", judicial: true, match: ehJudicial },
+  { key: "judicial", label: "Restrição judicial / RENAJUD", judicial: true, match: restricaoEhJudicial },
   { key: "alienacao", label: "Alienação fiduciária", match: (t) => /aliena/i.test(t ?? "") },
   { key: "csv", label: "CSV vencido", match: (t) => /csv/i.test(t ?? "") },
   { key: "ipva", label: "Restrição IPVA", match: (t) => /ipva/i.test(t ?? "") },

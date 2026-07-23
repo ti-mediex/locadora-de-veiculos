@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
 import { useFinanceEntries } from "@/hooks/use-finance";
-import { usePendencias, vencimentoStatus } from "@/hooks/use-pendencias";
+import { usePendencias, vencimentoStatus, restricaoEhJudicial } from "@/hooks/use-pendencias";
 import { useList } from "@/hooks/use-crud";
 import type { Vehicle } from "@/types/database";
 
@@ -108,7 +108,7 @@ export default function DashboardPage() {
     for (const p of pendF) {
       if (p.categoria !== "Restrição" || p.status === "cancelada" || p.status === "resolvida") continue;
       veic.add(p.vehicle_id);
-      if (/judicial|renajud|busca e apreens|penhor|bloqueio/i.test(p.titulo)) veicJud.add(p.vehicle_id);
+      if (restricaoEhJudicial(p.titulo)) veicJud.add(p.vehicle_id);
     }
     return { veic: veic.size, veicJud: veicJud.size };
   }, [pendF]);

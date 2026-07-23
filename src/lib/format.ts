@@ -45,3 +45,8 @@ export function maskPlaca(placa: string | null | undefined): string {
   if (!placa) return "—";
   return placa.toUpperCase();
 }
+
+/** Normaliza texto para comparação de placa (só letras/números, minúsculo). */
+export function soAlfa(s: string | null | undefined): string {
+  return (s ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+}

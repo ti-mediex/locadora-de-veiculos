@@ -297,6 +297,20 @@ export async function aplicarDetran(vehicleId: string, parsed: DetranParsed, opc
         await supabase.from("vehicles").update({ alienacao_fiduciaria: true } as never).eq("id", vehicleId);
       }
 
+      // Sincroniza as flags jurídicas do veículo a partir das restrições
+      // importadas, para que Dashboard/Relatórios (que leem as flags) e
+      // Pendências/Rastreamento (que leem o texto) fiquem coerentes.
+      if (opcoes.restricoes && parsed.restricoes.length) {
+        const txt = parsed.restricoes.join(" | ").toLowerCase();
+        const upd: Record<string, boolean> = {};
+        if (/busca e apreens/.test(txt)) upd.busca_apreensao = true;
+        if (/renajud|bloqueio judicial|penhor|restri[çc][aã]o judicial/.test(txt)) upd.bloqueio_judicial = true;
+        if (Object.keys(upd).length) {
+          const { error: flagErr } = await supabase.from("vehicles").update(upd as never).eq("id", vehicleId);
+          if (flagErr) console.warn("Falha ao sincronizar flags jurídicas do veículo:", flagErr.message);
+        }
+      }
+
       // Débitos (IPVA, Licenciamento, Taxas, Seguro)
       if (opcoes.debitos) {
         for (const d of parsed.debitos) {
