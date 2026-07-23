@@ -41,6 +41,25 @@ function norm(t: string): string {
 
 const SECAO_VAZIA = /nada consta/i;
 
+/** Separa um bloco de restrições (várias, coladas por vírgula/":") em itens. */
+export function splitRestricoes(bloco: string): string[] {
+  let t = bloco.replace(/\s+/g, " ").trim();
+  // "(...):RENAJUD..." e "...:RENAJUD" viram itens separados
+  t = t.replace(/\)\s*:\s*(?=RENAJUD)/gi, "), ").replace(/:\s*(?=RENAJUD:)/gi, ", ");
+  t = t.replace(/;/g, ",");
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const parte of t.split(/\s*,\s*/)) {
+    const s = parte.replace(/^[-\s]+/, "").replace(/[.\s]+$/, "").trim();
+    if (s.length <= 2 || SECAO_VAZIA.test(s)) continue;
+    const chave = s.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    out.push(s);
+  }
+  return out;
+}
+
 export function parseDetran(textoRaw: string): DetranParsed {
   const texto = norm(textoRaw);
   const flat = texto.replace(/\s+/g, " ").trim();
@@ -49,15 +68,19 @@ export function parseDetran(textoRaw: string): DetranParsed {
   const placaM = flat.match(/placa\s*-?\s*([A-Z]{3}\s?\d[A-Z0-9]\d{2})/i);
   const placa = placaM ? placaM[1].replace(/\s/g, "").toUpperCase() : null;
 
-  // Restrições: no Detran o texto da restrição aparece ANTES do rótulo
-  // "RESTRIÇÃO". Captura a frase de restrição por termos conhecidos (funciona
-  // tanto com quebras de linha quanto com o texto achatado do pdf.js).
-  const restricoes: string[] = [];
-  const restrM = flat.match(
-    /((?:ALIENA[ÇC][ÃA]O|REST(?:RI[ÇC][ÃA]O)?\.?\s*IPVA|BLOQUEIO|JUDICIAL|ROUBO|FURTO|COMUNICA[ÇC][ÃA]O|INTEN[ÇC][ÃA]O)[^.]*?)\.?\s*RESTRI[ÇC][ÃA]O/i
-  );
-  if (restrM && !SECAO_VAZIA.test(restrM[1])) {
-    restricoes.push(restrM[1].replace(/\s+/g, " ").replace(/\.$/, "").trim());
+  // Restrições: no Detran o bloco de restrições (podem ser VÁRIAS, separadas por
+  // vírgula/":") aparece ANTES do rótulo "RESTRIÇÃO". Captura o bloco inteiro do
+  // primeiro termo de restrição até o rótulo e separa em restrições individuais.
+  let restricoes: string[] = [];
+  // Rótulo da seção é acentuado ("RESTRIÇÃO"); as restrições inline usam texto sem
+  // acento ("RESTRICAO ..."), então ancoramos o fim no rótulo acentuado. Como
+  // fallback, aceita o rótulo sem acento desde que NÃO seja seguido por continuação
+  // de texto de restrição (JUDICIAL/DE/DO...).
+  const blocoM =
+    flat.match(/((?:ALIENA[ÇC]|REST\b|RESTRI[ÇC]|BLOQUEIO|JUDICIAL|RENAJUD|ROUBO|FURTO|COMUNICA[ÇC]|INTEN[ÇC]|PENHOR|GRAVAME|VE[ÍI]CULO\s+COM|CSV|BAIXA)[\s\S]*?)\s+RESTRIÇÃO(?:\s|$)/i)
+    ?? flat.match(/((?:ALIENA[ÇC]|REST\b|RESTRI[ÇC]|BLOQUEIO|JUDICIAL|RENAJUD|ROUBO|FURTO|COMUNICA[ÇC]|INTEN[ÇC]|PENHOR|GRAVAME|VE[ÍI]CULO\s+COM|CSV|BAIXA)[\s\S]*?)\s+RESTRI[ÇC][ÃA]O\b(?!\s+(?:JUDICIAL|DE\b|DO\b|DA\b))/i);
+  if (blocoM && !SECAO_VAZIA.test(blocoM[1])) {
+    restricoes = splitRestricoes(blocoM[1]);
   }
   const alienacaoFiduciaria = /aliena[çc][ãa]o\s+fiduci[áa]ria/i.test(flat);
 

@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { formatNumber } from "@/lib/format";
+import { VEHICLE_STATUS_CHART } from "@/lib/options";
 import { useRastreamento, useConvocar, type RastreioRow } from "@/hooks/use-rastreamento";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
@@ -24,6 +25,7 @@ import { RelatorioExport } from "@/components/shared/relatorio-export";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const AGORA = Date.now();
+const statusVeicLabel = (s?: string) => (s ? VEHICLE_STATUS_CHART[s]?.label ?? s : "—");
 
 /** Classifica a conectividade de um veículo a partir da última comunicação. */
 function classificar(r: RastreioRow, limiarH: number) {
@@ -84,6 +86,7 @@ export default function RastreamentoPage() {
   const ordenados = useSorted(filtrados, ({ r, c }, k) => {
     switch (k) {
       case "placa": return r.vehicles?.placa ?? r.placa;
+      case "statusv": return r.vehicles?.status;
       case "ultima": return r.ultima_comunicacao;
       case "tempo": return c.dias ?? 1e9;
       case "situacao": return c.vendido ? 0 : c.semCom ? 1 : 2;
@@ -94,10 +97,10 @@ export default function RastreamentoPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Placa" }, { label: "Última comunicação" }, { label: "Dias", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Convocado" },
+      { label: "Placa" }, { label: "Status veículo" }, { label: "Última comunicação" }, { label: "Dias", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Convocado" },
     ];
     const linhas = ordenados.map(({ r, c }) => [
-      r.vehicles?.placa ?? r.placa, fmtData(r.ultima_comunicacao), fmtDias(c.dias),
+      r.vehicles?.placa ?? r.placa, statusVeicLabel(r.vehicles?.status), fmtData(r.ultima_comunicacao), fmtDias(c.dias),
       c.vendido ? "Vendido · retirar rastreador" : c.semCom ? "Sem comunicação" : "OK", r.endereco ?? "—", r.convocado ? "Sim" : "—",
     ]);
     return {
@@ -209,6 +212,7 @@ export default function RastreamentoPage() {
                 <TableHeader>
                   <TableRow>
                     <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
+                    <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
                     <SortableHead sortKey="ultima" activeKey={sortKey} dir={sortDir} onSort={toggle}>Última comunicação</SortableHead>
                     <SortableHead sortKey="tempo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tempo</SortableHead>
                     <SortableHead sortKey="situacao" activeKey={sortKey} dir={sortDir} onSort={toggle}>Situação</SortableHead>
@@ -222,6 +226,11 @@ export default function RastreamentoPage() {
                       <TableCell>
                         <span className="font-mono font-medium">{r.vehicles?.placa ?? r.placa}</span>
                         {r.vehicles?.modelo && r.vehicles.modelo !== "(a definir)" && <div className="text-xs text-muted-foreground">{r.vehicles.modelo}</div>}
+                      </TableCell>
+                      <TableCell>
+                        {r.vehicles?.status
+                          ? <Badge variant="secondary" className="gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: VEHICLE_STATUS_CHART[r.vehicles.status]?.color ?? "currentColor" }} />{statusVeicLabel(r.vehicles.status)}</Badge>
+                          : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-sm">{fmtData(r.ultima_comunicacao)}</TableCell>
                       <TableCell>{badgeDias(c)}</TableCell>
