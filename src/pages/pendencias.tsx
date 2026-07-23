@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, Wand2, ReceiptText, X, FileUp,
+  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, ReceiptText, X, FileUp,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -28,7 +28,7 @@ import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-dialog";
 import {
-  usePendencias, usePendenciasSummary, useGenerateDefaultPendencias,
+  usePendencias, usePendenciasSummary,
   usePendenciaMultasItens, useSavePendenciaMultasItens, parseValor,
   vencimentoStatus, type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
@@ -92,7 +92,6 @@ export default function PendenciasPage() {
   const create = useCreate("vehicle_pendencias", "Pendência");
   const update = useUpdate("vehicle_pendencias", "Pendência");
   const remove = useDelete("vehicle_pendencias", "Pendência");
-  const genDefaults = useGenerateDefaultPendencias();
   const saveMultas = useSavePendenciaMultasItens();
   const canWrite = useCanWrite("pendencias");
 
@@ -248,9 +247,6 @@ export default function PendenciasPage() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => setImportOpen(true)}>
                 <FileUp className="h-4 w-4" /> Importar débitos (Detran)
-              </Button>
-              <Button variant="outline" onClick={() => genDefaults.mutate()} disabled={genDefaults.isPending}>
-                <Wand2 className="h-4 w-4" /> Itens de controle padrão
               </Button>
               <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova pendência</Button>
             </div>
