@@ -102,6 +102,17 @@ export default function DashboardPage() {
   }, [pendF]);
   const totalAlertas = alertas.vencidas + alertas.a_vencer_7 + alertas.ituran;
 
+  // Restrições Detran (categoria "Restrição") por natureza.
+  const restricoes = useMemo(() => {
+    const veic = new Set<string>(), veicJud = new Set<string>();
+    for (const p of pendF) {
+      if (p.categoria !== "Restrição" || p.status === "cancelada" || p.status === "resolvida") continue;
+      veic.add(p.vehicle_id);
+      if (/judicial|renajud|busca e apreens|penhor|bloqueio/i.test(p.titulo)) veicJud.add(p.vehicle_id);
+    }
+    return { veic: veic.size, veicJud: veicJud.size };
+  }, [pendF]);
+
   const finPorVeiculo = useMemo(() => {
     const map = new Map<string, { vehicle_id: string; placa: string; modelo: string; total: number; vencido: number; qtd: number }>();
     for (const p of pendF) {
@@ -191,6 +202,32 @@ export default function DashboardPage() {
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
+      )}
+
+      {/* Faixa de restrições Detran */}
+      {restricoes.veic > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-3">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-destructive" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <span className="font-medium">Restrições Detran:</span>
+              <span>{restricoes.veic} veículo(s) com restrição</span>
+              {restricoes.veicJud > 0 && (
+                <span className="text-destructive">{restricoes.veicJud} com restrição judicial / RENAJUD</span>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/pendencias?restr=todas")}>
+              Ver restrições <ChevronRight className="h-4 w-4" />
+            </Button>
+            {restricoes.veicJud > 0 && (
+              <Button variant="destructive" size="sm" onClick={() => navigate("/pendencias?restr=judicial")}>
+                Judiciais / RENAJUD <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* KPIs do mês */}
