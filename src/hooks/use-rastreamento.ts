@@ -15,8 +15,43 @@ export interface RastreioRow {
   referencia: string | null;
   convocado: boolean;
   convocado_em: string | null;
+  acao: string | null;
   updated_at: string;
   vehicles: { placa: string; modelo: string; status: string } | null;
+}
+
+export interface RastreamentoAcao { id: string; value: string; label: string; ordem: number; ativo: boolean; }
+
+/** Tipos de ação configuráveis do rastreamento. */
+export function useRastreamentoAcoes() {
+  return useQuery<RastreamentoAcao[]>({
+    queryKey: ["rastreamento_acoes", "list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("rastreamento_acoes").select("*").eq("ativo", true).order("ordem", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as RastreamentoAcao[];
+    },
+  });
+}
+
+const slugAcao = (label: string) => label.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "acao";
+
+/** Cria um novo tipo de ação e retorna seu valor técnico. */
+export function useCreateRastreamentoAcao() {
+  const qc = useQueryClient();
+  return useMutation<string, Error, { label: string }>({
+    mutationFn: async ({ label }) => {
+      const nome = label.trim();
+      if (!nome) throw new Error("Informe o nome da ação");
+      const value = slugAcao(nome);
+      const { data: prof } = await supabase.auth.getUser();
+      const { error } = await supabase.from("rastreamento_acoes").upsert({ value, label: nome, ordem: 90, created_by: prof.user?.id ?? null } as never, { onConflict: "value" });
+      if (error) throw error;
+      return value;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rastreamento_acoes"] }); toast.success("Ação criada"); },
+    onError: (e: Error) => toast.error("Erro ao criar ação: " + e.message),
+  });
 }
 
 /** Última comunicação de cada veículo com a central Ituran (pior primeiro). */
@@ -119,6 +154,22 @@ export function useConvocar() {
       if (error) throw error;
     },
     onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ["rastreamento"] }); toast.success(v.convocado ? "Veículo convocado para ajuste" : "Convocação removida"); },
+    onError: (e: Error) => toast.error("Erro: " + e.message),
+  });
+}
+
+/** Define a ação a realizar no veículo (e marca convocado quando há ação ativa). */
+export function useDefinirAcao() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, acao }: { id: string; acao: string | null }) => {
+      const ativo = !!acao && acao !== "sem_acao";
+      const { error } = await supabase.from("rastreamento_ituran")
+        .update({ acao: acao || null, convocado: ativo, convocado_em: ativo ? new Date().toISOString() : null } as never)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["rastreamento"] }); toast.success("Ação atualizada"); },
     onError: (e: Error) => toast.error("Erro: " + e.message),
   });
 }

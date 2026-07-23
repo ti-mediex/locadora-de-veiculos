@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { formatNumber } from "@/lib/format";
 import { VEHICLE_STATUS_CHART } from "@/lib/options";
-import { useRastreamento, useConvocar, type RastreioRow } from "@/hooks/use-rastreamento";
+import { useRastreamento, useRastreamentoAcoes, useCreateRastreamentoAcao, useDefinirAcao, type RastreioRow } from "@/hooks/use-rastreamento";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarGridDialog } from "@/components/rastreamento/importar-grid-dialog";
@@ -42,7 +42,9 @@ const fmtDias = (d: number | null) => (d == null ? "sem data" : d < 1 ? "hoje" :
 export default function RastreamentoPage() {
   const { data: rows = [], isLoading } = useRastreamento();
   const { data: config } = useAppConfig();
-  const convocar = useConvocar();
+  const { data: acoes = [] } = useRastreamentoAcoes();
+  const criarAcao = useCreateRastreamentoAcao();
+  const definirAcao = useDefinirAcao();
   const podeEscrever = useCanWrite("rastreamento");
 
   const [showImport, setShowImport] = useState(false);
@@ -247,10 +249,23 @@ export default function RastreamentoPage() {
                       </TableCell>
                       {podeEscrever && (
                         <TableCell className="text-right">
-                          <Button variant={r.convocado ? "secondary" : "outline"} size="sm" disabled={convocar.isPending}
-                            onClick={() => convocar.mutate({ id: r.id, convocado: !r.convocado })}>
-                            {r.convocado ? "Desmarcar" : c.vendido ? "Convocar retirada" : "Convocar"}
-                          </Button>
+                          <Select
+                            value={r.acao ?? ""}
+                            onValueChange={(v) => {
+                              if (v === "__nova__") {
+                                const nome = window.prompt("Nome da nova ação:");
+                                if (nome?.trim()) criarAcao.mutateAsync({ label: nome }).then((val) => definirAcao.mutate({ id: r.id, acao: val })).catch(() => {});
+                                return;
+                              }
+                              definirAcao.mutate({ id: r.id, acao: v });
+                            }}
+                          >
+                            <SelectTrigger className="ml-auto w-48"><SelectValue placeholder={c.vendido ? "Convocar retirada…" : "Selecionar ação…"} /></SelectTrigger>
+                            <SelectContent>
+                              {acoes.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                              <SelectItem value="__nova__">＋ Nova ação…</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                       )}
                     </TableRow>
