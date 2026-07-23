@@ -32,7 +32,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useList } from "@/hooks/use-crud";
 import { normalizeHeader, coerceValue } from "@/lib/csv-parse";
 import { parseSpreadsheet } from "@/lib/spreadsheet";
-import type { Vehicle, Renter } from "@/types/database";
+import type { Vehicle, Locatario } from "@/types/database";
 
 type FieldType = "text" | "number" | "date" | "boolean";
 interface FieldDef {
@@ -41,14 +41,14 @@ interface FieldDef {
   type: FieldType;
   required?: boolean;
   synonyms?: string[];
-  resolveTo?: "vehicle_id" | "renter_id";
+  resolveTo?: "vehicle_id" | "locatario_id";
   valueMap?: Record<string, string>;
   constant?: unknown; // valor fixo para todas as linhas (não precisa mapear)
 }
 interface EntityDef {
   key: string;
   label: string;
-  table: "vehicles" | "renters" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "contracts" | "ledger_entries" | "finance_entries";
+  table: "vehicles" | "locatarios" | "contratos" | "expenses" | "maintenances" | "occurrences" | "suppliers" | "ledger_entries" | "finance_entries";
   conflict?: string;
   fields: FieldDef[];
 }
@@ -78,9 +78,9 @@ const ENTITIES: EntityDef[] = [
     ],
   },
   {
-    key: "renters",
+    key: "locatarios",
     label: "Locatários / Condutores",
-    table: "renters",
+    table: "locatarios",
     conflict: "cpf",
     fields: [
       { field: "nome", label: "Nome", type: "text", required: true, synonyms: ["nome fantasia", "cliente", "condutor", "nome do condutor", "nome completo", "nome cliente", "nome do cliente", "razao social", "nome / razao social", "razao social / nome", "nome razao social"] },
@@ -92,10 +92,13 @@ const ENTITIES: EntityDef[] = [
       { field: "data_nascimento", label: "Nascimento", type: "date", synonyms: ["data de nascimento", "nascimento"] },
       { field: "telefone", label: "Telefone", type: "text", synonyms: ["celular", "fone", "telefone 1", "contato"] },
       { field: "email", label: "E-mail", type: "text", synonyms: ["e-mail", "email 1"] },
+      { field: "cep", label: "CEP", type: "text", synonyms: ["cep"] },
+      { field: "endereco", label: "Endereço", type: "text", synonyms: ["logradouro", "endereco", "rua"] },
+      { field: "bairro", label: "Bairro", type: "text", synonyms: ["bairro"] },
       { field: "cidade", label: "Cidade", type: "text", synonyms: ["municipio"] },
       { field: "estado", label: "Estado", type: "text", synonyms: ["uf"] },
       { field: "chave_pix", label: "Chave PIX", type: "text", synonyms: ["pix"] },
-      { field: "status", label: "Status", type: "text", synonyms: ["situacao"], valueMap: { "ativo": "ativo", "ativa": "ativo", "inativo": "inativo", "inativa": "inativo", "bloqueado": "bloqueado", "prospect": "prospect", "em cadastro": "prospect" } },
+      { field: "status", label: "Status", type: "text", synonyms: ["situacao"], valueMap: { "ativo": "ativo", "ativa": "ativo", "inativo": "inativo", "inativa": "inativo", "bloqueado": "inativo", "baixado": "inativo", "encerrado": "inativo" } },
     ],
   },
   {
@@ -195,26 +198,29 @@ const ENTITIES: EntityDef[] = [
     ],
   },
   {
-    key: "contracts",
+    key: "contratos",
     label: "Contratos de Locação",
-    table: "contracts",
+    table: "contratos",
     conflict: "numero",
     fields: [
-      { field: "_placa", label: "Placa do veículo (→ veículo)", type: "text", required: true, resolveTo: "vehicle_id", synonyms: ["veiculo atual", "veiculo do contrato", "veiculo principal", "placa", "veiculo"] },
-      { field: "_cpf", label: "CPF do condutor (→ locatário)", type: "text", required: true, resolveTo: "renter_id", synonyms: ["cpf condutor", "documento cliente", "cpf", "cpf/cnpj"] },
-      { field: "numero", label: "Número do contrato", type: "text", synonyms: ["contrato de locacao", "contrato"] },
-      { field: "valor_aluguel", label: "Valor do aluguel", type: "number", required: true, synonyms: ["valor de locacao vigente", "valor inicial de locacao", "valor de locacao"] },
-      { field: "data_inicio", label: "Data de início", type: "date", required: true, synonyms: ["inicio de contrato", "inicio do contrato", "data de inicio"] },
-      { field: "data_fim", label: "Data de término", type: "date", synonyms: ["termino do contrato", "termino previsto", "data de termino"] },
-      { field: "franquia_km", label: "Franquia de KM", type: "number", synonyms: ["franquia km/mes", "franquia km", "franquia"] },
-      { field: "nivel_combustivel_retirada", label: "Nível combustível (entrega)", type: "text", synonyms: ["nivel de combustivel na entrega"] },
-      { field: "informacoes_adicionais", label: "Informações adicionais", type: "text", synonyms: ["descritivo adicional"] },
+      { field: "_placa", label: "Placa do veículo (→ veículo)", type: "text", resolveTo: "vehicle_id", synonyms: ["veiculo atual", "veiculo do contrato", "veiculo principal", "placa", "veiculo"] },
+      { field: "_cpf", label: "CPF do condutor (→ locatário)", type: "text", resolveTo: "locatario_id", synonyms: ["cpf condutor", "documento cliente", "cpf", "cpf/cnpj"] },
+      { field: "numero", label: "Número do contrato", type: "text", synonyms: ["contrato de locacao", "contrato", "n contrato", "numero do contrato"] },
+      { field: "cliente_nome", label: "Cliente / condutor", type: "text", required: true, synonyms: ["cliente", "condutor", "nome do condutor", "nome do cliente", "locatario", "nome"] },
+      { field: "cliente_cpf", label: "CPF do cliente", type: "text", synonyms: ["cpf condutor", "documento cliente", "cpf", "cpf/cnpj"] },
+      { field: "cliente_telefone", label: "Telefone do cliente", type: "text", synonyms: ["telefone do condutor", "telefone do cliente", "telefone", "celular"] },
+      { field: "placa", label: "Placa (texto)", type: "text", synonyms: ["placa", "veiculo atual"] },
+      { field: "valor_locacao", label: "Valor da locação (semanal)", type: "number", required: true, synonyms: ["valor de locacao vigente", "valor inicial de locacao", "valor de locacao", "valor do aluguel", "valor semanal"] },
+      { field: "data_entrega", label: "Data de início/entrega", type: "date", required: true, synonyms: ["inicio de contrato", "inicio do contrato", "data de inicio", "data de entrega", "inicio"] },
+      { field: "devolucao_prevista", label: "Data de término/devolução", type: "date", synonyms: ["termino do contrato", "termino previsto", "data de termino", "devolucao prevista", "termino"] },
+      { field: "grupo", label: "Grupo", type: "text", synonyms: ["grupo", "categoria"] },
+      { field: "informacoes_adicionais", label: "Informações adicionais", type: "text", synonyms: ["descritivo adicional", "observacoes"] },
       {
         field: "status", label: "Situação", type: "text", synonyms: ["situacao"],
         valueMap: {
-          "ativo": "ativo", "vigente": "ativo", "em aberto": "ativo", "aberto": "ativo", "em andamento": "ativo",
-          "encerrado": "encerrado", "finalizado": "encerrado", "cancelado": "encerrado", "devolvido": "encerrado",
-          "suspenso": "suspenso", "inadimplente": "inadimplente",
+          "ativo": "ativo", "vigente": "ativo", "em aberto": "ativo", "aberto": "ativo", "em andamento": "ativo", "atual": "ativo",
+          "encerrado": "encerrado", "finalizado": "encerrado", "devolvido": "encerrado",
+          "cancelado": "cancelado", "renovado": "renovado",
         },
       },
     ],
@@ -250,7 +256,7 @@ const ENTITIES: EntityDef[] = [
 ];
 
 // Tipos de dado disponíveis na importação (app simplificado)
-const VISIBLE_KEYS = ["vehicles", "receitas", "despesas"];
+const VISIBLE_KEYS = ["vehicles", "locatarios", "contratos", "receitas", "despesas"];
 
 const IGNORE = "__ignore__";
 
@@ -258,7 +264,7 @@ export default function ImportPage() {
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
-  const { data: renters = [] } = useList<Renter>("renters");
+  const { data: locatarios = [] } = useList<Locatario>("locatarios");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [entityKey, setEntityKey] = useState("vehicles");
@@ -276,11 +282,11 @@ export default function ImportPage() {
     return m;
   }, [vehicles]);
 
-  const rentersByCpf = useMemo(() => {
+  const locatariosByCpf = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of renters) m.set((r.cpf ?? "").replace(/\D/g, ""), r.id);
+    for (const r of locatarios) m.set((r.cpf ?? "").replace(/\D/g, ""), r.id);
     return m;
-  }, [renters]);
+  }, [locatarios]);
 
   function autoMap(hs: string[], ent: EntityDef) {
     const map: Record<string, string> = {};
@@ -346,10 +352,10 @@ export default function ImportPage() {
         const placa = String(value).replace(/\W/g, "").toUpperCase();
         const vid = placaMap.get(placa);
         if (vid) rec["vehicle_id"] = vid;
-      } else if (f.resolveTo === "renter_id") {
+      } else if (f.resolveTo === "locatario_id") {
         const cpf = String(value).replace(/\D/g, "");
         const rid = cpfMap.get(cpf);
-        if (rid) rec["renter_id"] = rid;
+        if (rid) rec["locatario_id"] = rid;
       } else if (f.valueMap) {
         const mappedVal = f.valueMap[String(value).trim().toLowerCase()];
         if (mappedVal) rec[f.field] = mappedVal;
@@ -365,7 +371,7 @@ export default function ImportPage() {
     for (const f of entity.fields) {
       if (!f.required || f.constant !== undefined) continue;
       const key =
-        f.resolveTo === "vehicle_id" ? "vehicle_id" : f.resolveTo === "renter_id" ? "renter_id" : f.field;
+        f.resolveTo === "vehicle_id" ? "vehicle_id" : f.resolveTo === "locatario_id" ? "locatario_id" : f.field;
       if (rec[key] === undefined || rec[key] === null || rec[key] === "") return null;
     }
     return rec;
@@ -373,7 +379,7 @@ export default function ImportPage() {
 
   /** Para contratos: cria automaticamente os locatários (condutores) que faltam. */
   async function ensureContractRenters(): Promise<Map<string, string>> {
-    const cpfMap = new Map(rentersByCpf);
+    const cpfMap = new Map(locatariosByCpf);
     const cpfHeader = mapping["_cpf"];
     if (!cpfHeader || cpfHeader === IGNORE) return cpfMap;
     const cpfIdx = headers.indexOf(cpfHeader);
@@ -402,7 +408,7 @@ export default function ImportPage() {
     for (let i = 0; i < arr.length; i += 200) {
       const batch = arr.slice(i, i + 200);
       const { data } = await supabase
-        .from("renters")
+        .from("locatarios")
         .upsert(batch as never, { onConflict: "cpf", defaultToNull: false })
         .select("id, cpf");
       for (const r of (data ?? []) as { id: string; cpf: string }[]) {
@@ -474,8 +480,8 @@ export default function ImportPage() {
     setImporting(true);
     setResult(null);
 
-    const cpfMap = entity.key === "contracts" ? await ensureContractRenters() : rentersByCpf;
-    const placaMap = entity.key === "contracts" ? await ensureContractVehicles() : vehiclesByPlaca;
+    const cpfMap = entity.key === "contratos" ? await ensureContractRenters() : locatariosByCpf;
+    const placaMap = entity.key === "contratos" ? await ensureContractVehicles() : vehiclesByPlaca;
 
     const records: Record<string, unknown>[] = [];
     let skip = 0;

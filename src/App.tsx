@@ -14,6 +14,7 @@ import RelatoriosPage from "@/pages/relatorios";
 import VistoriasPage from "@/pages/vistorias";
 import ContratosPage from "@/pages/contratos";
 import LocatariosPage from "@/pages/locatarios";
+import ResumoLocatariosPage from "@/pages/resumo-locatarios";
 import ApuracaoKmPage from "@/pages/apuracao-km";
 import RastreamentoPage from "@/pages/rastreamento";
 import ImportacoesPage from "@/pages/importacoes";
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="/veiculos" element={<VehiclesPage />} />
               <Route path="/vistorias" element={<VistoriasPage />} />
               <Route path="/locatarios" element={<LocatariosPage />} />
+              <Route path="/resumo-locatarios" element={<ResumoLocatariosPage />} />
               <Route path="/contratos" element={<ContratosPage />} />
               <Route path="/apuracao-km" element={<ApuracaoKmPage />} />
               <Route path="/rastreamento" element={<RastreamentoPage />} />

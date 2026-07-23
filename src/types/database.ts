@@ -329,6 +329,42 @@ export interface Locatario {
   updated_at: string;
 }
 
+export type DebitoCategoria = "locacao" | "multa" | "juros" | "avaria" | "km_excedente" | "outros";
+
+export interface LocatarioDebito {
+  id: string;
+  locatario_id: string;
+  contrato_id: string | null;
+  vehicle_id: string | null;
+  placa: string | null;
+  categoria: DebitoCategoria;
+  descricao: string | null;
+  valor: number;
+  competencia: string | null;
+  pago: boolean;
+  pago_em: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LocatarioCaucao {
+  id: string;
+  locatario_id: string;
+  contrato_id: string | null;
+  placa: string | null;
+  valor: number;
+  data: string | null;
+  metodo: string | null;
+  observacao: string | null;
+  devolvido: boolean;
+  devolvido_em: string | null;
+  valor_devolvido: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Contrato {
   id: string;
   numero: string;
