@@ -410,7 +410,7 @@ export default function VehiclesPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-            <Table>
+            <Table className="text-xs [&_th]:h-9 [&_th]:px-2 [&_th]:text-xs [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
@@ -423,7 +423,7 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Proprietário</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
-                  <TableHead className="w-24"></TableHead>
+                  <TableHead className="w-[92px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -435,24 +435,24 @@ export default function VehiclesPage() {
                     className="cursor-pointer"
                     onClick={() => (canWrite ? openEdit(v) : navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`))}
                   >
-                    <TableCell className="font-mono font-medium">{maskPlaca(v.placa)}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{v.marca} {v.modelo}</div>
-                      <div className="text-xs text-muted-foreground">{v.cor} · {v.categoria}</div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {v.busca_apreensao && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Busca e apreensão</Badge>}
-                        {v.bloqueio_judicial && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Bloqueio judicial</Badge>}
-                        {v.alienacao_fiduciaria && <Badge variant="warning">Alienado{v.alienante ? `: ${v.alienante}` : ""}</Badge>}
-                        {v.quitado && <Badge variant="success">Quitado</Badge>}
+                    <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(v.placa)}</TableCell>
+                    <TableCell className="max-w-[190px]">
+                      <div className="truncate font-medium" title={`${v.marca} ${v.modelo}`}>{v.marca} {v.modelo}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">{v.cor} · {v.categoria}</div>
+                      <div className="mt-0.5 flex flex-wrap gap-1">
+                        {v.busca_apreensao && <Badge variant="destructive" className="px-1.5 py-0 text-[10px]" title="Busca e apreensão">B&amp;A</Badge>}
+                        {v.bloqueio_judicial && <Badge variant="destructive" className="px-1.5 py-0 text-[10px]" title="Bloqueio judicial">Bloqueio</Badge>}
+                        {v.alienacao_fiduciaria && <Badge variant="warning" className="px-1.5 py-0 text-[10px]" title={v.alienante ? `Alienado: ${v.alienante}` : "Alienado"}>Alienado</Badge>}
+                        {v.quitado && <Badge variant="success" className="px-1.5 py-0 text-[10px]">Quitado</Badge>}
                       </div>
                     </TableCell>
-                    <TableCell>{v.ano_fabricacao}/{v.ano_modelo}</TableCell>
-                    <TableCell className="text-right">{formatNumber(v.km_atual)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="whitespace-nowrap">{v.ano_fabricacao}/{v.ano_modelo}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right">{formatNumber(v.km_atual)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right">
                       <div>{formatCurrency(v.valor_fipe)}</div>
                       {v.fipe_mes_referencia && (
-                        <div className="text-[10px] text-muted-foreground" title={v.fipe_atualizado_em ? `Atualizado em ${formatDate(v.fipe_atualizado_em)}` : undefined}>
-                          FIPE {v.fipe_mes_referencia}
+                        <div className="text-[10px] text-muted-foreground" title={v.fipe_atualizado_em ? `FIPE ${v.fipe_mes_referencia} · atualizado em ${formatDate(v.fipe_atualizado_em)}` : `FIPE ${v.fipe_mes_referencia}`}>
+                          {v.fipe_mes_referencia}
                         </div>
                       )}
                     </TableCell>
@@ -464,58 +464,58 @@ export default function VehiclesPage() {
                         className="inline-flex items-center gap-1"
                       >
                         {pend && pend.vencidas > 0 && (
-                          <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{pend.vencidas}</Badge>
+                          <Badge variant="destructive" className="gap-0.5 px-1.5 py-0 text-[10px]" title={`${pend.vencidas} vencida(s)`}><AlertTriangle className="h-3 w-3" />{pend.vencidas}</Badge>
                         )}
                         {pend && pend.abertas > 0 ? (
-                          <Badge variant={pend.vencidas > 0 ? "warning" : "secondary"}>{pend.abertas} aberta{pend.abertas > 1 ? "s" : ""}</Badge>
+                          <Badge variant={pend.vencidas > 0 ? "warning" : "secondary"} className="px-1.5 py-0 text-[10px]" title={`${pend.abertas} aberta(s)`}>{pend.abertas}</Badge>
                         ) : (
-                          !pend?.vencidas && <span className="text-xs text-muted-foreground">—</span>
+                          !pend?.vencidas && <span className="text-muted-foreground">—</span>
                         )}
                       </button>
                     </TableCell>
                     <TableCell>
                       {(() => {
                         const r = restrMap[v.id];
-                        if (!r) return <span className="text-xs text-muted-foreground">—</span>;
+                        if (!r) return <span className="text-muted-foreground">—</span>;
                         return (
                           <button
                             type="button"
-                            title="Ver restrições do veículo"
+                            title={`${r.total} restrição(ões)${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}`}
                             onClick={(e) => { e.stopPropagation(); navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}&restr=todas`); }}
-                            className="inline-flex flex-wrap items-center gap-1"
+                            className="inline-flex items-center gap-1"
                           >
                             {r.judicial > 0 && (
-                              <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{r.judicial} judicial{r.judicial > 1 ? "is" : ""}</Badge>
+                              <Badge variant="destructive" className="gap-0.5 px-1.5 py-0 text-[10px]"><AlertTriangle className="h-3 w-3" />{r.judicial}</Badge>
                             )}
-                            <Badge variant={r.judicial > 0 ? "warning" : "secondary"}>{r.total} restriç{r.total > 1 ? "ões" : "ão"}</Badge>
+                            <Badge variant={r.judicial > 0 ? "warning" : "secondary"} className="px-1.5 py-0 text-[10px]">{r.total}</Badge>
                           </button>
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="max-w-[130px]">
                       {v.proprietario_nome
-                        ? <span>{v.proprietario_nome}{v.proprietario_documento ? <span className="block text-[11px] text-muted-foreground">{v.proprietario_documento}</span> : null}</span>
-                        : <span className="text-xs text-muted-foreground">—</span>}
+                        ? <span className="block truncate" title={`${v.proprietario_nome}${v.proprietario_documento ? ` · ${v.proprietario_documento}` : ""}`}>{v.proprietario_nome}</span>
+                        : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="max-w-[130px]">
                       {(() => {
                         const loc = locatarioMap.get(v.id);
-                        if (!loc) return <span className="text-xs text-muted-foreground">—</span>;
+                        if (!loc) return <span className="text-muted-foreground">—</span>;
                         return (
                           <button
                             type="button"
-                            title="Ver contratos do locatário"
+                            title={`Ver contratos de ${loc}`}
                             onClick={(e) => { e.stopPropagation(); navigate(`/contratos?veiculo=${encodeURIComponent(v.placa)}`); }}
-                            className="text-left hover:underline"
+                            className="block max-w-full truncate text-left hover:underline"
                           >
                             {loc}
                           </button>
                         );
                       })()}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {statusMap.has(v.status) ? (
-                        <Badge variant="secondary" className="gap-1.5">
+                        <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
                           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusMap.get(v.status)?.cor ?? "currentColor" }} />
                           {statusMap.get(v.status)?.label}
                         </Badge>
@@ -523,37 +523,21 @@ export default function VehiclesPage() {
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {canWrite && (
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-0.5">
                           {v.status === "inativo" ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Reativar (disponível)"
-                              onClick={() => update.mutate({ id: v.id, status: "disponivel" })}
-                            >
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Reativar (disponível)" onClick={() => update.mutate({ id: v.id, status: "disponivel" })}>
                               <RotateCcw className="h-4 w-4 text-success" />
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Inativar veículo"
-                              onClick={() => update.mutate({ id: v.id, status: "inativo" })}
-                            >
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Inativar veículo" onClick={() => update.mutate({ id: v.id, status: "inativo" })}>
                               <Power className="h-4 w-4 text-warning" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" title="Editar" aria-label={`Editar ${v.placa}`} onClick={() => openEdit(v)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" aria-label={`Editar ${v.placa}`} onClick={() => openEdit(v)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Remover"
-                            aria-label={`Remover ${v.placa}`}
-                            onClick={() => {
-                              if (confirm(`Remover o veículo ${v.placa}?`)) remove.mutate(v.id);
-                            }}
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Remover" aria-label={`Remover ${v.placa}`}
+                            onClick={() => { if (confirm(`Remover o veículo ${v.placa}?`)) remove.mutate(v.id); }}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
