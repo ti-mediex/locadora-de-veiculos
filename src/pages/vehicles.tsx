@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -42,11 +42,12 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 import { ImportarConsultaPlacaDialog } from "@/components/vehicles/importar-consulta-placa-dialog";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
-import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
+import { formatCurrency, formatNumber, formatDate, maskPlaca, soAlfa } from "@/lib/format";
 import type { Vehicle, Alienante } from "@/types/database";
 
 const schema = z.object({
@@ -186,8 +187,10 @@ export default function VehiclesPage() {
       const loc = locatarioMap.get(v.id) ?? "";
       const ano = String(v.ano_modelo ?? v.ano_fabricacao ?? "");
       const temRestr = !!restrMap[v.id];
+      const qa = soAlfa(search);
       const mSearch = !q || v.placa.toLowerCase().includes(q) || v.modelo.toLowerCase().includes(q) ||
-        v.marca.toLowerCase().includes(q) || prop.toLowerCase().includes(q) || loc.toLowerCase().includes(q);
+        v.marca.toLowerCase().includes(q) || prop.toLowerCase().includes(q) || loc.toLowerCase().includes(q) ||
+        (qa !== "" && soAlfa(v.placa).includes(qa));
       const mMarca = fMarca === TODOS || v.marca === fMarca;
       const mAno = fAno === TODOS || ano === fAno;
       const mStatus = fStatus === TODOS || v.status === fStatus;
@@ -366,12 +369,12 @@ export default function VehiclesPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex items-center gap-2 border-b p-4">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por placa, marca, modelo, proprietário ou locatário..."
+            <BuscaPlaca
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border-0 focus-visible:ring-0"
+              onChange={setSearch}
+              vehicles={vehicles}
+              placeholder="Buscar por placa (ex.: 8451), marca, modelo, proprietário ou locatário..."
+              contador={(id) => { const p = pendMap[id]; return p && p.abertas > 0 ? `${p.abertas} pend.` : null; }}
             />
           </div>
           {/* Filtros por coluna */}

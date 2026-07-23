@@ -12,8 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, soAlfa } from "@/lib/format";
 import { VEHICLE_STATUS_CHART } from "@/lib/options";
 import { useRastreamento, useRastreamentoAcoes, useCreateRastreamentoAcao, useDefinirAcao, type RastreioRow } from "@/hooks/use-rastreamento";
 import { useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
@@ -24,6 +23,7 @@ import { ImportarGridDialog } from "@/components/rastreamento/importar-grid-dial
 import { abrirRelatorioRastreio } from "@/lib/relatorio-rastreamento";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
@@ -63,6 +63,10 @@ export default function RastreamentoPage() {
 
   const dados = useMemo(() => rows.map((r) => ({ r, c: classificar(r, limiarH) })), [rows, limiarH]);
   const grupos = useMemo(() => [...new Set(rows.map((r) => r.grupo).filter(Boolean) as string[])].sort(), [rows]);
+  // Sugestões de veículos para a busca (ignora a linha de resumo da importação).
+  const veicSugestoes = useMemo(() => rows
+    .filter((r) => r.placa && !/ve[íi]culo/i.test(r.placa))
+    .map((r) => ({ id: r.vehicle_id ?? r.id, placa: r.placa, modelo: r.vehicles?.modelo })), [rows]);
 
   const kpi = useMemo(() => {
     let comunicando = 0, semCom = 0, vendidos = 0, convocados = 0, t1a2 = 0, t2a7 = 0, t7a30 = 0, t30 = 0;
@@ -90,7 +94,9 @@ export default function RastreamentoPage() {
     const q = search.toLowerCase();
     return dados.filter(({ r, c }) => {
       const mG = fGrupo === "todos" || r.grupo === fGrupo;
-      const mQ = !q || r.placa.toLowerCase().includes(q) || (r.vehicles?.modelo ?? "").toLowerCase().includes(q);
+      const qa = soAlfa(search);
+      const mQ = !q || r.placa.toLowerCase().includes(q) || (r.vehicles?.modelo ?? "").toLowerCase().includes(q) ||
+        (qa !== "" && soAlfa(r.placa).includes(qa));
       const mS =
         fStatus === "todos" ? true :
         fStatus === "comunicando" ? !c.semCom :
@@ -219,7 +225,7 @@ export default function RastreamentoPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:p-4">
-            <Input placeholder="Buscar por placa ou modelo..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 border-0 focus-visible:ring-0" />
+            <BuscaPlaca value={search} onChange={setSearch} vehicles={veicSugestoes} placeholder="Buscar por placa (ex.: 8451) ou modelo..." />
             <Select value={fStatus} onValueChange={setFStatus}>
               <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
               <SelectContent>

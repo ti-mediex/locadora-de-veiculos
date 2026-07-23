@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Plus, Search, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail, Upload, FileUp, Pencil,
+  Plus, Trash2, Eye, Camera, ClipboardCheck, MapPin, FileText, Loader2, AlertTriangle, X, MessageCircle, Mail, Upload, FileUp, Pencil,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -33,10 +33,11 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { VISTORIA_TIPO, VISTORIA_COMBUSTIVEL, VISTORIA_PARTES, VISTORIA_CHECKLIST_ITENS } from "@/lib/options";
-import { formatDate } from "@/lib/format";
+import { formatDate, soAlfa } from "@/lib/format";
 import type { Vehicle, ChecklistItem } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -195,8 +196,11 @@ export default function VistoriasPage() {
     const vq = fVistoriador.toLowerCase();
     return rows.filter((r) => {
       const matchTipo = fTipo === "todos" || r.tipo === fTipo;
-      const matchSearch = !q || (r.vehicles?.placa ?? "").toLowerCase().includes(q) ||
-        (r.locatario_nome ?? "").toLowerCase().includes(q) || (r.vehicles?.modelo ?? "").toLowerCase().includes(q);
+      const qa = soAlfa(search);
+      const placa = r.vehicles?.placa ?? r.placa ?? "";
+      const matchSearch = !q || placa.toLowerCase().includes(q) ||
+        (r.locatario_nome ?? "").toLowerCase().includes(q) || (r.vehicles?.modelo ?? "").toLowerCase().includes(q) ||
+        (qa !== "" && soAlfa(placa).includes(qa));
       const matchVist = !vq || (r.vistoriador ?? "").toLowerCase().includes(vq);
       const dia = r.created_at.slice(0, 10);
       const matchIni = !fDataIni || dia >= fDataIni;
@@ -271,8 +275,12 @@ export default function VistoriasPage() {
         <CardContent className="p-0">
           <div className="space-y-2 border-b p-3 sm:p-4">
             <div className="flex items-center gap-2 rounded-md border px-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por placa, modelo ou locatário..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
+              <BuscaPlaca
+                value={search}
+                onChange={setSearch}
+                vehicles={vehicles}
+                placeholder="Buscar por placa (ex.: 8451), modelo ou locatário..."
+              />
             </div>
             <div className="flex flex-wrap gap-2">
               <Select value={fTipo} onValueChange={setFTipo}>

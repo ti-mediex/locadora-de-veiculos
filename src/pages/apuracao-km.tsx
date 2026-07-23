@@ -24,6 +24,7 @@ import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useList } from "@/hooks/use-crud";
 import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
+import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { ImportarIturanDialog } from "@/components/km/importar-ituran-dialog";
 import { abrirRelatorioKm } from "@/lib/relatorio-km";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
@@ -58,6 +59,7 @@ export default function ApuracaoKmPage() {
   const locatarioMap = useLocatarioPorVeiculo();
 
   const [fVeiculo, setFVeiculo] = useState("todos");
+  const [buscaVeic, setBuscaVeic] = useState("");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
   const [mes, setMes] = useState(""); // "YYYY-MM" — atalho de mês específico
@@ -252,15 +254,25 @@ export default function ApuracaoKmPage() {
 
       {/* Filtros */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3 sm:p-4">
-        <div className="w-full sm:w-auto">
+        <div className="w-full sm:w-64">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Veículo</label>
-          <Select value={fVeiculo} onValueChange={setFVeiculo}>
-            <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Frota toda</SelectItem>
-              {veiculos.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="space-y-1.5">
+            <BuscaPlaca
+              value={buscaVeic}
+              onChange={setBuscaVeic}
+              onSelect={(v) => { setFVeiculo(v.id); setBuscaVeic(""); }}
+              vehicles={veiculos}
+              placeholder="Buscar placa (ex.: 8451)..."
+              className="h-9 rounded-md border px-2"
+            />
+            <Select value={fVeiculo} onValueChange={setFVeiculo}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Frota toda</SelectItem>
+                {veiculos.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Mês</label>

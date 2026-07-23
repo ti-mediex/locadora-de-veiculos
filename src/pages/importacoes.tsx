@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { Search, Download, FileText, Car } from "lucide-react";
+import { Download, FileText, Car } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +15,9 @@ import {
 import { useImportHistory, baixarImportacao, type ImportHistoryRow } from "@/hooks/use-import-history";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
+import { soAlfa } from "@/lib/format";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -57,11 +58,21 @@ export default function ImportacoesPage() {
   const [search, setSearch] = useState("");
   const [fTipo, setFTipo] = useState("todos");
 
+  // Sugestões de placa a partir do histórico (distintas).
+  const veicSugestoes = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; placa: string }[] = [];
+    for (const h of rows) { const p = h.placa; if (p && !seen.has(p)) { seen.add(p); out.push({ id: p, placa: p }); } }
+    return out;
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+    const qa = soAlfa(search);
     return rows.filter((h) => {
       const matchTipo = fTipo === "todos" || h.tipo === fTipo;
-      const matchSearch = !q || (h.placa ?? "").toLowerCase().includes(q) || (h.file_name ?? "").toLowerCase().includes(q);
+      const matchSearch = !q || (h.placa ?? "").toLowerCase().includes(q) || (h.file_name ?? "").toLowerCase().includes(q) ||
+        (qa !== "" && soAlfa(h.placa ?? "").includes(qa));
       return matchTipo && matchSearch;
     });
   }, [rows, search, fTipo]);
@@ -110,10 +121,7 @@ export default function ImportacoesPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:items-center">
-            <div className="flex flex-1 items-center gap-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por placa ou arquivo..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
-            </div>
+            <BuscaPlaca value={search} onChange={setSearch} vehicles={veicSugestoes} placeholder="Buscar por placa (ex.: 8451) ou arquivo..." />
             <Select value={fTipo} onValueChange={setFTipo}>
               <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
               <SelectContent>

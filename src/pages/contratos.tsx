@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Trash2, FileText, RefreshCw, FileSignature, XCircle, Pencil } from "lucide-react";
+import { Plus, Trash2, FileText, RefreshCw, FileSignature, XCircle, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -21,10 +21,11 @@ import {
   useContratos, useCreateContrato, useUpdateContrato, useRenovarContrato, useDeleteContrato, type ContratoRow,
 } from "@/hooks/use-contratos";
 import { gerarContratoHtml } from "@/lib/contrato-doc";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -160,8 +161,10 @@ export default function ContratosPage() {
     const q = search.toLowerCase();
     return rows.filter((r) => {
       const mS = fStatus === "todos" || r.status === fStatus;
+      const qa = soAlfa(search);
+      const placa = r.vehicles?.placa ?? r.placa ?? "";
       const mQ = !q || r.numero.toLowerCase().includes(q) || r.cliente_nome.toLowerCase().includes(q) ||
-        (r.vehicles?.placa ?? r.placa ?? "").toLowerCase().includes(q);
+        placa.toLowerCase().includes(q) || (qa !== "" && soAlfa(placa).includes(qa));
       return mS && mQ;
     });
   }, [rows, search, fStatus]);
@@ -224,10 +227,12 @@ export default function ContratosPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:p-4">
-            <div className="flex flex-1 items-center gap-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nº, cliente ou placa..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
-            </div>
+            <BuscaPlaca
+              value={search}
+              onChange={setSearch}
+              vehicles={vehicles}
+              placeholder="Buscar por placa (ex.: 8451), nº do contrato ou cliente..."
+            />
             <Select value={fStatus} onValueChange={setFStatus}>
               <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
