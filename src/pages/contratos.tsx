@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Trash2, FileText, RefreshCw, FileSignature, XCircle } from "lucide-react";
+import { Plus, Search, Trash2, FileText, RefreshCw, FileSignature, XCircle, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -49,6 +49,7 @@ export default function ContratosPage() {
   const canWrite = useCanWrite("contratos");
 
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<ContratoRow | null>(null);
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("todos");
   const [form, setForm] = useState<Form>({});
@@ -61,9 +62,26 @@ export default function ContratosPage() {
   };
 
   function abrirNovo() {
+    setEditing(null);
     setForm({
       data_entrega: hojeStr(), local_entrega: empresa.nome, local_devolucao: empresa.nome,
       semanas: "1", atendente: "",
+    });
+    setOpen(true);
+  }
+
+  function abrirEditar(c: ContratoRow) {
+    setEditing(c);
+    const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+    setForm({
+      vehicle_id: s(c.vehicle_id), placa: s(c.placa), locatario_id: s(c.locatario_id),
+      cliente_nome: s(c.cliente_nome === "—" ? "" : c.cliente_nome), cliente_cpf: s(c.cliente_cpf), cliente_cnh: s(c.cliente_cnh),
+      cliente_cnh_cat: s(c.cliente_cnh_cat), cliente_email: s(c.cliente_email), cliente_telefone: s(c.cliente_telefone),
+      cliente_endereco: s(c.cliente_endereco), atendente: s(c.atendente), local_entrega: s(c.local_entrega),
+      data_entrega: s(c.data_entrega), hora_entrega: s(c.hora_entrega), local_devolucao: s(c.local_devolucao),
+      devolucao_prevista: s(c.devolucao_prevista), grupo: s(c.grupo), km_entrega: s(c.km_entrega),
+      valor_locacao: s(c.valor_locacao), semanas: s(c.semanas), pre_autorizacao: s(c.pre_autorizacao),
+      informacoes_adicionais: s(c.informacoes_adicionais), status: s(c.status),
     });
     setOpen(true);
   }
@@ -113,7 +131,7 @@ export default function ContratosPage() {
       } catch { /* não bloqueia a criação do contrato */ }
     }
 
-    create.mutate({
+    const payload = {
       vehicle_id: form.vehicle_id || null, placa: form.placa || null, locatario_id: locatarioId,
       cliente_nome: form.cliente_nome || "—", cliente_cpf: form.cliente_cpf || null, cliente_cnh: form.cliente_cnh || null,
       cliente_cnh_cat: form.cliente_cnh_cat || null, cliente_email: form.cliente_email || null,
@@ -123,7 +141,13 @@ export default function ContratosPage() {
       grupo: form.grupo || null, km_entrega: int(form.km_entrega), valor_locacao: num(form.valor_locacao),
       semanas: int(form.semanas), valor_total: totalCalc || null, pre_autorizacao: num(form.pre_autorizacao),
       informacoes_adicionais: form.informacoes_adicionais || null,
-    }, { onSuccess: () => setOpen(false) });
+    };
+    if (editing) {
+      const patch = form.status ? { ...payload, status: form.status as ContratoRow["status"] } : payload;
+      update.mutate({ id: editing.id, ...patch }, { onSuccess: () => setOpen(false) });
+    } else {
+      create.mutate(payload, { onSuccess: () => setOpen(false) });
+    }
   }
 
   function emitir(c: ContratoRow) {
@@ -236,7 +260,7 @@ export default function ContratosPage() {
               </TableHeader>
               <TableBody>
                 {sorted.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} className={canWrite ? "cursor-pointer" : undefined} onClick={canWrite ? () => abrirEditar(c) : undefined}>
                     <TableCell className="font-mono font-medium">{c.numero}</TableCell>
                     <TableCell>{c.cliente_nome}</TableCell>
                     <TableCell className="font-mono">{c.vehicles?.placa ?? c.placa ?? "—"}</TableCell>
@@ -246,14 +270,15 @@ export default function ContratosPage() {
                     <TableCell className="text-right">{formatCurrency(c.valor_locacao)}</TableCell>
                     <TableCell><Badge variant={STATUS_BADGE[c.status]}>{c.status}</Badge></TableCell>
                     {canWrite && (
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" title="Emitir/imprimir" onClick={() => emitir(c)}><FileText className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" title="Renovar" onClick={() => confirm(`Renovar o contrato ${c.numero}?`) && renovar.mutate(c)}><RefreshCw className="h-4 w-4 text-primary" /></Button>
+                          <Button variant="ghost" size="icon" title="Editar" aria-label={`Editar contrato ${c.numero}`} onClick={() => abrirEditar(c)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" title="Emitir/imprimir" aria-label="Emitir contrato" onClick={() => emitir(c)}><FileText className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" title="Renovar" aria-label="Renovar contrato" onClick={() => confirm(`Renovar o contrato ${c.numero}?`) && renovar.mutate(c)}><RefreshCw className="h-4 w-4 text-primary" /></Button>
                           {c.status === "ativo" && (
-                            <Button variant="ghost" size="icon" title="Encerrar" onClick={() => update.mutate({ id: c.id, status: "encerrado" })}><XCircle className="h-4 w-4 text-warning" /></Button>
+                            <Button variant="ghost" size="icon" title="Encerrar" aria-label="Encerrar contrato" onClick={() => update.mutate({ id: c.id, status: "encerrado" })}><XCircle className="h-4 w-4 text-warning" /></Button>
                           )}
-                          <Button variant="ghost" size="icon" title="Remover" onClick={() => confirm("Remover contrato?") && remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <Button variant="ghost" size="icon" title="Remover" aria-label="Remover contrato" onClick={() => confirm("Remover contrato?") && remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
                       </TableCell>
                     )}
@@ -265,10 +290,10 @@ export default function ContratosPage() {
         </CardContent>
       </Card>
 
-      {/* Novo contrato */}
+      {/* Novo / editar contrato */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
-          <DialogHeader><DialogTitle>Novo contrato de locação</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? `Editar contrato ${editing.numero}` : "Novo contrato de locação"}</DialogTitle></DialogHeader>
           <div className="space-y-5">
             <section>
               <h4 className="mb-2 text-sm font-semibold">Abertura</h4>
@@ -279,6 +304,19 @@ export default function ContratosPage() {
                 <Field label="Data de entrega"><Input type="date" value={form.data_entrega ?? ""} onChange={(e) => set("data_entrega", e.target.value)} /></Field>
                 <Field label="Hora de entrega"><Input type="time" value={form.hora_entrega ?? ""} onChange={(e) => set("hora_entrega", e.target.value)} /></Field>
                 <Field label="Devolução prevista"><Input type="date" value={form.devolucao_prevista ?? ""} onChange={(e) => set("devolucao_prevista", e.target.value)} /></Field>
+                {editing && (
+                  <Field label="Status do contrato">
+                    <Select value={form.status || "ativo"} onValueChange={(v) => set("status", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ativo">Ativo</SelectItem>
+                        <SelectItem value="renovado">Renovado</SelectItem>
+                        <SelectItem value="encerrado">Encerrado</SelectItem>
+                        <SelectItem value="cancelado">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
               </div>
             </section>
 
@@ -331,7 +369,9 @@ export default function ContratosPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={salvar} disabled={!form.cliente_nome || create.isPending}>{create.isPending ? "Salvando..." : "Criar contrato"}</Button>
+            <Button onClick={salvar} disabled={!form.cliente_nome || create.isPending || update.isPending}>
+              {editing ? (update.isPending ? "Salvando..." : "Salvar alterações") : (create.isPending ? "Salvando..." : "Criar contrato")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
