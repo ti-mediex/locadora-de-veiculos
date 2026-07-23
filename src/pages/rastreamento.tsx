@@ -256,7 +256,7 @@ export default function RastreamentoPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1.5 [&_th]:text-[11px] [&_td]:px-1.5 [&_td]:py-2">
                 <TableHeader>
                   <TableRow>
                     <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
@@ -281,19 +281,19 @@ export default function RastreamentoPage() {
                           ? <Badge variant="secondary" className="gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: VEHICLE_STATUS_CHART[r.vehicles.status]?.color ?? "currentColor" }} />{statusVeicLabel(r.vehicles.status)}</Badge>
                           : <span className="text-muted-foreground">—</span>}
                       </TableCell>
-                      <TableCell className="text-sm">{(r.vehicle_id && locatarioMap.get(r.vehicle_id)) || <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="max-w-[120px] truncate text-sm" title={(r.vehicle_id && locatarioMap.get(r.vehicle_id)) || undefined}>{(r.vehicle_id && locatarioMap.get(r.vehicle_id)) || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm">{fmtData(r.ultima_comunicacao)}</TableCell>
                       <TableCell>{badgeDias(c)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1">
-                          {c.vendido && <Badge variant="outline" className="border-destructive text-destructive">Vendido · retirar rastreador</Badge>}
-                          {!c.semCom && !c.vendido && <Badge variant="success" className="gap-1"><BadgeCheck className="h-3 w-3" /> OK</Badge>}
-                          {c.semCom && !c.vendido && <Badge variant="outline" className="border-warning text-warning">Sem comunicação</Badge>}
-                          {r.convocado && <Badge variant="secondary" className="gap-1"><Bell className="h-3 w-3" /> Convocado</Badge>}
+                          {c.vendido && <Badge variant="outline" className="border-destructive px-1.5 py-0 text-[10px] text-destructive" title="Vendido · retirar rastreador">Vendido · retirar</Badge>}
+                          {!c.semCom && !c.vendido && <Badge variant="success" className="gap-0.5 px-1.5 py-0 text-[10px]"><BadgeCheck className="h-3 w-3" /> OK</Badge>}
+                          {c.semCom && !c.vendido && <Badge variant="outline" className="border-warning px-1.5 py-0 text-[10px] text-warning">Sem comunicação</Badge>}
+                          {r.convocado && <Badge variant="secondary" className="gap-0.5 px-1.5 py-0 text-[10px]"><Bell className="h-3 w-3" /> Convocado</Badge>}
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[16rem] truncate text-xs text-muted-foreground">
-                        {r.endereco ? <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" />{r.endereco}</span> : "—"}
+                      <TableCell className="max-w-[170px] text-xs text-muted-foreground" title={r.endereco ?? undefined}>
+                        {r.endereco ? <span className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{r.endereco}</span></span> : "—"}
                       </TableCell>
                       {podeEscrever && (
                         <TableCell className="text-right">
@@ -310,7 +310,7 @@ export default function RastreamentoPage() {
                               definirAcao.mutate({ id: r.id, acao: v });
                             }}
                           >
-                            <SelectTrigger className="ml-auto w-48"><SelectValue placeholder={c.vendido ? "Convocar retirada…" : "Selecionar ação…"} /></SelectTrigger>
+                            <SelectTrigger className="ml-auto h-8 w-40 text-xs"><SelectValue placeholder={c.vendido ? "Convocar retirada…" : "Ação…"} /></SelectTrigger>
                             <SelectContent>
                               {acoes.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
                               <SelectItem value="__nova__">＋ Nova ação…</SelectItem>

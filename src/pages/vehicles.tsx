@@ -432,7 +432,7 @@ export default function VehiclesPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-            <Table className="text-xs [&_th]:h-9 [&_th]:px-2 [&_th]:text-xs [&_td]:px-2 [&_td]:py-2">
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1.5 [&_th]:text-[11px] [&_td]:px-1.5 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
@@ -442,12 +442,12 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="kmmes" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM {mesAtualLabel}</SortableHead>
                   <SortableHead sortKey="kmmesant" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM {mesAntLabel}</SortableHead>
                   <SortableHead sortKey="fipe" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">FIPE</SortableHead>
-                  <SortableHead sortKey="pendencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pendências</SortableHead>
-                  <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restrições</SortableHead>
-                  <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Proprietário</SortableHead>
+                  <SortableHead sortKey="pendencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pend.</SortableHead>
+                  <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restr.</SortableHead>
+                  <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Propriet.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
-                  <TableHead className="w-[92px]"></TableHead>
+                  <TableHead className="w-[84px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,9 +460,9 @@ export default function VehiclesPage() {
                     onClick={() => (canWrite ? openEdit(v) : navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`))}
                   >
                     <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(v.placa)}</TableCell>
-                    <TableCell className="max-w-[190px]">
+                    <TableCell className="max-w-[132px]">
                       <div className="truncate font-medium" title={`${v.marca} ${v.modelo}`}>{v.marca} {v.modelo}</div>
-                      <div className="truncate text-[11px] text-muted-foreground">{v.cor} · {v.categoria}</div>
+                      <div className="truncate text-[10px] text-muted-foreground">{v.cor} · {v.categoria}</div>
                       <div className="mt-0.5 flex flex-wrap gap-1">
                         {v.busca_apreensao && <Badge variant="destructive" className="px-1.5 py-0 text-[10px]" title="Busca e apreensão">B&amp;A</Badge>}
                         {v.bloqueio_judicial && <Badge variant="destructive" className="px-1.5 py-0 text-[10px]" title="Bloqueio judicial">Bloqueio</Badge>}
@@ -522,12 +522,12 @@ export default function VehiclesPage() {
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="max-w-[130px]">
+                    <TableCell className="max-w-[92px]">
                       {v.proprietario_nome
                         ? <span className="block truncate" title={`${v.proprietario_nome}${v.proprietario_documento ? ` · ${v.proprietario_documento}` : ""}`}>{v.proprietario_nome}</span>
                         : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="max-w-[130px]">
+                    <TableCell className="max-w-[92px]">
                       {(() => {
                         const loc = locatarioMap.get(v.id);
                         if (!loc) return <span className="text-muted-foreground">—</span>;
