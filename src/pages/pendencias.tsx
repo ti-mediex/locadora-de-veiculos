@@ -514,12 +514,12 @@ export default function PendenciasPage() {
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           {r.status !== "resolvida" && (
-                            <Button variant="ghost" size="icon" title="Resolver" onClick={() => resolver(r)}>
+                            <Button variant="ghost" size="icon" title="Resolver" aria-label="Resolver pendência" onClick={() => resolver(r)}>
                               <CheckCircle2 className="h-4 w-4 text-success" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => confirm("Remover pendência?") && remove.mutate(r.id)}>
+                          <Button variant="ghost" size="icon" title="Editar" aria-label="Editar pendência" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" title="Remover" aria-label="Remover pendência" onClick={() => confirm("Remover pendência?") && remove.mutate(r.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>

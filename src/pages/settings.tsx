@@ -52,10 +52,13 @@ export default function SettingsPage() {
       onSuccess: () => { setNovoOpen(false); setNome(""); setEmail(""); setSenha(""); setPapel("operador"); },
     });
   }
-  function redefinirSenha(p: Profile) {
-    const nova = prompt(`Nova senha para ${p.email} (mín. 6 caracteres):`);
-    if (nova && nova.length >= 6) resetPass.mutate({ id: p.id, password: nova });
-    else if (nova) alert("Senha muito curta.");
+  const [resetTarget, setResetTarget] = useState<Profile | null>(null);
+  const [novaSenha, setNovaSenha] = useState("");
+  function confirmarRedefinicao() {
+    if (!resetTarget || novaSenha.length < 6) return;
+    resetPass.mutate({ id: resetTarget.id, password: novaSenha }, {
+      onSuccess: () => { setResetTarget(null); setNovaSenha(""); },
+    });
   }
 
   return (
@@ -116,7 +119,7 @@ export default function SettingsPage() {
                     {isAdmin && (
                       <TableCell>
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" title="Redefinir senha" onClick={() => redefinirSenha(p)}><KeyRound className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" title="Redefinir senha" aria-label={`Redefinir senha de ${p.email}`} onClick={() => { setResetTarget(p); setNovaSenha(""); }}><KeyRound className="h-4 w-4" /></Button>
                           {p.id !== profile?.id && (
                             <Button variant="ghost" size="icon" title="Excluir" onClick={() => confirm(`Excluir o usuário ${p.email}?`) && deleteUser.mutate(p.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -214,6 +217,32 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={() => setNovoOpen(false)}>Cancelar</Button>
             <Button onClick={criar} disabled={!email || senha.length < 6 || createUser.isPending}>
               {createUser.isPending ? "Criando..." : "Criar usuário"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Redefinição de senha */}
+      <Dialog open={!!resetTarget} onOpenChange={(o) => { if (!o) { setResetTarget(null); setNovaSenha(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Redefinir senha</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Nova senha para <span className="font-medium text-foreground">{resetTarget?.email}</span>.</p>
+            <Field label="Nova senha (mín. 6 caracteres)">
+              <Input
+                type="password"
+                value={novaSenha}
+                onChange={(e) => setNovaSenha(e.target.value)}
+                placeholder="••••••"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter" && novaSenha.length >= 6) confirmarRedefinicao(); }}
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResetTarget(null); setNovaSenha(""); }}>Cancelar</Button>
+            <Button onClick={confirmarRedefinicao} disabled={novaSenha.length < 6 || resetPass.isPending}>
+              {resetPass.isPending ? "Salvando..." : "Redefinir senha"}
             </Button>
           </DialogFooter>
         </DialogContent>

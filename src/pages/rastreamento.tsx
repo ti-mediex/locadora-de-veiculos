@@ -289,7 +289,9 @@ export default function RastreamentoPage() {
                             onValueChange={(v) => {
                               if (v === "__nova__") {
                                 const nome = window.prompt("Nome da nova ação:");
-                                if (nome?.trim()) criarAcao.mutateAsync({ label: nome }).then((val) => definirAcao.mutate({ id: r.id, acao: val })).catch(() => {});
+                                if (nome?.trim()) criarAcao.mutateAsync({ label: nome })
+                                  .then((val) => definirAcao.mutate({ id: r.id, acao: val }))
+                                  .catch((e) => toast.error("Erro ao criar ação: " + (e as Error).message));
                                 return;
                               }
                               definirAcao.mutate({ id: r.id, acao: v });

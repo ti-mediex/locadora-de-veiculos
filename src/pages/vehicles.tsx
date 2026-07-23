@@ -552,12 +552,14 @@ export default function VehiclesPage() {
                               <Power className="h-4 w-4 text-warning" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(v)}>
+                          <Button variant="ghost" size="icon" title="Editar" aria-label={`Editar ${v.placa}`} onClick={() => openEdit(v)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Remover"
+                            aria-label={`Remover ${v.placa}`}
                             onClick={() => {
                               if (confirm(`Remover o veículo ${v.placa}?`)) remove.mutate(v.id);
                             }}
