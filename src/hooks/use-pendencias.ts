@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { PENDENCIA_ITENS_PADRAO } from "@/lib/options";
+import { salvarImportacao } from "@/hooks/use-import-history";
 import type { VehiclePendencia } from "@/types/database";
 
 export type PendenciaRow = VehiclePendencia & { vehicles: { placa: string; modelo: string } | null };
@@ -236,10 +237,8 @@ export interface ImportDetranResultado {
 }
 
 /** Importa débitos/pendências extraídos do PDF do Detran para um veículo. */
-export function useImportDetran() {
-  const qc = useQueryClient();
-  return useMutation<ImportDetranResultado, Error, { vehicleId: string; parsed: DetranParsed; opcoes: ImportDetranOpcoes }>({
-    mutationFn: async ({ vehicleId, parsed, opcoes }) => {
+/** Núcleo: aplica restrições/débitos/multas do Detran a um veículo (sem toast). */
+export async function aplicarDetran(vehicleId: string, parsed: DetranParsed, opcoes: ImportDetranOpcoes): Promise<ImportDetranResultado> {
       const res: ImportDetranResultado = { restricoes: 0, debitos: 0, multas: 0, ignorados: 0 };
 
       // Pendências já existentes do veículo (anti-duplicidade)
@@ -321,7 +320,12 @@ export function useImportDetran() {
       }
 
       return res;
-    },
+}
+
+export function useImportDetran() {
+  const qc = useQueryClient();
+  return useMutation<ImportDetranResultado, Error, { vehicleId: string; parsed: DetranParsed; opcoes: ImportDetranOpcoes }>({
+    mutationFn: ({ vehicleId, parsed, opcoes }) => aplicarDetran(vehicleId, parsed, opcoes),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
       qc.invalidateQueries({ queryKey: ["vehicles"] });
@@ -333,6 +337,33 @@ export function useImportDetran() {
       );
     },
     onError: (e: Error) => toast.error("Erro na importação: " + e.message),
+  });
+}
+
+export interface DetranItem { parsed: DetranParsed; vehicleId: string; placa: string | null; file: File; }
+
+/** Importa vários "Detalhamento de débitos" do Detran em lote (um por PDF/placa). */
+export function useImportDetranLote() {
+  const qc = useQueryClient();
+  return useMutation<{ veiculos: number; restricoes: number; debitos: number; multas: number; ignorados: number; erros: string[] }, Error, { itens: DetranItem[]; opcoes: ImportDetranOpcoes }>({
+    mutationFn: async ({ itens, opcoes }) => {
+      const acc = { veiculos: 0, restricoes: 0, debitos: 0, multas: 0, ignorados: 0, erros: [] as string[] };
+      for (const it of itens) {
+        try {
+          const r = await aplicarDetran(it.vehicleId, it.parsed, opcoes);
+          acc.veiculos++; acc.restricoes += r.restricoes; acc.debitos += r.debitos; acc.multas += r.multas; acc.ignorados += r.ignorados;
+          try { await salvarImportacao({ vehicleId: it.vehicleId, placa: it.placa, tipo: "detran", file: it.file, resumo: { ...r, placa: it.placa } }); } catch { /* não bloqueia */ }
+        } catch (e) { acc.erros.push(`${it.placa ?? it.file.name}: ${(e as Error).message}`); }
+      }
+      return acc;
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["import_history"] });
+      toast.success(`${r.veiculos} veículo(s) · ${r.restricoes + r.debitos + r.multas} pendência(s)` + (r.ignorados ? ` · ${r.ignorados} já existia(m)` : "") + (r.erros.length ? ` · ${r.erros.length} erro(s)` : ""));
+    },
+    onError: (e: Error) => toast.error("Erro na importação em lote: " + e.message),
   });
 }
 

@@ -15,6 +15,32 @@ export interface ImportHistoryRow {
 
 const BUCKET = "importacoes";
 
+export interface SalvarImportArgs {
+  vehicleId: string | null;
+  placa: string | null;
+  tipo: "detran" | "consulta_placa";
+  file: File;
+  resumo: Record<string, unknown>;
+}
+
+/** Núcleo: sobe o PDF ao Storage e registra o histórico (sem toast). */
+export async function salvarImportacao(args: SalvarImportArgs): Promise<void> {
+  const safeName = args.file.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${args.vehicleId ?? "sem-veiculo"}/${args.tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeName}`;
+  const up = await supabase.storage.from(BUCKET).upload(path, args.file, {
+    contentType: args.file.type || "application/pdf",
+    upsert: false,
+  });
+  if (up.error) throw up.error;
+  const { data: prof } = await supabase.auth.getUser();
+  const { error } = await supabase.from("import_history").insert({
+    vehicle_id: args.vehicleId, placa: args.placa, tipo: args.tipo,
+    file_name: args.file.name, storage_path: path, resumo: args.resumo,
+    created_by: prof.user?.id ?? null,
+  } as never);
+  if (error) throw error;
+}
+
 /** Histórico de importações, opcionalmente filtrado por veículo e/ou tipo. */
 export function useImportHistory(vehicleId?: string, tipo?: "detran" | "consulta_placa") {
   return useQuery<ImportHistoryRow[]>({
@@ -34,32 +60,7 @@ export function useImportHistory(vehicleId?: string, tipo?: "detran" | "consulta
 export function useSaveImport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
-      vehicleId: string | null;
-      placa: string | null;
-      tipo: "detran" | "consulta_placa";
-      file: File;
-      resumo: Record<string, unknown>;
-    }) => {
-      const safeName = args.file.name.replace(/[^\w.\-]+/g, "_");
-      const path = `${args.vehicleId ?? "sem-veiculo"}/${args.tipo}-${Date.now()}-${safeName}`;
-      const up = await supabase.storage.from(BUCKET).upload(path, args.file, {
-        contentType: args.file.type || "application/pdf",
-        upsert: false,
-      });
-      if (up.error) throw up.error;
-      const { data: prof } = await supabase.auth.getUser();
-      const { error } = await supabase.from("import_history").insert({
-        vehicle_id: args.vehicleId,
-        placa: args.placa,
-        tipo: args.tipo,
-        file_name: args.file.name,
-        storage_path: path,
-        resumo: args.resumo,
-        created_by: prof.user?.id ?? null,
-      } as never);
-      if (error) throw error;
-    },
+    mutationFn: (args: SalvarImportArgs) => salvarImportacao(args),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["import_history"] }),
     // Não bloqueia a importação principal se o arquivo falhar ao subir.
     onError: (e: Error) => toast.error("Importado, mas não foi possível guardar o arquivo: " + e.message),

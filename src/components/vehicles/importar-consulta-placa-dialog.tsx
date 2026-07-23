@@ -1,36 +1,18 @@
-import { useState } from "react";
-import { Upload, FileText, AlertTriangle, Loader2, Car } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Upload, FileText, AlertTriangle, Loader2, X, CheckCircle2, Car } from "lucide-react";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/shared/field";
+import { Badge } from "@/components/ui/badge";
 import { extrairTextoPdf } from "@/lib/pdf-text";
 import { parseConsultaPlaca, type ConsultaPlacaParsed } from "@/lib/consulta-placa-parse";
-import { useImportConsultaPlaca } from "@/hooks/use-import-veiculo";
-import { useSaveImport } from "@/hooks/use-import-history";
-import { ImportHistoryList } from "@/components/shared/import-history-list";
+import { useImportConsultaPlacaLote } from "@/hooks/use-import-veiculo";
 import type { Vehicle } from "@/types/database";
 
-const CAMPOS: { chave: keyof ConsultaPlacaParsed; label: string }[] = [
-  { chave: "especie_tipo", label: "Espécie/Tipo" },
-  { chave: "marca", label: "Marca" },
-  { chave: "modelo", label: "Modelo" },
-  { chave: "cor", label: "Cor" },
-  { chave: "chassi", label: "Chassi" },
-  { chave: "combustivel", label: "Combustível" },
-  { chave: "ano_fabricacao", label: "Ano fabricação" },
-  { chave: "ano_modelo", label: "Ano modelo" },
-  { chave: "categoria", label: "Categoria" },
-  { chave: "capacidade_passageiros", label: "Capacidade (passageiros)" },
-  { chave: "potencia", label: "Potência (cv)" },
-  { chave: "cilindrada", label: "Cilindrada (cc)" },
-  { chave: "parcelamento_cotas", label: "Parcelamento/Cotas" },
-  { chave: "alienante", label: "Alienante" },
-];
+const normPlaca = (p: string) => p.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
+interface Item { file: File; parsed: ConsultaPlacaParsed; vehicleId: string | null; erro?: string; }
 
 export function ImportarConsultaPlacaDialog({
   open, onOpenChange, vehicles,
@@ -39,132 +21,95 @@ export function ImportarConsultaPlacaDialog({
   onOpenChange: (v: boolean) => void;
   vehicles: Vehicle[];
 }) {
-  const importar = useImportConsultaPlaca();
-  const salvarImport = useSaveImport();
-  const [vehicleId, setVehicleId] = useState<string>("");
-  const [naoEncontrado, setNaoEncontrado] = useState(false);
-  const [fileName, setFileName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const importar = useImportConsultaPlacaLote();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [itens, setItens] = useState<Item[]>([]);
   const [lendo, setLendo] = useState(false);
-  const [erro, setErro] = useState("");
-  const [parsed, setParsed] = useState<ConsultaPlacaParsed | null>(null);
 
-  function reset() {
-    setFileName(""); setFile(null); setParsed(null); setErro(""); setLendo(false); setVehicleId(""); setNaoEncontrado(false);
-  }
+  const placaMap = useMemo(() => new Map(vehicles.map((v) => [normPlaca(v.placa), v])), [vehicles]);
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setErro(""); setLendo(true); setParsed(null); setFileName(file.name); setFile(file); setNaoEncontrado(false);
-    try {
-      const texto = await extrairTextoPdf(file);
-      const p = parseConsultaPlaca(texto);
-      setParsed(p);
-      if (!p.placa) {
-        setErro("Não foi possível identificar a placa. Verifique se é o PDF da 'Consulta Placa' do Detran.");
-        return;
+  function reset() { setItens([]); setLendo(false); }
+
+  async function onFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setLendo(true);
+    const novos: Item[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const parsed = parseConsultaPlaca(await extrairTextoPdf(file));
+        if (!parsed.placa) { novos.push({ file, parsed, vehicleId: null, erro: "Placa não identificada (é o PDF da Consulta Placa?)" }); continue; }
+        novos.push({ file, parsed, vehicleId: placaMap.get(parsed.placa)?.id ?? null });
+      } catch (e) {
+        novos.push({ file, parsed: { placa: "", restricoes: [] } as unknown as ConsultaPlacaParsed, vehicleId: null, erro: (e as Error).message });
       }
-      const v = vehicles.find((x) => x.placa.replace(/[^A-Z0-9]/gi, "").toUpperCase() === p.placa);
-      if (v) { setVehicleId(v.id); setNaoEncontrado(false); }
-      else { setVehicleId(""); setNaoEncontrado(true); }
-    } catch (err) {
-      setErro("Não foi possível ler o PDF: " + (err as Error).message);
-    } finally {
-      setLendo(false);
     }
+    setItens((prev) => { const nomes = new Set(prev.map((i) => i.file.name)); return [...prev, ...novos.filter((i) => !nomes.has(i.file.name))]; });
+    setLendo(false);
+    if (inputRef.current) inputRef.current.value = "";
   }
 
-  function confirmar() {
-    if (!parsed) return;
-    // vehicleId vazio + placa não encontrada => cria novo veículo
-    const alvo = vehicleId || null;
-    if (!alvo && !naoEncontrado) return; // precisa escolher um veículo
-    importar.mutate({ vehicleId: alvo, parsed }, {
-      onSuccess: (r) => {
-        if (file) {
-          salvarImport.mutate({ vehicleId: r.vehicleId, placa: parsed.placa, tipo: "consulta_placa", file, resumo: { campos: r.campos, criado: r.criado, placa: parsed.placa } });
-        }
-        onOpenChange(false); reset();
-      },
-    });
-  }
+  const validos = itens.filter((i) => !i.erro && i.parsed.placa);
+  const criar = validos.filter((i) => !i.vehicleId).length;
+  const atualizar = validos.filter((i) => i.vehicleId).length;
 
-  const fmt = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
+  function fechar() { reset(); onOpenChange(false); }
+  async function confirmar() {
+    if (!validos.length) return;
+    const r = await importar.mutateAsync({ itens: validos.map((i) => ({ parsed: i.parsed, vehicleId: i.vehicleId, file: i.file })) });
+    if (r) fechar();
+  }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+    <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(v) : fechar())}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Importar dados da Consulta Placa</DialogTitle>
+          <DialogTitle>Importar Consulta Placa (em lote)</DialogTitle>
+          <DialogDescription>Selecione um ou vários PDFs da "Consulta Placa" — cada arquivo atualiza (ou cria) o veículo pela placa detectada.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground hover:bg-accent">
-            {lendo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
-            <span>{fileName || "Selecionar PDF da 'Consulta Placa'"}</span>
-            <input type="file" accept="application/pdf" className="hidden" onChange={onFile} />
-          </label>
+        <input ref={inputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
+        <button type="button" onClick={() => inputRef.current?.click()}
+          className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 text-center transition-colors hover:border-primary/50 hover:bg-accent">
+          {lendo ? <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" /> : <Upload className="h-7 w-7 text-muted-foreground" />}
+          <span className="text-sm font-medium">{lendo ? "Lendo PDFs..." : "Clique para selecionar os PDFs"}</span>
+          <span className="text-xs text-muted-foreground">Aceita seleção múltipla</span>
+        </button>
 
-          <ImportHistoryList vehicleId={vehicleId || undefined} tipo="consulta_placa" />
-
-          {erro && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {erro}
-            </div>
-          )}
-
-          {parsed && !erro && (
-            <>
-              {naoEncontrado ? (
-                <div className="rounded-lg bg-warning/10 p-3 text-sm">
-                  <div className="flex items-center gap-2 font-medium"><Car className="h-4 w-4" /> Placa {parsed.placa} não cadastrada</div>
-                  <p className="mt-1 text-xs text-muted-foreground">Um novo veículo será criado com estes dados. Para atualizar um veículo existente, selecione-o abaixo.</p>
-                  <div className="mt-2">
-                    <Select value={vehicleId} onValueChange={(v) => { setVehicleId(v); setNaoEncontrado(false); }}>
-                      <SelectTrigger><SelectValue placeholder="(criar novo veículo) — ou escolher existente" /></SelectTrigger>
-                      <SelectContent>
-                        {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ) : (
-                <Field label="Veículo (detectado pela placa)">
-                  <Select value={vehicleId} onValueChange={setVehicleId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-
-              <div className="rounded-lg border p-4 text-sm">
-                <div className="mb-2 flex items-center gap-2 font-medium"><FileText className="h-4 w-4" /> Dados a importar {parsed.placa ? `— placa ${parsed.placa}` : ""}</div>
-                <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                  {CAMPOS.map((c) => (
-                    <div key={c.chave} className="flex justify-between gap-2">
-                      <span className="text-muted-foreground">{c.label}</span>
-                      <span className="text-right font-medium">{fmt(parsed[c.chave])}</span>
+        {itens.length > 0 && (
+          <div className="max-h-[42vh] space-y-2 overflow-auto">
+            {itens.map((it, i) => (
+              <div key={it.file.name + i} className="flex items-start gap-3 rounded-lg border p-3">
+                <FileText className={`mt-0.5 h-5 w-5 shrink-0 ${it.erro ? "text-destructive" : "text-primary"}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{it.file.name}</p>
+                  {it.erro ? (
+                    <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="h-3 w-3" /> {it.erro}</p>
+                  ) : (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <Badge variant="secondary" className="font-mono">{it.parsed.placa}</Badge>
+                      <span>{[it.parsed.marca, it.parsed.modelo].filter(Boolean).join(" ") || "—"}</span>
+                      {it.vehicleId
+                        ? <Badge variant="outline">atualizar existente</Badge>
+                        : <Badge variant="outline" className="border-success text-success gap-1"><Car className="h-3 w-3" /> criar novo</Badge>}
                     </div>
-                  ))}
+                  )}
                 </div>
-                {parsed.restricoes.length > 0 && (
-                  <div className="mt-2 border-t pt-2 text-xs text-muted-foreground">
-                    Restrições: {parsed.restricoes.join(" · ")}
-                  </div>
-                )}
-                <p className="mt-2 text-xs text-muted-foreground">Os campos preenchidos sobrescrevem os dados atuais do veículo. Campos vazios não são alterados.</p>
+                <button type="button" onClick={() => setItens((prev) => prev.filter((_, idx) => idx !== i))} className="shrink-0 text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
               </div>
-            </>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {validos.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-sm font-medium">
+            <CheckCircle2 className="h-4 w-4 text-success" /> {validos.length} PDF(s) · {atualizar} atualização(ões) · {criar} novo(s) veículo(s)
+          </div>
+        )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button type="button" onClick={confirmar} disabled={!parsed || !!erro || (!vehicleId && !naoEncontrado) || importar.isPending}>
-            {importar.isPending ? "Importando..." : naoEncontrado && !vehicleId ? "Criar veículo" : "Atualizar veículo"}
+          <Button variant="outline" onClick={fechar} disabled={importar.isPending}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={!validos.length || importar.isPending}>
+            {importar.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Importando...</> : `Importar ${validos.length || ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
