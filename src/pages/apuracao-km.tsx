@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import {
   Gauge, Route, CalendarClock, Wrench, AlertTriangle, Upload, FileDown,
-  TrendingUp, ParkingCircle, ChevronLeft,
+  TrendingUp, ParkingCircle, ChevronLeft, FileText,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
@@ -23,6 +24,7 @@ import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useList } from "@/hooks/use-crud";
 import { ImportarIturanDialog } from "@/components/km/importar-ituran-dialog";
+import { abrirRelatorioKm } from "@/lib/relatorio-km";
 import type { Vehicle } from "@/types/database";
 
 type Gran = "dia" | "semana" | "mes" | "ano";
@@ -53,9 +55,24 @@ export default function ApuracaoKmPage() {
   const [fVeiculo, setFVeiculo] = useState("todos");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
+  const [mes, setMes] = useState(""); // "YYYY-MM" — atalho de mês específico
   const [gran, setGran] = useState<Gran>("mes");
   const [tab, setTab] = useState("geral");
   const [showImport, setShowImport] = useState(false);
+
+  // Seleciona um mês específico (ex.: janeiro/2026) definindo o período de/até.
+  function aplicarMes(m: string) {
+    setMes(m);
+    if (m) {
+      const [y, mm] = m.split("-").map(Number);
+      const ultimo = new Date(y, mm, 0).getDate();
+      setIni(`${m}-01`);
+      setFim(`${m}-${String(ultimo).padStart(2, "0")}`);
+    } else {
+      setIni("");
+      setFim("");
+    }
+  }
 
   const vehicleId = fVeiculo === "todos" ? undefined : fVeiculo;
   const { data: rows = [], isLoading } = useKmDiario(ini || undefined, fim || undefined, vehicleId);
@@ -111,6 +128,26 @@ export default function ApuracaoKmPage() {
     })).sort((a, b) => b.km - a.km);
   }, [rows, vMap]);
 
+  // ---- KM por mês × veículo (pivô) ----
+  const meses = useMemo(() => [...new Set(rows.map((r) => r.dia.slice(0, 7)))].sort(), [rows]);
+  const pivot = useMemo(() => {
+    const map = new Map<string, { vehicle_id: string; placa: string; modelo: string; total: number; por: Record<string, number> }>();
+    for (const r of rows) {
+      const id = r.vehicle_id ?? "sem";
+      const cur = map.get(id) ?? { vehicle_id: id, placa: r.placa, modelo: (r.vehicle_id ? vMap.get(r.vehicle_id)?.modelo : "") ?? "", total: 0, por: {} };
+      const ym = r.dia.slice(0, 7);
+      cur.por[ym] = (cur.por[ym] ?? 0) + r.km;
+      cur.total += r.km;
+      map.set(id, cur);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [rows, vMap]);
+  const totMes = useMemo(() => {
+    const t: Record<string, number> = {};
+    for (const p of pivot) for (const m of meses) t[m] = (t[m] ?? 0) + (p.por[m] ?? 0);
+    return t;
+  }, [pivot, meses]);
+
   // ---- Franquia por veículo × mês ----
   const franquiaRows = useMemo(() => {
     const map = new Map<string, { vehicle_id: string; placa: string; ym: string; km: number }>();
@@ -144,9 +181,33 @@ export default function ApuracaoKmPage() {
   const diario = useMemo(() => [...rows].sort((a, b) => b.dia.localeCompare(a.dia)), [rows]);
 
   const escopo = fVeiculo !== "todos" ? (vMap.get(fVeiculo)?.placa ?? "veículo") : "frota";
+  const periodoLabel = ini && fim
+    ? `${ini.split("-").reverse().join("/")} a ${fim.split("-").reverse().join("/")}`
+    : meses.length ? `${meses[0].slice(5)}/${meses[0].slice(0, 4)} a ${meses[meses.length - 1].slice(5)}/${meses[meses.length - 1].slice(0, 4)}` : "todo o período";
 
   function selecionarVeiculo(id: string) {
     if (id && id !== "sem") { setFVeiculo(id); setTab("diario"); }
+  }
+
+  function exportPivot() {
+    const cols = [{ key: "placa", label: "Veículo" }, ...meses.map((m) => ({ key: m, label: `${m.slice(5)}/${m.slice(0, 4)}` })), { key: "total", label: "Total (km)" }];
+    const data = pivot.map((p) => {
+      const row: Record<string, unknown> = { placa: p.placa, total: Math.round(p.total) };
+      for (const m of meses) row[m] = Math.round(p.por[m] ?? 0);
+      return row;
+    });
+    exportToCsv("km-mes-por-veiculo", data, cols);
+  }
+
+  function abrirRelatorio() {
+    const ok = abrirRelatorioKm({
+      empresa: config?.empresa_nome ?? "VIP CARS", escopo, periodo: periodoLabel, franquia,
+      kpi: { kmTotal: kpi.kmTotal, diasRodados: kpi.diasRodados, diasParados: kpi.diasParados, kmMediaDia: kpi.kmMediaDia, minManut: kpi.minManut, diasManut: kpi.diasManut, excedenteTotal, mesesExcedidos, veiculos: porVeiculo.length },
+      porVeiculo: porVeiculo.map((v) => ({ placa: v.placa, modelo: v.modelo, km: v.km, kmMes: v.kmMes, diasRodados: v.diasRodados, dias: v.dias, minManut: v.minManut })),
+      meses, pivot: pivot.map((p) => ({ placa: p.placa, total: p.total, por: p.por })), totMes,
+      manutRows: manutRows.map((m) => ({ placa: m.placa, diasN: m.diasN, horas: m.horas })),
+    });
+    if (!ok) toast.error("Permita pop-ups para visualizar o relatório.");
   }
 
   return (
@@ -160,6 +221,9 @@ export default function ApuracaoKmPage() {
               { key: "placa", label: "Placa" }, { key: "modelo", label: "Modelo" }, { key: "km", label: "KM total" }, { key: "dias", label: "Dias c/ leitura" }, { key: "dias_rodados", label: "Dias rodados" }, { key: "km_mes_medio", label: "KM/mês médio" }, { key: "min_manutencao", label: "Min. manutenção" },
             ])} disabled={!porVeiculo.length}>
               <FileDown className="h-4 w-4" /> CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={abrirRelatorio} disabled={!rows.length}>
+              <FileText className="h-4 w-4" /> Relatório
             </Button>
             {podeEscrever && (
               <Button size="sm" onClick={() => setShowImport(true)}>
@@ -183,12 +247,16 @@ export default function ApuracaoKmPage() {
           </Select>
         </div>
         <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Mês</label>
+          <Input type="month" value={mes} onChange={(e) => aplicarMes(e.target.value)} className="w-full sm:w-40" />
+        </div>
+        <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">De</label>
-          <Input type="date" value={ini} onChange={(e) => setIni(e.target.value)} className="w-full sm:w-40" />
+          <Input type="date" value={ini} onChange={(e) => { setIni(e.target.value); setMes(""); }} className="w-full sm:w-40" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Até</label>
-          <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full sm:w-40" />
+          <Input type="date" value={fim} onChange={(e) => { setFim(e.target.value); setMes(""); }} className="w-full sm:w-40" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Agrupar por</label>
@@ -202,8 +270,8 @@ export default function ApuracaoKmPage() {
             </SelectContent>
           </Select>
         </div>
-        {(ini || fim || fVeiculo !== "todos") && (
-          <Button variant="ghost" size="sm" onClick={() => { setIni(""); setFim(""); setFVeiculo("todos"); }}>Limpar</Button>
+        {(ini || fim || mes || fVeiculo !== "todos") && (
+          <Button variant="ghost" size="sm" onClick={() => { setIni(""); setFim(""); setMes(""); setFVeiculo("todos"); }}>Limpar</Button>
         )}
       </div>
 
@@ -243,6 +311,7 @@ export default function ApuracaoKmPage() {
             <TabsList className="flex-wrap">
               <TabsTrigger value="geral">Visão geral</TabsTrigger>
               <TabsTrigger value="porveiculo">Por veículo</TabsTrigger>
+              <TabsTrigger value="mesveiculo">KM mês × veículo</TabsTrigger>
               <TabsTrigger value="franquia">Franquia mensal</TabsTrigger>
               <TabsTrigger value="manutencao">Paralisação/Manutenção</TabsTrigger>
               <TabsTrigger value="diario">Detalhe diário</TabsTrigger>
@@ -319,6 +388,57 @@ export default function ApuracaoKmPage() {
                       </TableBody>
                     </Table>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* KM por mês × veículo (pivô) */}
+            <TabsContent value="mesveiculo" className="space-y-4">
+              <Card>
+                <CardHeader className="flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle>KM rodado por mês por veículo</CardTitle>
+                    <CardDescription>Clique numa célula para abrir o veículo naquele mês · vermelho ultrapassa {formatNumber(franquia)} km/mês</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={exportPivot} disabled={!pivot.length}><FileDown className="h-4 w-4" /> CSV</Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {pivot.length === 0 ? <EmptyState message="Sem dados" /> : (
+                    <div className="max-h-[32rem] overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="sticky left-0 bg-card">Veículo</TableHead>
+                            {meses.map((m) => <TableHead key={m} className="whitespace-nowrap text-right">{m.slice(5)}/{m.slice(2, 4)}</TableHead>)}
+                            <TableHead className="text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pivot.map((p) => (
+                            <TableRow key={p.vehicle_id}>
+                              <TableCell className="sticky left-0 bg-card"><span className="font-mono font-medium">{p.placa}</span></TableCell>
+                              {meses.map((m) => {
+                                const val = p.por[m] ?? 0;
+                                return (
+                                  <TableCell key={m}
+                                    className={`text-right ${val > 0 && p.vehicle_id !== "sem" ? "cursor-pointer hover:bg-accent" : "text-muted-foreground"} ${val > franquia ? "font-semibold text-destructive" : ""}`}
+                                    onClick={() => { if (val > 0 && p.vehicle_id !== "sem") { setFVeiculo(p.vehicle_id); aplicarMes(m); setTab("diario"); } }}>
+                                    {val > 0 ? formatNumber(Math.round(val)) : "—"}
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell className="text-right font-semibold">{km0(p.total)}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="border-t-2">
+                            <TableCell className="sticky left-0 bg-card font-semibold">Total frota</TableCell>
+                            {meses.map((m) => <TableCell key={m} className="text-right font-semibold">{formatNumber(Math.round(totMes[m] ?? 0))}</TableCell>)}
+                            <TableCell className="text-right font-bold">{km0(pivot.reduce((s, p) => s + p.total, 0))}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
