@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Satellite, Wifi, WifiOff, AlertTriangle, Upload, FileText, BadgeCheck, ShoppingCart, Bell, MapPin,
+  Satellite, Wifi, WifiOff, AlertTriangle, Upload, FileText, BadgeCheck, ShoppingCart, Bell, MapPin, ShieldAlert, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { formatNumber } from "@/lib/format";
 import { VEHICLE_STATUS_CHART } from "@/lib/options";
 import { useRastreamento, useRastreamentoAcoes, useCreateRastreamentoAcao, useDefinirAcao, type RastreioRow } from "@/hooks/use-rastreamento";
+import { useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarGridDialog } from "@/components/rastreamento/importar-grid-dialog";
@@ -40,7 +42,9 @@ const fmtData = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(
 const fmtDias = (d: number | null) => (d == null ? "sem data" : d < 1 ? "hoje" : `${formatNumber(Math.floor(d))} dia(s)`);
 
 export default function RastreamentoPage() {
+  const navigate = useNavigate();
   const { data: rows = [], isLoading } = useRastreamento();
+  const { data: restrMap = {} } = useRestricoesPorVeiculo();
   const { data: config } = useAppConfig();
   const { data: acoes = [] } = useRastreamentoAcoes();
   const criarAcao = useCreateRastreamentoAcao();
@@ -68,6 +72,17 @@ export default function RastreamentoPage() {
     }
     return { total: dados.length, comunicando, semCom, vendidos, convocados, t1a2, t2a7, t7a30, t30 };
   }, [dados]);
+
+  // Restrições Detran dos veículos que estão na base de rastreamento.
+  const restrKpi = useMemo(() => {
+    let veic = 0, judicial = 0;
+    for (const { r } of dados) {
+      if (!r.vehicle_id) continue;
+      const rr = restrMap[r.vehicle_id];
+      if (rr) { veic++; if (rr.judicial > 0) judicial++; }
+    }
+    return { veic, judicial };
+  }, [dados, restrMap]);
 
   const filtrados = useMemo(() => {
     const q = search.toLowerCase();
@@ -163,6 +178,26 @@ export default function RastreamentoPage() {
               <div className="text-sm"><span className="font-semibold">{kpi.semCom} veículo(s) sem comunicação</span> — convocar para ajuste do rastreamento.</div>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Restrições Detran na base de rastreamento */}
+      {restrKpi.veic > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-3">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-destructive" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <span className="font-medium">Restrições Detran na base:</span>
+              <span>{restrKpi.veic} veículo(s) com restrição</span>
+              {restrKpi.judicial > 0 && <span className="text-destructive">{restrKpi.judicial} com restrição judicial / RENAJUD</span>}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/pendencias?restr=todas")}>Ver restrições <ChevronRight className="h-4 w-4" /></Button>
+            {restrKpi.judicial > 0 && (
+              <Button variant="destructive" size="sm" onClick={() => navigate("/pendencias?restr=judicial")}>Judiciais / RENAJUD <ChevronRight className="h-4 w-4" /></Button>
+            )}
+          </div>
         </div>
       )}
 

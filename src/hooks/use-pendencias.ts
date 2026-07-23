@@ -57,6 +57,36 @@ export function usePendenciasPorVeiculo() {
   });
 }
 
+/** Restrição de natureza judicial (bloqueio/penhora/busca e apreensão/RENAJUD). */
+export const restricaoEhJudicial = (titulo: string) =>
+  /judicial|renajud|busca e apreens|penhor|bloqueio/i.test(titulo ?? "");
+
+export interface RestricaoVeiculo { total: number; judicial: number }
+
+/** Restrições (categoria "Restrição") em aberto, agrupadas por veículo. */
+export function useRestricoesPorVeiculo() {
+  return useQuery<Record<string, RestricaoVeiculo>>({
+    queryKey: ["vehicle_pendencias", "restricoes-por-veiculo"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicle_pendencias")
+        .select("vehicle_id, titulo")
+        .eq("categoria", "Restrição")
+        .in("status", ["aberta", "em_andamento"])
+        .limit(5000);
+      if (error) throw error;
+      const map: Record<string, RestricaoVeiculo> = {};
+      for (const r of (data ?? []) as { vehicle_id: string; titulo: string }[]) {
+        const cur = map[r.vehicle_id] ?? { total: 0, judicial: 0 };
+        cur.total += 1;
+        if (restricaoEhJudicial(r.titulo)) cur.judicial += 1;
+        map[r.vehicle_id] = cur;
+      }
+      return map;
+    },
+  });
+}
+
 export interface PendenciaFinanceiraVeiculo {
   vehicle_id: string;
   placa: string;

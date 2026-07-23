@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
-import { usePendenciasPorVeiculo } from "@/hooks/use-pendencias";
+import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
@@ -85,12 +85,13 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-type SortKey = "placa" | "veiculo" | "ano" | "km" | "fipe" | "pendencias" | "status";
+type SortKey = "placa" | "veiculo" | "ano" | "km" | "fipe" | "pendencias" | "restricoes" | "status";
 
 export default function VehiclesPage() {
   const navigate = useNavigate();
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
   const { data: pendMap = {} } = usePendenciasPorVeiculo();
+  const { data: restrMap = {} } = useRestricoesPorVeiculo();
   const { data: alienantes = [] } = useList<Alienante>("alienantes", { orderBy: { column: "nome", ascending: true } });
   const createAlienante = useCreate("alienantes", "Alienante");
   const create = useCreate<Vehicle>("vehicles", "Veículo");
@@ -151,6 +152,7 @@ export default function VehiclesPage() {
         case "km": return v.km_atual ?? 0;
         case "fipe": return v.valor_fipe ?? 0;
         case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
+        case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
         case "status": return v.status ?? "";
       }
     };
@@ -159,7 +161,7 @@ export default function VehiclesPage() {
       const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "pt-BR");
       return sortDir === "asc" ? c : -c;
     });
-  }, [filtered, sortKey, sortDir, pendMap]);
+  }, [filtered, sortKey, sortDir, pendMap, restrMap]);
 
   const arrow = (k: SortKey) => sortKey === k
     ? (sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />)
@@ -168,15 +170,18 @@ export default function VehiclesPage() {
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
-      { label: "KM", align: "right" }, { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" }, { label: "Status" },
+      { label: "KM", align: "right" }, { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
+      { label: "Restrições", align: "right" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
+      const r = restrMap[v.id];
       return [
         maskPlaca(v.placa), `${v.marca} ${v.modelo}`,
         `${v.ano_fabricacao ?? "—"}/${v.ano_modelo ?? "—"}`,
         formatNumber(v.km_atual), formatCurrency(v.valor_fipe),
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
+        r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
         statusMap.get(v.status)?.label ?? v.status,
       ];
     });
@@ -184,7 +189,7 @@ export default function VehiclesPage() {
     return {
       titulo: "Veículos", subtitulo: `${sorted.length} veículo(s)`,
       filtros: [{ label: "Busca", valor: search }],
-      colunas, linhas, rodape: ["", "", "", "", formatCurrency(fipeTotal), "", ""],
+      colunas, linhas, rodape: ["", "", "", "", formatCurrency(fipeTotal), "", "", ""],
     };
   }
 
@@ -334,6 +339,7 @@ export default function VehiclesPage() {
                   <TableHead className="text-right"><button type="button" onClick={() => toggleSort("km")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">KM {arrow("km")}</button></TableHead>
                   <TableHead className="text-right"><button type="button" onClick={() => toggleSort("fipe")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">FIPE {arrow("fipe")}</button></TableHead>
                   <TableHead><button type="button" onClick={() => toggleSort("pendencias")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Pendências {arrow("pendencias")}</button></TableHead>
+                  <TableHead><button type="button" onClick={() => toggleSort("restricoes")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Restrições {arrow("restricoes")}</button></TableHead>
                   <TableHead><button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Status {arrow("status")}</button></TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
@@ -384,6 +390,25 @@ export default function VehiclesPage() {
                           !pend?.vencidas && <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </button>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const r = restrMap[v.id];
+                        if (!r) return <span className="text-xs text-muted-foreground">—</span>;
+                        return (
+                          <button
+                            type="button"
+                            title="Ver restrições do veículo"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}&restr=todas`); }}
+                            className="inline-flex flex-wrap items-center gap-1"
+                          >
+                            {r.judicial > 0 && (
+                              <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{r.judicial} judicial{r.judicial > 1 ? "is" : ""}</Badge>
+                            )}
+                            <Badge variant={r.judicial > 0 ? "warning" : "secondary"}>{r.total} restriç{r.total > 1 ? "ões" : "ão"}</Badge>
+                          </button>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {statusMap.has(v.status) ? (
