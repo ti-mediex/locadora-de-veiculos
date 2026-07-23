@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet, TrendingUp, TrendingDown, PiggyBank, Percent, Car, FileDown,
-  AlertTriangle, Clock, ChevronRight, Receipt, ShieldAlert,
+  AlertTriangle, Clock, ChevronRight, Receipt, ShieldAlert, WifiOff,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -20,6 +20,7 @@ import { formatCurrency, formatPercent } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
 import { useFinanceEntries } from "@/hooks/use-finance";
 import { usePendencias, vencimentoStatus, restricaoEhJudicial } from "@/hooks/use-pendencias";
+import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
 import { useList } from "@/hooks/use-crud";
 import type { Vehicle } from "@/types/database";
 
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const { data: entries = [] } = useFinanceEntries();
   const { data: pendAll = [] } = usePendencias();
   const { data: veiculosAll = [] } = useList<Vehicle>("vehicles");
+  const rastMap = useRastreamentoStatusPorVeiculo();
 
   const ativosSet = useMemo(() => new Set(veiculosAll.filter((v) => v.status !== "inativo").map((v) => v.id)), [veiculosAll]);
   const vMap = useMemo(() => new Map(veiculosAll.map((v) => [v.id, v])), [veiculosAll]);
@@ -112,6 +114,17 @@ export default function DashboardPage() {
     }
     return { veic: veic.size, veicJud: veicJud.size };
   }, [pendF]);
+
+  // Status do rastreador nos veículos do escopo.
+  const rastKpi = useMemo(() => {
+    let comunicando = 0, sem = 0, semRastreador = 0;
+    for (const v of veiculos) {
+      const rs = rastMap.get(v.id);
+      if (!rs) { semRastreador++; continue; }
+      if (rs.comunicando) comunicando++; else sem++;
+    }
+    return { comunicando, sem, semRastreador };
+  }, [veiculos, rastMap]);
 
   const finPorVeiculo = useMemo(() => {
     const map = new Map<string, { vehicle_id: string; placa: string; modelo: string; total: number; vencido: number; qtd: number }>();
@@ -246,7 +259,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Gestão de pendências e riscos */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button type="button" onClick={() => setShowFin(true)} className="text-left">
           <StatCard title="Pendências financeiras (em aberto)" value={formatCurrency(finTotal)} hint={`${finPorVeiculo.length} veículo(s) · clique para detalhar`} tone="warning" icon={<Receipt className="h-5 w-5" />} />
         </button>
@@ -255,6 +268,9 @@ export default function DashboardPage() {
         </button>
         <button type="button" onClick={() => navigate("/veiculos")} className="text-left">
           <StatCard title="Restrições críticas" value={restricaoCritica.length} hint={`${alienados} alienado(s) · busca/apreensão e bloqueio judicial`} tone={restricaoCritica.length > 0 ? "destructive" : undefined} icon={<ShieldAlert className="h-5 w-5" />} />
+        </button>
+        <button type="button" onClick={() => navigate("/rastreamento")} className="text-left">
+          <StatCard title="Rastreador sem comunicação" value={rastKpi.sem} hint={`${rastKpi.comunicando} comunicando · ${rastKpi.semRastreador} sem rastreador`} tone={rastKpi.sem > 0 ? "destructive" : "success"} icon={<WifiOff className="h-5 w-5" />} />
         </button>
       </div>
 

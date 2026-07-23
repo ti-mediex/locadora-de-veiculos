@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, soAlfa } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
 import { useKmDiario, type KmDiaRow } from "@/hooks/use-km";
 import { useAppConfig } from "@/hooks/use-app-config";
@@ -66,6 +66,7 @@ export default function ApuracaoKmPage() {
   const [gran, setGran] = useState<Gran>("mes");
   const [tab, setTab] = useState("geral");
   const [showImport, setShowImport] = useState(false);
+  const [filtroPlaca, setFiltroPlaca] = useState(""); // filtro por parte da placa (tabelas por veículo)
 
   // Seleciona um mês específico (ex.: janeiro/2026) definindo o período de/até.
   function aplicarMes(m: string) {
@@ -149,11 +150,20 @@ export default function ApuracaoKmPage() {
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
   }, [rows, vMap]);
+  // Filtro por parte da placa aplicado às tabelas por veículo.
+  const pivotFiltrado = useMemo(() => {
+    const q = soAlfa(filtroPlaca);
+    return q ? pivot.filter((p) => soAlfa(p.placa).includes(q)) : pivot;
+  }, [pivot, filtroPlaca]);
   const totMes = useMemo(() => {
     const t: Record<string, number> = {};
-    for (const p of pivot) for (const m of meses) t[m] = (t[m] ?? 0) + (p.por[m] ?? 0);
+    for (const p of pivotFiltrado) for (const m of meses) t[m] = (t[m] ?? 0) + (p.por[m] ?? 0);
     return t;
-  }, [pivot, meses]);
+  }, [pivotFiltrado, meses]);
+  const porVeiculoFiltrado = useMemo(() => {
+    const q = soAlfa(filtroPlaca);
+    return q ? porVeiculo.filter((v) => soAlfa(v.placa).includes(q)) : porVeiculo;
+  }, [porVeiculo, filtroPlaca]);
 
   // ---- Franquia por veículo × mês ----
   const franquiaRows = useMemo(() => {
@@ -395,6 +405,10 @@ export default function ApuracaoKmPage() {
               </Card>
               <Card>
                 <CardContent className="p-0">
+                  <div className="flex items-center gap-2 border-b p-3">
+                    <Input value={filtroPlaca} onChange={(e) => setFiltroPlaca(e.target.value)} placeholder="Filtrar placa (ex.: 8451)…" className="h-9 w-full sm:w-56" />
+                    <span className="ml-auto text-xs text-muted-foreground">{porVeiculoFiltrado.length} veículo(s)</span>
+                  </div>
                   <div className="max-h-[28rem] overflow-auto">
                     <Table>
                       <TableHeader>
@@ -409,7 +423,7 @@ export default function ApuracaoKmPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {porVeiculo.map((v) => (
+                        {porVeiculoFiltrado.map((v) => (
                           <TableRow key={v.vehicle_id} className="cursor-pointer" onClick={() => selecionarVeiculo(v.vehicle_id)}>
                             <TableCell><span className="font-mono font-medium">{v.placa}</span> <span className="text-xs text-muted-foreground">{v.modelo}</span></TableCell>
                             <TableCell><VehicleStatusBadge status={vMap.get(v.vehicle_id)?.status} /></TableCell>
@@ -430,15 +444,18 @@ export default function ApuracaoKmPage() {
             {/* KM por mês × veículo (pivô) */}
             <TabsContent value="mesveiculo" className="space-y-4">
               <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0">
+                <CardHeader className="flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle>KM rodado por mês por veículo</CardTitle>
                     <CardDescription>Clique numa célula para abrir o veículo naquele mês · vermelho ultrapassa {formatNumber(franquia)} km/mês</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={exportPivot} disabled={!pivot.length}><FileDown className="h-4 w-4" /> CSV</Button>
+                  <div className="flex w-full items-center gap-2 sm:w-auto">
+                    <Input value={filtroPlaca} onChange={(e) => setFiltroPlaca(e.target.value)} placeholder="Filtrar placa (ex.: 8451)…" className="h-9 w-full sm:w-44" />
+                    <Button variant="outline" size="sm" onClick={exportPivot} disabled={!pivotFiltrado.length}><FileDown className="h-4 w-4" /> CSV</Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {pivot.length === 0 ? <EmptyState message="Sem dados" /> : (
+                  {pivotFiltrado.length === 0 ? <EmptyState message={filtroPlaca ? "Nenhuma placa encontrada" : "Sem dados"} /> : (
                     <div className="max-h-[32rem] overflow-auto">
                       <Table>
                         <TableHeader>
@@ -449,7 +466,7 @@ export default function ApuracaoKmPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {pivot.map((p) => (
+                          {pivotFiltrado.map((p) => (
                             <TableRow key={p.vehicle_id}>
                               <TableCell className="sticky left-0 bg-card"><span className="font-mono font-medium">{p.placa}</span></TableCell>
                               {meses.map((m) => {
@@ -468,7 +485,7 @@ export default function ApuracaoKmPage() {
                           <TableRow className="border-t-2">
                             <TableCell className="sticky left-0 bg-card font-semibold">Total frota</TableCell>
                             {meses.map((m) => <TableCell key={m} className="text-right font-semibold">{formatNumber(Math.round(totMes[m] ?? 0))}</TableCell>)}
-                            <TableCell className="text-right font-bold">{km0(pivot.reduce((s, p) => s + p.total, 0))}</TableCell>
+                            <TableCell className="text-right font-bold">{km0(pivotFiltrado.reduce((s, p) => s + p.total, 0))}</TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
