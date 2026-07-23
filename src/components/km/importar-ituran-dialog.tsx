@@ -78,8 +78,12 @@ export function ImportarIturanDialog({
 
   async function confirmar() {
     if (!validos.length) return;
-    const r = await importar.mutateAsync({ arquivos: validos.map((a) => ({ file: a.file, parsed: a.parsed })) });
-    if (r) fechar();
+    try {
+      await importar.mutateAsync({ arquivos: validos.map((a) => ({ file: a.file, parsed: a.parsed })) });
+      fechar();
+    } catch {
+      /* erro já exibido no toast do hook; mantém o diálogo aberto */
+    }
   }
 
   return (

@@ -43,14 +43,31 @@ export function useImportarIturan() {
       const placaMap = new Map((veics ?? []).map((v) => [(v as { placa: string }).placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase(), (v as { id: string }).id]));
 
       const semVeic = new Set<string>();
-      const rows: Record<string, unknown>[] = [];
+      // Deduplica por (veículo, dia): a mesma placa/dia pode vir em mais de uma
+      // planilha (períodos sobrepostos). Sem isso, o upsert falha quando o mesmo
+      // lote traz a chave repetida ("ON CONFLICT DO UPDATE command cannot affect
+      // row a second time"). Consolidamos o dia (menor odômetro de início, maior
+      // de fim, contagem/manutenção mais completas).
+      const now = new Date().toISOString();
+      interface Row { vehicle_id: string; placa: string; dia: string; odom_inicio: number; odom_fim: number; registros: number; min_ocioso_manut: number; updated_at: string; }
+      const rowMap = new Map<string, Row>();
       for (const { parsed } of arquivos) {
         for (const it of parsed.itens) {
           const vid = placaMap.get(it.placa);
           if (!vid) { semVeic.add(it.placa); continue; }
-          rows.push({ vehicle_id: vid, placa: it.placa, dia: it.dia, odom_inicio: it.odom_inicio, odom_fim: it.odom_fim, registros: it.registros, min_ocioso_manut: it.min_ocioso_manut, updated_at: new Date().toISOString() });
+          const key = `${vid}|${it.dia}`;
+          const prev = rowMap.get(key);
+          if (prev) {
+            prev.odom_inicio = Math.min(prev.odom_inicio, it.odom_inicio);
+            prev.odom_fim = Math.max(prev.odom_fim, it.odom_fim);
+            prev.registros = Math.max(prev.registros, it.registros);
+            prev.min_ocioso_manut = Math.max(prev.min_ocioso_manut, it.min_ocioso_manut);
+          } else {
+            rowMap.set(key, { vehicle_id: vid, placa: it.placa, dia: it.dia, odom_inicio: it.odom_inicio, odom_fim: it.odom_fim, registros: it.registros, min_ocioso_manut: it.min_ocioso_manut, updated_at: now });
+          }
         }
       }
+      const rows = [...rowMap.values()];
       for (let i = 0; i < rows.length; i += 500) {
         const { error } = await supabase.from("km_diario").upsert(rows.slice(i, i + 500) as never, { onConflict: "vehicle_id,dia" });
         if (error) throw error;
