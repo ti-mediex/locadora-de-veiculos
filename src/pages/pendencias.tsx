@@ -43,6 +43,7 @@ import { RelatorioExport } from "@/components/shared/relatorio-export";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const RANK_PRIO: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
+const soAlfa = (s: string) => (s ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
 
 const schema = z.object({
   vehicle_id: z.string().min(1, "Selecione o veículo"),
@@ -105,6 +106,7 @@ export default function PendenciasPage() {
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
 
   const [importOpen, setImportOpen] = useState(false);
+  const [sugAberta, setSugAberta] = useState(false);
 
   // Itens de multa da pendência (várias multas numa mesma pendência)
   const emptyMulta = (): MultaLinha => ({ documento: "", infracao: "", data_ocorrencia: "", vencimento: "", valor: "", local: "" });
@@ -155,8 +157,11 @@ export default function PendenciasPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return rows.filter((r) => {
+      const placaVeic = r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "";
+      const modeloVeic = r.vehicles?.modelo ?? vehicles.find((v) => v.id === r.vehicle_id)?.modelo ?? "";
       const matchSearch = !q || r.titulo.toLowerCase().includes(q) ||
-        (r.responsavel ?? "").toLowerCase().includes(q) || (r.vehicles?.placa ?? "").toLowerCase().includes(q);
+        (r.responsavel ?? "").toLowerCase().includes(q) || modeloVeic.toLowerCase().includes(q) ||
+        (soAlfa(search) !== "" && soAlfa(placaVeic).includes(soAlfa(search)));
       const matchCat = fCategoria === "todas" || r.categoria === fCategoria;
       const matchStatus =
         fStatus === "todas" ? true :
@@ -165,7 +170,20 @@ export default function PendenciasPage() {
         r.status === fStatus;
       return matchSearch && matchCat && matchStatus;
     });
-  }, [rows, search, fCategoria, fStatus]);
+  }, [rows, search, fCategoria, fStatus, vehicles]);
+
+  // Sugestões de veículos cadastrados ao digitar (qualquer parte da placa/modelo).
+  const sugestoes = useMemo(() => {
+    const q = soAlfa(search);
+    if (!q) return [];
+    const abertasPorVeic = new Map<string, number>();
+    for (const r of rows) if (r.status === "aberta" || r.status === "em_andamento") abertasPorVeic.set(r.vehicle_id, (abertasPorVeic.get(r.vehicle_id) ?? 0) + 1);
+    return vehicles
+      .filter((v) => soAlfa(v.placa).includes(q) || `${v.marca} ${v.modelo}`.toLowerCase().includes(search.toLowerCase()))
+      .map((v) => ({ v, abertas: abertasPorVeic.get(v.id) ?? 0 }))
+      .sort((a, b) => b.abertas - a.abertas)
+      .slice(0, 8);
+  }, [vehicles, search, rows]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<PendenciaRow>("vencimento", "asc");
   const sorted = useSorted(filtered, (r, k) => {
@@ -312,9 +330,32 @@ export default function PendenciasPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:items-center">
-            <div className="flex flex-1 items-center gap-2">
+            <div className="relative flex flex-1 items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por título, placa ou responsável..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
+              <Input
+                placeholder="Buscar por placa (ex.: 8451), título ou responsável..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setSugAberta(true); }}
+                onFocus={() => setSugAberta(true)}
+                onBlur={() => setTimeout(() => setSugAberta(false), 150)}
+                className="border-0 focus-visible:ring-0"
+              />
+              {sugAberta && sugestoes.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto rounded-lg border bg-popover p-1 shadow-md">
+                  <div className="px-2 py-1 text-[11px] uppercase text-muted-foreground">Veículos cadastrados</div>
+                  {sugestoes.map(({ v, abertas }) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); setSearch(v.placa); setSugAberta(false); }}
+                      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    >
+                      <span><span className="font-mono font-medium">{v.placa}</span> <span className="text-xs text-muted-foreground">{v.marca} {v.modelo}</span></span>
+                      {abertas > 0 && <Badge variant="secondary">{abertas} aberta{abertas > 1 ? "s" : ""}</Badge>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <Select value={fCategoria} onValueChange={setFCategoria}>
               <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
