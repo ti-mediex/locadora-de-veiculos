@@ -38,6 +38,7 @@ import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo } from "@/hooks/use-pendencias";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
+import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
 import { ImportarConsultaPlacaDialog } from "@/components/vehicles/importar-consulta-placa-dialog";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
@@ -95,6 +96,19 @@ export default function VehiclesPage() {
   const remove = useDelete("vehicles", "Veículo");
   const updateFipe = useUpdateFipe();
   const canWrite = useCanWrite("vehicles");
+  const { data: statuses = [] } = useVehicleStatuses();
+  const criarStatus = useCreateVehicleStatus();
+  const [novoStatusAberto, setNovoStatusAberto] = useState(false);
+  const [novoStatus, setNovoStatus] = useState("");
+  const statusMap = useMemo(() => new Map(statuses.map((s) => [s.value, s])), [statuses]);
+  async function criarNovoStatus() {
+    if (!novoStatus.trim()) return;
+    try {
+      const value = await criarStatus.mutateAsync({ label: novoStatus });
+      setValue("status", value);
+      setNovoStatus(""); setNovoStatusAberto(false);
+    } catch { /* toast no hook */ }
+  }
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
@@ -343,7 +357,14 @@ export default function VehiclesPage() {
                         )}
                       </button>
                     </TableCell>
-                    <TableCell><StatusBadge status={v.status} /></TableCell>
+                    <TableCell>
+                      {statusMap.has(v.status) ? (
+                        <Badge variant="secondary" className="gap-1.5">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusMap.get(v.status)?.cor ?? "currentColor" }} />
+                          {statusMap.get(v.status)?.label}
+                        </Badge>
+                      ) : <StatusBadge status={v.status} />}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {canWrite && (
                         <div className="flex justify-end gap-1">
@@ -438,11 +459,24 @@ export default function VehiclesPage() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {VEHICLE_STATUS.map((o) => (
+                    {(statuses.length ? statuses.map((s) => ({ value: s.value, label: s.label })) : VEHICLE_STATUS).map((o) => (
                       <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                     ))}
+                    {(() => { const cur = watch("status"); return cur && statuses.length && !statuses.some((s) => s.value === cur) ? <SelectItem value={cur}>{statusMap.get(cur)?.label ?? cur}</SelectItem> : null; })()}
                   </SelectContent>
                 </Select>
+                {canWrite && (novoStatusAberto ? (
+                  <div className="mt-1.5 flex items-center gap-1">
+                    <Input value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)} placeholder="Nome do novo status" className="h-8"
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); criarNovoStatus(); } }} />
+                    <Button type="button" size="sm" className="h-8 shrink-0" disabled={!novoStatus.trim() || criarStatus.isPending} onClick={criarNovoStatus}>Criar</Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2" onClick={() => { setNovoStatusAberto(false); setNovoStatus(""); }}>✕</Button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setNovoStatusAberto(true)} className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    <Plus className="h-3 w-3" /> Criar novo status
+                  </button>
+                ))}
               </Field>
               <Field label="Renavam">
                 <Input {...register("renavam")} />

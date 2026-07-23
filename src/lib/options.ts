@@ -2,6 +2,7 @@
 
 export const VEHICLE_STATUS = [
   { value: "disponivel", label: "Disponível" },
+  { value: "disponivel_venda", label: "Disponível Venda" },
   { value: "locado", label: "Locado" },
   { value: "manutencao", label: "Em manutenção" },
   { value: "vendido", label: "Vendido" },
@@ -170,6 +171,7 @@ export const SUPPLIER_STATUS = [
 // Situação do veículo -> rótulo + cor (donut do dashboard, estilo Blue Fleet)
 export const VEHICLE_STATUS_CHART: Record<string, { label: string; color: string }> = {
   disponivel: { label: "Disponível", color: "hsl(340 82% 66%)" },
+  disponivel_venda: { label: "Disponível Venda", color: "hsl(160 65% 45%)" },
   locado: { label: "Locado", color: "hsl(211 90% 64%)" },
   manutencao: { label: "Manutenção", color: "hsl(38 92% 60%)" },
   vendido: { label: "Vendido", color: "hsl(0 72% 60%)" },

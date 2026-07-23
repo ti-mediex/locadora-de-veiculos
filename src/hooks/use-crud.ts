@@ -37,7 +37,8 @@ type TableName =
   | "contratos"
   | "locatarios"
   | "locatario_debitos"
-  | "locatario_caucoes";
+  | "locatario_caucoes"
+  | "vehicle_statuses";
 
 interface CrudOptions {
   select?: string;
