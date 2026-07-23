@@ -25,6 +25,8 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { useList } from "@/hooks/use-crud";
 import { ImportarIturanDialog } from "@/components/km/importar-ituran-dialog";
 import { abrirRelatorioKm } from "@/lib/relatorio-km";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 import type { Vehicle } from "@/types/database";
 
 type Gran = "dia" | "semana" | "mes" | "ano";
@@ -210,6 +212,21 @@ export default function ApuracaoKmPage() {
     if (!ok) toast.error("Permita pop-ups para visualizar o relatório.");
   }
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Placa" }, { label: "Modelo" }, { label: "KM total", align: "right" }, { label: "KM/mês médio", align: "right" },
+      { label: "Dias rodados", align: "right" }, { label: "Dias c/ leitura", align: "right" }, { label: "Manutenção (min)", align: "right" },
+    ];
+    const linhas = porVeiculo.map((v) => [
+      v.placa, v.modelo, km0(v.km), km0(v.kmMes), v.diasRodados, v.dias, v.minManut,
+    ]);
+    return {
+      empresa: config?.empresa_nome, titulo: "Apuração de KM por veículo", subtitulo: escopo,
+      filtros: [{ label: "Escopo", valor: escopo }, { label: "Período", valor: periodoLabel }, { label: "Franquia", valor: `${formatNumber(franquia)} km/mês` }],
+      colunas, linhas,
+    };
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -217,13 +234,9 @@ export default function ApuracaoKmPage() {
         description={`KM rodado por ${escopo} — via relatório de ociosidade do Ituran`}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => exportToCsv("apuracao-km-por-veiculo", porVeiculo.map((v) => ({ placa: v.placa, modelo: v.modelo, km: Math.round(v.km), dias: v.dias, dias_rodados: v.diasRodados, km_mes_medio: Math.round(v.kmMes), min_manutencao: v.minManut })), [
-              { key: "placa", label: "Placa" }, { key: "modelo", label: "Modelo" }, { key: "km", label: "KM total" }, { key: "dias", label: "Dias c/ leitura" }, { key: "dias_rodados", label: "Dias rodados" }, { key: "km_mes_medio", label: "KM/mês médio" }, { key: "min_manutencao", label: "Min. manutenção" },
-            ])} disabled={!porVeiculo.length}>
-              <FileDown className="h-4 w-4" /> CSV
-            </Button>
+            <RelatorioExport build={buildRelatorio} nomeArquivo="apuracao-km-por-veiculo" disabled={!porVeiculo.length} />
             <Button variant="outline" size="sm" onClick={abrirRelatorio} disabled={!rows.length}>
-              <FileText className="h-4 w-4" /> Relatório
+              <FileText className="h-4 w-4" /> Gerencial
             </Button>
             {podeEscrever && (
               <Button size="sm" onClick={() => setShowImport(true)}>
