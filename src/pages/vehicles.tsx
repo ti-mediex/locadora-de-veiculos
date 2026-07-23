@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X, Wifi, WifiOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -38,6 +38,7 @@ import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
 import { useKmMesPorVeiculo } from "@/hooks/use-km";
+import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
@@ -117,6 +118,7 @@ export default function VehiclesPage() {
   const { data: pendMap = {} } = usePendenciasPorVeiculo();
   const { data: restrMap = {} } = useRestricoesPorVeiculo();
   const { data: kmMesMap = {} } = useKmMesPorVeiculo();
+  const rastMap = useRastreamentoStatusPorVeiculo();
   const locatarioMap = useLocatarioPorVeiculo();
 
   // Rótulos dos meses (atual e anterior) para os cabeçalhos das colunas de KM.
@@ -221,6 +223,7 @@ export default function VehiclesPage() {
       case "fipe": return v.valor_fipe ?? 0;
       case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
       case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
+      case "rastreamento": { const rs = rastMap.get(v.id); return rs ? (rs.comunicando ? 0 : 1) : 2; }
       case "proprietario": return (v.proprietario_nome ?? "").toLowerCase();
       case "locatario": return (locatarioMap.get(v.id) ?? "").toLowerCase();
       case "status": return statusMap.get(v.status)?.label ?? v.status ?? "";
@@ -238,12 +241,13 @@ export default function VehiclesPage() {
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
       { label: "KM", align: "right" }, { label: `KM ${mesAtualLabel}`, align: "right" }, { label: `KM ${mesAntLabel}`, align: "right" },
       { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
-      { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Status" },
+      { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Rastreamento" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
       const r = restrMap[v.id];
       const km = kmMesMap[v.id];
+      const rs = rastMap.get(v.id);
       return [
         maskPlaca(v.placa), `${v.marca} ${v.modelo}`,
         `${v.ano_fabricacao ?? "—"}/${v.ano_modelo ?? "—"}`,
@@ -254,6 +258,7 @@ export default function VehiclesPage() {
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
         r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
         v.proprietario_nome ?? "—", locatarioMap.get(v.id) ?? "—",
+        rs ? (rs.comunicando ? "Comunicando" : "Sem comunicação") : "—",
         statusMap.get(v.status)?.label ?? v.status,
       ];
     });
@@ -270,7 +275,7 @@ export default function VehiclesPage() {
         { label: "Restrição", valor: fRestricao === TODOS ? "Todas" : fRestricao === "com" ? "Com restrição" : "Sem restrição" },
       ],
       colunas, linhas,
-      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", ""],
+      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", "", ""],
     };
   }
 
@@ -432,7 +437,7 @@ export default function VehiclesPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1.5 [&_th]:text-[11px] [&_td]:px-1.5 [&_td]:py-2">
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1 [&_th]:text-[11px] [&_td]:px-1 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
@@ -446,6 +451,7 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restr.</SortableHead>
                   <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Propriet.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
+                  <SortableHead sortKey="rastreamento" activeKey={sortKey} dir={sortDir} onSort={toggle}>Rastr.</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                   <TableHead className="w-[84px]"></TableHead>
                 </TableRow>
@@ -540,6 +546,19 @@ export default function VehiclesPage() {
                           >
                             {loc}
                           </button>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(() => {
+                        const rs = rastMap.get(v.id);
+                        if (!rs) return <span className="text-muted-foreground" title="Sem rastreador cadastrado">—</span>;
+                        return (
+                          <span className="inline-flex" title={rs.comunicando ? "Rastreador comunicando" : "Rastreador sem comunicação"} aria-label={rs.comunicando ? "Comunicando" : "Sem comunicação"}>
+                            {rs.comunicando
+                              ? <Wifi className="h-4 w-4 text-success" />
+                              : <WifiOff className="h-4 w-4 text-destructive" />}
+                          </span>
                         );
                       })()}
                     </TableCell>

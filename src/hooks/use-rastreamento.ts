@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { useAppConfig } from "@/hooks/use-app-config";
 import type { GridParsed } from "@/lib/ituran-grid-parse";
 
 export interface RastreioRow {
@@ -68,6 +70,27 @@ export function useRastreamento() {
       return (data ?? []) as never;
     },
   });
+}
+
+export interface RastreioStatus { comunicando: boolean; ultima: string | null; dias: number | null }
+
+/** Status de comunicação do rastreador por veículo (comunicando quando a
+ *  última comunicação é mais recente que o limiar configurado, padrão 24h). */
+export function useRastreamentoStatusPorVeiculo() {
+  const { data: rows = [] } = useRastreamento();
+  const { data: config } = useAppConfig();
+  const limiarH = Number(config?.rastreamento_limiar_horas ?? 24) || 24;
+  return useMemo(() => {
+    const now = Date.now();
+    const map = new Map<string, RastreioStatus>();
+    for (const r of rows) {
+      if (!r.vehicle_id) continue;
+      if (!r.ultima_comunicacao) { map.set(r.vehicle_id, { comunicando: false, ultima: null, dias: null }); continue; }
+      const dias = (now - new Date(r.ultima_comunicacao).getTime()) / 86400000;
+      map.set(r.vehicle_id, { comunicando: dias * 24 < limiarH, ultima: r.ultima_comunicacao, dias });
+    }
+    return map;
+  }, [rows, limiarH]);
 }
 
 const slug = (s: string) => s.replace(/[^\w.\-]+/g, "_");
