@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -36,9 +36,12 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
+import { useContratos } from "@/hooks/use-contratos";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 import { ImportarConsultaPlacaDialog } from "@/components/vehicles/importar-consulta-placa-dialog";
@@ -85,13 +88,42 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-type SortKey = "placa" | "veiculo" | "ano" | "km" | "fipe" | "pendencias" | "restricoes" | "status";
+const TODOS = "__todos__";
+
+/** Select de filtro por coluna (com opção "Todos"). */
+function FiltroSelect({ label, value, onChange, options, render }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; render?: (v: string) => string;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={`h-8 w-auto gap-1 text-xs ${value !== TODOS ? "border-primary text-primary" : ""}`}>
+        <span className="text-muted-foreground">{label}:</span>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-72">
+        <SelectItem value={TODOS}>Todos</SelectItem>
+        {options.map((o) => <SelectItem key={o} value={o}>{render ? render(o) : o}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export default function VehiclesPage() {
   const navigate = useNavigate();
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
   const { data: pendMap = {} } = usePendenciasPorVeiculo();
   const { data: restrMap = {} } = useRestricoesPorVeiculo();
+  const { data: contratos = [] } = useContratos();
+
+  // Locatário atual de cada veículo = contrato ativo (cliente_nome).
+  const locatarioMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of contratos) {
+      if (c.status === "ativo" && c.vehicle_id && c.cliente_nome) m.set(c.vehicle_id, c.cliente_nome);
+    }
+    return m;
+  }, [contratos]);
   const { data: alienantes = [] } = useList<Alienante>("alienantes", { orderBy: { column: "nome", ascending: true } });
   const createAlienante = useCreate("alienantes", "Alienante");
   const create = useCreate<Vehicle>("vehicles", "Veículo");
@@ -117,12 +149,14 @@ export default function VehiclesPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [search, setSearch] = useState("");
   const [importPlacaOpen, setImportPlacaOpen] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("placa");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  function toggleSort(k: SortKey) {
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(k); setSortDir("asc"); }
-  }
+  // Filtros por coluna
+  const [fMarca, setFMarca] = useState(TODOS);
+  const [fAno, setFAno] = useState(TODOS);
+  const [fStatus, setFStatus] = useState(TODOS);
+  const [fProprietario, setFProprietario] = useState(TODOS);
+  const [fLocatario, setFLocatario] = useState(TODOS);
+  const [fRestricao, setFRestricao] = useState(TODOS); // todos | com | sem
+  const { sortKey, sortDir, toggle, useSorted } = useSort<Vehicle>("placa", "asc");
 
   const {
     register,
@@ -133,45 +167,72 @@ export default function VehiclesPage() {
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
+  // Opções distintas para os filtros de coluna.
+  const opcoes = useMemo(() => {
+    const marcas = new Set<string>(), anos = new Set<string>(), props = new Set<string>(), locs = new Set<string>();
+    for (const v of vehicles) {
+      if (v.marca) marcas.add(v.marca);
+      const ano = v.ano_modelo ?? v.ano_fabricacao;
+      if (ano) anos.add(String(ano));
+      if (v.proprietario_nome) props.add(v.proprietario_nome);
+      const loc = locatarioMap.get(v.id);
+      if (loc) locs.add(loc);
+    }
+    const statusVals = new Set(vehicles.map((v) => v.status).filter(Boolean) as string[]);
+    return {
+      marcas: [...marcas].sort((a, b) => a.localeCompare(b, "pt-BR")),
+      anos: [...anos].sort((a, b) => Number(b) - Number(a)),
+      proprietarios: [...props].sort((a, b) => a.localeCompare(b, "pt-BR")),
+      locatarios: [...locs].sort((a, b) => a.localeCompare(b, "pt-BR")),
+      status: [...statusVals].sort((a, b) => (statusMap.get(a)?.label ?? a).localeCompare(statusMap.get(b)?.label ?? b, "pt-BR")),
+    };
+  }, [vehicles, locatarioMap, statusMap]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return vehicles.filter(
-      (v) =>
-        v.placa.toLowerCase().includes(q) ||
-        v.modelo.toLowerCase().includes(q) ||
-        v.marca.toLowerCase().includes(q)
-    );
-  }, [vehicles, search]);
-
-  const sorted = useMemo(() => {
-    const val = (v: Vehicle): string | number => {
-      switch (sortKey) {
-        case "placa": return v.placa.toUpperCase();
-        case "veiculo": return `${v.marca} ${v.modelo}`.toLowerCase();
-        case "ano": return v.ano_modelo ?? v.ano_fabricacao ?? 0;
-        case "km": return v.km_atual ?? 0;
-        case "fipe": return v.valor_fipe ?? 0;
-        case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
-        case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
-        case "status": return v.status ?? "";
-      }
-    };
-    return [...filtered].sort((a, b) => {
-      const va = val(a), vb = val(b);
-      const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "pt-BR");
-      return sortDir === "asc" ? c : -c;
+    return vehicles.filter((v) => {
+      const prop = v.proprietario_nome ?? "";
+      const loc = locatarioMap.get(v.id) ?? "";
+      const ano = String(v.ano_modelo ?? v.ano_fabricacao ?? "");
+      const temRestr = !!restrMap[v.id];
+      const mSearch = !q || v.placa.toLowerCase().includes(q) || v.modelo.toLowerCase().includes(q) ||
+        v.marca.toLowerCase().includes(q) || prop.toLowerCase().includes(q) || loc.toLowerCase().includes(q);
+      const mMarca = fMarca === TODOS || v.marca === fMarca;
+      const mAno = fAno === TODOS || ano === fAno;
+      const mStatus = fStatus === TODOS || v.status === fStatus;
+      const mProp = fProprietario === TODOS || prop === fProprietario;
+      const mLoc = fLocatario === TODOS || loc === fLocatario;
+      const mRestr = fRestricao === TODOS || (fRestricao === "com" ? temRestr : !temRestr);
+      return mSearch && mMarca && mAno && mStatus && mProp && mLoc && mRestr;
     });
-  }, [filtered, sortKey, sortDir, pendMap, restrMap]);
+  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, locatarioMap, restrMap]);
 
-  const arrow = (k: SortKey) => sortKey === k
-    ? (sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />)
-    : <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
+  const sorted = useSorted(filtered, (v, k) => {
+    switch (k) {
+      case "placa": return v.placa.toUpperCase();
+      case "veiculo": return `${v.marca} ${v.modelo}`.toLowerCase();
+      case "ano": return v.ano_modelo ?? v.ano_fabricacao ?? 0;
+      case "km": return v.km_atual ?? 0;
+      case "fipe": return v.valor_fipe ?? 0;
+      case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
+      case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
+      case "proprietario": return (v.proprietario_nome ?? "").toLowerCase();
+      case "locatario": return (locatarioMap.get(v.id) ?? "").toLowerCase();
+      case "status": return statusMap.get(v.status)?.label ?? v.status ?? "";
+      default: return null;
+    }
+  });
+
+  const filtrosAtivos = [fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao].some((f) => f !== TODOS) || !!search;
+  function limparFiltros() {
+    setSearch(""); setFMarca(TODOS); setFAno(TODOS); setFStatus(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); setFRestricao(TODOS);
+  }
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
       { label: "KM", align: "right" }, { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
-      { label: "Restrições", align: "right" }, { label: "Status" },
+      { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
@@ -182,14 +243,21 @@ export default function VehiclesPage() {
         formatNumber(v.km_atual), formatCurrency(v.valor_fipe),
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
         r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
+        v.proprietario_nome ?? "—", locatarioMap.get(v.id) ?? "—",
         statusMap.get(v.status)?.label ?? v.status,
       ];
     });
     const fipeTotal = sorted.reduce((s, v) => s + (v.valor_fipe ?? 0), 0);
+    const f = (v: string) => (v === TODOS ? "Todos" : v);
     return {
       titulo: "Veículos", subtitulo: `${sorted.length} veículo(s)`,
-      filtros: [{ label: "Busca", valor: search }],
-      colunas, linhas, rodape: ["", "", "", "", formatCurrency(fipeTotal), "", "", ""],
+      filtros: [
+        { label: "Busca", valor: search }, { label: "Marca", valor: f(fMarca) }, { label: "Ano", valor: f(fAno) },
+        { label: "Status", valor: fStatus === TODOS ? "Todos" : (statusMap.get(fStatus)?.label ?? fStatus) },
+        { label: "Proprietário", valor: f(fProprietario) }, { label: "Locatário", valor: f(fLocatario) },
+        { label: "Restrição", valor: fRestricao === TODOS ? "Todas" : fRestricao === "com" ? "Com restrição" : "Sem restrição" },
+      ],
+      colunas, linhas, rodape: ["", "", "", "", formatCurrency(fipeTotal), "", "", "", "", ""],
     };
   }
 
@@ -309,11 +377,31 @@ export default function VehiclesPage() {
           <div className="flex items-center gap-2 border-b p-4">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por placa, marca ou modelo..."
+              placeholder="Buscar por placa, marca, modelo, proprietário ou locatário..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="border-0 focus-visible:ring-0"
             />
+          </div>
+          {/* Filtros por coluna */}
+          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 p-3">
+            <FiltroSelect label="Marca" value={fMarca} onChange={setFMarca} options={opcoes.marcas} />
+            <FiltroSelect label="Ano" value={fAno} onChange={setFAno} options={opcoes.anos} />
+            <FiltroSelect label="Status" value={fStatus} onChange={setFStatus} options={opcoes.status} render={(s) => statusMap.get(s)?.label ?? s} />
+            <FiltroSelect label="Proprietário" value={fProprietario} onChange={setFProprietario} options={opcoes.proprietarios} />
+            <FiltroSelect label="Locatário" value={fLocatario} onChange={setFLocatario} options={opcoes.locatarios} />
+            <Select value={fRestricao} onValueChange={setFRestricao}>
+              <SelectTrigger className="h-8 w-auto gap-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Restrições: todas</SelectItem>
+                <SelectItem value="com">Com restrição</SelectItem>
+                <SelectItem value="sem">Sem restrição</SelectItem>
+              </SelectContent>
+            </Select>
+            {filtrosAtivos && (
+              <Button variant="ghost" size="sm" onClick={limparFiltros}><X className="h-4 w-4" /> Limpar</Button>
+            )}
+            <span className="ml-auto text-xs text-muted-foreground">{sorted.length} de {vehicles.length}</span>
           </div>
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
@@ -330,17 +418,20 @@ export default function VehiclesPage() {
               }
             />
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead><button type="button" onClick={() => toggleSort("placa")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Placa {arrow("placa")}</button></TableHead>
-                  <TableHead><button type="button" onClick={() => toggleSort("veiculo")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Veículo {arrow("veiculo")}</button></TableHead>
-                  <TableHead><button type="button" onClick={() => toggleSort("ano")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Ano {arrow("ano")}</button></TableHead>
-                  <TableHead className="text-right"><button type="button" onClick={() => toggleSort("km")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">KM {arrow("km")}</button></TableHead>
-                  <TableHead className="text-right"><button type="button" onClick={() => toggleSort("fipe")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">FIPE {arrow("fipe")}</button></TableHead>
-                  <TableHead><button type="button" onClick={() => toggleSort("pendencias")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Pendências {arrow("pendencias")}</button></TableHead>
-                  <TableHead><button type="button" onClick={() => toggleSort("restricoes")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Restrições {arrow("restricoes")}</button></TableHead>
-                  <TableHead><button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Status {arrow("status")}</button></TableHead>
+                  <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
+                  <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="ano" activeKey={sortKey} dir={sortDir} onSort={toggle}>Ano</SortableHead>
+                  <SortableHead sortKey="km" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM</SortableHead>
+                  <SortableHead sortKey="fipe" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">FIPE</SortableHead>
+                  <SortableHead sortKey="pendencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pendências</SortableHead>
+                  <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restrições</SortableHead>
+                  <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Proprietário</SortableHead>
+                  <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
+                  <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -410,6 +501,27 @@ export default function VehiclesPage() {
                         );
                       })()}
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {v.proprietario_nome
+                        ? <span>{v.proprietario_nome}{v.proprietario_documento ? <span className="block text-[11px] text-muted-foreground">{v.proprietario_documento}</span> : null}</span>
+                        : <span className="text-xs text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {(() => {
+                        const loc = locatarioMap.get(v.id);
+                        if (!loc) return <span className="text-xs text-muted-foreground">—</span>;
+                        return (
+                          <button
+                            type="button"
+                            title="Ver contratos do locatário"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/contratos?veiculo=${encodeURIComponent(v.placa)}`); }}
+                            className="text-left hover:underline"
+                          >
+                            {loc}
+                          </button>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>
                       {statusMap.has(v.status) ? (
                         <Badge variant="secondary" className="gap-1.5">
@@ -460,6 +572,7 @@ export default function VehiclesPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
