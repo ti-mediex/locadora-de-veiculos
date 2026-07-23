@@ -37,6 +37,7 @@ import {
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
+import { useKmMesPorVeiculo } from "@/hooks/use-km";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
@@ -115,7 +116,15 @@ export default function VehiclesPage() {
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
   const { data: pendMap = {} } = usePendenciasPorVeiculo();
   const { data: restrMap = {} } = useRestricoesPorVeiculo();
+  const { data: kmMesMap = {} } = useKmMesPorVeiculo();
   const locatarioMap = useLocatarioPorVeiculo();
+
+  // Rótulos dos meses (atual e anterior) para os cabeçalhos das colunas de KM.
+  const { mesAtualLabel, mesAntLabel } = useMemo(() => {
+    const h = new Date();
+    const cap = (d: Date) => { const s = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", ""); return s.charAt(0).toUpperCase() + s.slice(1); };
+    return { mesAtualLabel: cap(h), mesAntLabel: cap(new Date(h.getFullYear(), h.getMonth() - 1, 1)) };
+  }, []);
   const { data: alienantes = [] } = useList<Alienante>("alienantes", { orderBy: { column: "nome", ascending: true } });
   const createAlienante = useCreate("alienantes", "Alienante");
   const create = useCreate<Vehicle>("vehicles", "Veículo");
@@ -207,6 +216,8 @@ export default function VehiclesPage() {
       case "veiculo": return `${v.marca} ${v.modelo}`.toLowerCase();
       case "ano": return v.ano_modelo ?? v.ano_fabricacao ?? 0;
       case "km": return v.km_atual ?? 0;
+      case "kmmes": return kmMesMap[v.id]?.mesAtual ?? -1;
+      case "kmmesant": return kmMesMap[v.id]?.mesAnterior ?? -1;
       case "fipe": return v.valor_fipe ?? 0;
       case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
       case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
@@ -225,16 +236,21 @@ export default function VehiclesPage() {
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
-      { label: "KM", align: "right" }, { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
+      { label: "KM", align: "right" }, { label: `KM ${mesAtualLabel}`, align: "right" }, { label: `KM ${mesAntLabel}`, align: "right" },
+      { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
       { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
       const r = restrMap[v.id];
+      const km = kmMesMap[v.id];
       return [
         maskPlaca(v.placa), `${v.marca} ${v.modelo}`,
         `${v.ano_fabricacao ?? "—"}/${v.ano_modelo ?? "—"}`,
-        formatNumber(v.km_atual), formatCurrency(v.valor_fipe),
+        formatNumber(v.km_atual),
+        km ? formatNumber(Math.round(km.mesAtual)) : "—",
+        km ? formatNumber(Math.round(km.mesAnterior)) : "—",
+        formatCurrency(v.valor_fipe),
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
         r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
         v.proprietario_nome ?? "—", locatarioMap.get(v.id) ?? "—",
@@ -242,6 +258,8 @@ export default function VehiclesPage() {
       ];
     });
     const fipeTotal = sorted.reduce((s, v) => s + (v.valor_fipe ?? 0), 0);
+    const kmAtualTotal = sorted.reduce((s, v) => s + (kmMesMap[v.id]?.mesAtual ?? 0), 0);
+    const kmAntTotal = sorted.reduce((s, v) => s + (kmMesMap[v.id]?.mesAnterior ?? 0), 0);
     const f = (v: string) => (v === TODOS ? "Todos" : v);
     return {
       titulo: "Veículos", subtitulo: `${sorted.length} veículo(s)`,
@@ -251,7 +269,8 @@ export default function VehiclesPage() {
         { label: "Proprietário", valor: f(fProprietario) }, { label: "Locatário", valor: f(fLocatario) },
         { label: "Restrição", valor: fRestricao === TODOS ? "Todas" : fRestricao === "com" ? "Com restrição" : "Sem restrição" },
       ],
-      colunas, linhas, rodape: ["", "", "", "", formatCurrency(fipeTotal), "", "", "", "", ""],
+      colunas, linhas,
+      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", ""],
     };
   }
 
@@ -420,6 +439,8 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
                   <SortableHead sortKey="ano" activeKey={sortKey} dir={sortDir} onSort={toggle}>Ano</SortableHead>
                   <SortableHead sortKey="km" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM</SortableHead>
+                  <SortableHead sortKey="kmmes" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM {mesAtualLabel}</SortableHead>
+                  <SortableHead sortKey="kmmesant" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM {mesAntLabel}</SortableHead>
                   <SortableHead sortKey="fipe" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">FIPE</SortableHead>
                   <SortableHead sortKey="pendencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pendências</SortableHead>
                   <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restrições</SortableHead>
@@ -451,6 +472,12 @@ export default function VehiclesPage() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{v.ano_fabricacao}/{v.ano_modelo}</TableCell>
                     <TableCell className="whitespace-nowrap text-right">{formatNumber(v.km_atual)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right">
+                      {kmMesMap[v.id]?.mesAtual != null ? formatNumber(Math.round(kmMesMap[v.id].mesAtual)) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right">
+                      {kmMesMap[v.id]?.mesAnterior != null ? formatNumber(Math.round(kmMesMap[v.id].mesAnterior)) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       <div>{formatCurrency(v.valor_fipe)}</div>
                       {v.fipe_mes_referencia && (

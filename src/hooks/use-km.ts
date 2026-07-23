@@ -30,6 +30,38 @@ export function useKmDiario(inicio?: string, fim?: string, vehicleId?: string) {
   });
 }
 
+export interface KmMesVeiculo { mesAtual: number; mesAnterior: number }
+
+/** KM rodado por veículo no mês corrente (até hoje) e no mês anterior. */
+export function useKmMesPorVeiculo() {
+  return useQuery<Record<string, KmMesVeiculo>>({
+    queryKey: ["km_diario", "mes-por-veiculo"],
+    queryFn: async () => {
+      const hoje = new Date();
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const iniAtual = fmt(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+      const iniAnt = fmt(new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1));
+      const fimAnt = fmt(new Date(hoje.getFullYear(), hoje.getMonth(), 0)); // último dia do mês anterior
+      const hojeStr = fmt(hoje);
+
+      const { data, error } = await supabase.from("km_diario_calc")
+        .select("vehicle_id, dia, km").gte("dia", iniAnt).lte("dia", hojeStr).limit(50000);
+      if (error) throw error;
+
+      const map: Record<string, KmMesVeiculo> = {};
+      for (const r of (data ?? []) as { vehicle_id: string | null; dia: string; km: number }[]) {
+        if (!r.vehicle_id) continue;
+        const km = Number(r.km) || 0;
+        const cur = map[r.vehicle_id] ?? { mesAtual: 0, mesAnterior: 0 };
+        if (r.dia >= iniAtual && r.dia <= hojeStr) cur.mesAtual += km;
+        else if (r.dia >= iniAnt && r.dia <= fimAnt) cur.mesAnterior += km;
+        map[r.vehicle_id] = cur;
+      }
+      return map;
+    },
+  });
+}
+
 const slug = (s: string) => s.replace(/[^\w.\-]+/g, "_");
 
 /** Importa uma ou várias planilhas do Ituran (lote): grava as leituras diárias
