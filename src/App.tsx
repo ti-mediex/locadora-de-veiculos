@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -5,22 +6,24 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Toaster } from "@/components/ui/sonner";
 
+// Login é carregado direto (primeira tela); as demais rotas são lazy,
+// gerando um chunk por página e reduzindo o bundle inicial.
 import LoginPage from "@/pages/login";
-import DashboardPage from "@/pages/dashboard";
-import RevenuesPage from "@/pages/revenues";
-import ExpensesPage from "@/pages/expenses";
-import PendenciasPage from "@/pages/pendencias";
-import RelatoriosPage from "@/pages/relatorios";
-import VistoriasPage from "@/pages/vistorias";
-import ContratosPage from "@/pages/contratos";
-import LocatariosPage from "@/pages/locatarios";
-import ResumoLocatariosPage from "@/pages/resumo-locatarios";
-import ApuracaoKmPage from "@/pages/apuracao-km";
-import RastreamentoPage from "@/pages/rastreamento";
-import ImportacoesPage from "@/pages/importacoes";
-import VehiclesPage from "@/pages/vehicles";
-import ImportPage from "@/pages/import";
-import SettingsPage from "@/pages/settings";
+const DashboardPage = lazy(() => import("@/pages/dashboard"));
+const RevenuesPage = lazy(() => import("@/pages/revenues"));
+const ExpensesPage = lazy(() => import("@/pages/expenses"));
+const PendenciasPage = lazy(() => import("@/pages/pendencias"));
+const RelatoriosPage = lazy(() => import("@/pages/relatorios"));
+const VistoriasPage = lazy(() => import("@/pages/vistorias"));
+const ContratosPage = lazy(() => import("@/pages/contratos"));
+const LocatariosPage = lazy(() => import("@/pages/locatarios"));
+const ResumoLocatariosPage = lazy(() => import("@/pages/resumo-locatarios"));
+const ApuracaoKmPage = lazy(() => import("@/pages/apuracao-km"));
+const RastreamentoPage = lazy(() => import("@/pages/rastreamento"));
+const ImportacoesPage = lazy(() => import("@/pages/importacoes"));
+const VehiclesPage = lazy(() => import("@/pages/vehicles"));
+const ImportPage = lazy(() => import("@/pages/import"));
+const SettingsPage = lazy(() => import("@/pages/settings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +40,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <Suspense fallback={<div className="flex h-screen items-center justify-center text-sm text-muted-foreground">Carregando…</div>}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route
@@ -64,6 +68,7 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
         <Toaster />
       </AuthProvider>

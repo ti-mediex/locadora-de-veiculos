@@ -1,7 +1,7 @@
 // Parser do "Relatório de ociosidade" do Ituran (xlsx): agrupa as leituras de
 // odômetro por placa e por dia (para apurar o KM rodado) e soma o tempo ocioso
 // na oficina/pátio de manutenção (rua informada) para o desconto por paralisação.
-import * as XLSX from "xlsx";
+// xlsx carregado sob demanda para não pesar no bundle inicial.
 
 export interface KmDiarioItem {
   placa: string;
@@ -34,7 +34,8 @@ function parseTempo(s: unknown): number {
   return Number(m[1]) * 60 + Number(m[2]) + Number(m[3]) / 60;
 }
 
-export function parseIturanXlsx(buf: ArrayBuffer, enderecoManutencao = ""): IturanParsed {
+export async function parseIturanXlsx(buf: ArrayBuffer, enderecoManutencao = ""): Promise<IturanParsed> {
+  const XLSX = await import("xlsx");
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: false });

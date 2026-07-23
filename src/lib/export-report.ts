@@ -1,6 +1,6 @@
 // Exportação de relatórios em vários formatos: planilha (CSV/XLSX), HTML e PDF.
-import * as XLSX from "xlsx";
-
+// O xlsx é carregado dinamicamente (só quando o usuário exporta em Excel),
+// para não inflar o bundle inicial.
 export interface ExportColumn<T> {
   key: keyof T;
   label: string;
@@ -25,8 +25,9 @@ export function exportCsv<T extends object>(filename: string, rows: T[], columns
   baixar(new Blob([csv], { type: "text/csv;charset=utf-8;" }), filename, "csv");
 }
 
-/** Planilha XLSX (Excel). */
-export function exportXlsx<T extends object>(filename: string, rows: T[], columns: ExportColumn<T>[], sheetName = "Relatório") {
+/** Planilha XLSX (Excel). Carrega o xlsx sob demanda. */
+export async function exportXlsx<T extends object>(filename: string, rows: T[], columns: ExportColumn<T>[], sheetName = "Relatório") {
+  const XLSX = await import("xlsx");
   const { header, body } = matrix(rows, columns);
   const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
   const wb = XLSX.utils.book_new();

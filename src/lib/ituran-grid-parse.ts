@@ -1,7 +1,7 @@
 // Parser do relatório "Grade de veículos" (MyGridData) do Ituran: extrai a
 // última comunicação de cada veículo com a central, para apurar conectividade
 // do rastreamento e convocar veículos sem comunicação.
-import * as XLSX from "xlsx";
+// xlsx carregado sob demanda para não pesar no bundle inicial.
 
 export interface RastreioItem {
   placa: string;
@@ -33,7 +33,8 @@ function parseNum(s: unknown): number | null {
   return isFinite(v) ? v : null;
 }
 
-export function parseIturanGrid(buf: ArrayBuffer): GridParsed {
+export async function parseIturanGrid(buf: ArrayBuffer): Promise<GridParsed> {
+  const XLSX = await import("xlsx");
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: false });

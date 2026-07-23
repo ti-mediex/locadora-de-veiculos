@@ -47,7 +47,7 @@ export function ImportarIturanDialog({
     for (const file of Array.from(files)) {
       try {
         const buf = await file.arrayBuffer();
-        const parsed = parseIturanXlsx(buf, endereco);
+        const parsed = await parseIturanXlsx(buf, endereco);
         if (!parsed.itens.length) novos.push({ file, parsed, erro: "Nenhuma leitura de odômetro encontrada" });
         else novos.push({ file, parsed });
       } catch (e) {

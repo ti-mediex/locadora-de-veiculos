@@ -21,7 +21,7 @@ export function ImportarGridDialog({ open, onOpenChange }: { open: boolean; onOp
     const novos: ArquivoParsed[] = [];
     for (const file of Array.from(files)) {
       try {
-        const parsed = parseIturanGrid(await file.arrayBuffer());
+        const parsed = await parseIturanGrid(await file.arrayBuffer());
         if (!parsed.itens.length) novos.push({ file, parsed, erro: "Nenhum veículo encontrado na planilha" });
         else novos.push({ file, parsed });
       } catch (e) {
