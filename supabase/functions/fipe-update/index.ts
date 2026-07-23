@@ -13,7 +13,15 @@
 // x-fipe-secret igual ao segredo configurado (usado pelo agendamento).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const FIPE = "https://parallelum.com.br/fipe/api/v1/carros";
+const FIPE_BASE = "https://parallelum.com.br/fipe/api/v1";
+const FIPE = `${FIPE_BASE}/carros`;
+
+// Utilitários/vans/caminhões costumam estar na tabela FIPE de "caminhoes".
+const UTILITARIO = /(sprinter|furgao|furgão|pick ?up|\bvan\b|caminhao|caminhão|bongo|\bhr\b|master|ducato|daily|boxer|jumper|jumpy|expert|scudo|iveco|kombi|trafic|transit|delivery|accelo|atego|worker|constellation)/;
+function categoriasPara(marca: string, modelo: string): string[] {
+  const t = `${marca} ${modelo}`.toLowerCase();
+  return UTILITARIO.test(t) ? ["caminhoes", "carros"] : ["carros", "caminhoes"];
+}
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-fipe-secret",
@@ -93,40 +101,53 @@ function pickAno(anos: any[], anoModelo: number | null): { ano: any; exato: bool
   return { ano: ordenados[0], exato: false };
 }
 
-interface Ref { marca: number; modelo: number; ano: string; combustivel: string; codigo: string; }
+interface Ref { categoria: string; marca: number; modelo: number; ano: string; combustivel: string; codigo: string; }
 
-async function resolveRef(marca: string, modelo: string, anoModelo: number | null): Promise<Ref | null> {
-  const brands = await getJson(`${FIPE}/marcas`);
+/** Resolve a referência FIPE numa categoria específica (carros/caminhoes). */
+async function resolveEmCategoria(categoria: string, marca: string, modelo: string, anoModelo: number | null): Promise<{ ref: Ref; exato: boolean } | null> {
+  const base = `${FIPE_BASE}/${categoria}`;
+  const brands = await getJson(`${base}/marcas`);
   if (!Array.isArray(brands)) return null;
   const marcaTk = tokens(marca).filter((t) => !STOP_MARCA.has(t));
   const brand = bestMatch(marcaTk, brands);
   if (!brand) return null;
 
-  const models = await getJson(`${FIPE}/marcas/${brand.codigo}/modelos`);
+  const models = await getJson(`${base}/marcas/${brand.codigo}/modelos`);
   const modelList = models?.modelos;
   if (!Array.isArray(modelList)) return null;
 
-  // Considera os melhores candidatos de modelo e prefere aquele que possui o
-  // ano_modelo exato (evita casar um modelo homônimo de outra geração).
   const candidatos = topMatches(tokens(modelo), modelList, 5);
   if (candidatos.length === 0) return null;
 
   let fallback: Ref | null = null;
   for (const m of candidatos) {
-    const anos = await getJson(`${FIPE}/marcas/${brand.codigo}/modelos/${m.codigo}/anos`);
+    const anos = await getJson(`${base}/marcas/${brand.codigo}/modelos/${m.codigo}/anos`);
     await sleep(150);
     if (!Array.isArray(anos) || anos.length === 0) continue;
     const pick = pickAno(anos, anoModelo);
     if (!pick) continue;
-    const ref: Ref = { marca: Number(brand.codigo), modelo: Number(m.codigo), ano: String(pick.ano.codigo), combustivel: pick.ano.nome, codigo: "" };
-    if (pick.exato) return ref;      // melhor caso: modelo com o ano do veículo
-    if (!fallback) fallback = ref;   // guarda o de maior score como aproximação
+    const ref: Ref = { categoria, marca: Number(brand.codigo), modelo: Number(m.codigo), ano: String(pick.ano.codigo), combustivel: pick.ano.nome, codigo: "" };
+    if (pick.exato) return { ref, exato: true };  // modelo com o ano do veículo
+    if (!fallback) fallback = ref;                 // guarda o de maior score
+  }
+  return fallback ? { ref: fallback, exato: false } : null;
+}
+
+/** Tenta resolver a FIPE nas categorias apropriadas (utilitários -> caminhões). */
+async function resolveRef(marca: string, modelo: string, anoModelo: number | null): Promise<Ref | null> {
+  let fallback: Ref | null = null;
+  for (const categoria of categoriasPara(marca, modelo)) {
+    const r = await resolveEmCategoria(categoria, marca, modelo, anoModelo);
+    await sleep(200);
+    if (r?.exato) return r.ref;                    // ano exato: melhor caso
+    if (r && !fallback) fallback = r.ref;          // aproximação da 1ª categoria
   }
   return fallback;
 }
 
 async function fetchValor(ref: Ref): Promise<{ valor: number; mes: string; codigo: string } | null> {
-  const d = await getJson(`${FIPE}/marcas/${ref.marca}/modelos/${ref.modelo}/anos/${ref.ano}`);
+  const cat = ref.categoria || "carros";
+  const d = await getJson(`${FIPE_BASE}/${cat}/marcas/${ref.marca}/modelos/${ref.modelo}/anos/${ref.ano}`);
   if (!d || !d.Valor) return null;
   const valor = Number(String(d.Valor).replace(/[^0-9,]/g, "").replace(/\./g, "").replace(",", "."));
   return { valor: isNaN(valor) ? 0 : valor, mes: d.MesReferencia?.trim() ?? "", codigo: d.CodigoFipe ?? "" };
@@ -150,12 +171,10 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { /* corpo vazio */ }
 
-  let query = admin.from("vehicles")
-    .select("id, marca, modelo, ano_modelo, fipe_marca_ref, fipe_modelo_ref, fipe_ano_ref")
-    .neq("status", "inativo");
-  if (body.vehicle_id) query = admin.from("vehicles")
-    .select("id, marca, modelo, ano_modelo, fipe_marca_ref, fipe_modelo_ref, fipe_ano_ref")
-    .eq("id", body.vehicle_id);
+  const COLS = "id, marca, modelo, ano_modelo, fipe_marca_ref, fipe_modelo_ref, fipe_ano_ref, fipe_categoria_ref, fipe_manual";
+  // Não sobrescreve veículos com valor FIPE fixado manualmente.
+  let query = admin.from("vehicles").select(COLS).neq("status", "inativo").neq("fipe_manual", true);
+  if (body.vehicle_id) query = admin.from("vehicles").select(COLS).eq("id", body.vehicle_id).neq("fipe_manual", true);
 
   const { data: vehicles, error } = await query;
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
@@ -177,7 +196,7 @@ Deno.serve(async (req) => {
     let ref: Ref | null = null;
     // reutiliza refs já resolvidas (execução mensal); force reprocessa do zero
     if (!body.force && sample.fipe_marca_ref && sample.fipe_modelo_ref && sample.fipe_ano_ref) {
-      ref = { marca: sample.fipe_marca_ref, modelo: sample.fipe_modelo_ref, ano: sample.fipe_ano_ref, combustivel: "", codigo: "" };
+      ref = { categoria: sample.fipe_categoria_ref || "carros", marca: sample.fipe_marca_ref, modelo: sample.fipe_modelo_ref, ano: sample.fipe_ano_ref, combustivel: "", codigo: "" };
     } else {
       ref = await resolveRef(sample.marca, sample.modelo, sample.ano_modelo);
       await sleep(300);
@@ -196,6 +215,7 @@ Deno.serve(async (req) => {
       fipe_marca_ref: ref.marca,
       fipe_modelo_ref: ref.modelo,
       fipe_ano_ref: ref.ano,
+      fipe_categoria_ref: ref.categoria,
       fipe_combustivel: ref.combustivel || null,
       fipe_mes_referencia: res.mes,
       fipe_atualizado_em: now,

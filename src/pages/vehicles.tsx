@@ -63,6 +63,7 @@ const schema = z.object({
   status: z.string().default("disponivel"),
   valor_aquisicao: z.coerce.number().optional().or(z.literal("")),
   valor_fipe: z.coerce.number().optional().or(z.literal("")),
+  fipe_manual: z.boolean().default(false),
   fornecedor: z.string().optional(),
   observacoes: z.string().optional(),
   // Situação jurídica / patrimonial
@@ -151,7 +152,7 @@ export default function VehiclesPage() {
   function openNew() {
     setEditing(null);
     reset({
-      status: "disponivel", km_atual: 0,
+      status: "disponivel", km_atual: 0, fipe_manual: false,
       alienacao_fiduciaria: false, quitado: false, busca_apreensao: false, bloqueio_judicial: false,
     });
     setOpen(true);
@@ -179,6 +180,7 @@ export default function VehiclesPage() {
       status: v.status,
       valor_aquisicao: v.valor_aquisicao ?? undefined,
       valor_fipe: v.valor_fipe ?? undefined,
+      fipe_manual: v.fipe_manual ?? false,
       fornecedor: v.fornecedor ?? "",
       observacoes: v.observacoes ?? "",
       alienacao_fiduciaria: v.alienacao_fiduciaria ?? false,
@@ -226,8 +228,8 @@ export default function VehiclesPage() {
       create.mutate(payload, {
         onSuccess: (novo: Vehicle) => {
           setOpen(false);
-          // Busca o valor FIPE automaticamente ao cadastrar o veículo.
-          if (novo?.id) updateFipe.mutate({ vehicle_id: novo.id });
+          // Busca a FIPE automaticamente só quando o valor não foi fixado manualmente.
+          if (novo?.id && !data.fipe_manual && !data.valor_fipe) updateFipe.mutate({ vehicle_id: novo.id });
         },
       });
     }
@@ -474,6 +476,10 @@ export default function VehiclesPage() {
               </Field>
               <Field label="Valor FIPE (R$)">
                 <Input type="number" step="0.01" {...register("valor_fipe")} />
+                <label className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <input type="checkbox" className="h-3.5 w-3.5" {...register("fipe_manual")} />
+                  Fixar valor manualmente (não atualizar pela FIPE automática)
+                </label>
               </Field>
             </div>
 

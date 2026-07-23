@@ -274,6 +274,8 @@ export interface Vehicle {
   fipe_combustivel: string | null;
   fipe_mes_referencia: string | null;
   fipe_atualizado_em: string | null;
+  fipe_manual?: boolean | null;
+  fipe_categoria_ref?: string | null;
   alienacao_fiduciaria: boolean;
   alienante: string | null;
   proprietario_nome: string | null;
