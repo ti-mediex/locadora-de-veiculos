@@ -35,6 +35,8 @@ import { toast } from "sonner";
 import { VISTORIA_TIPO, VISTORIA_COMBUSTIVEL, VISTORIA_PARTES, VISTORIA_CHECKLIST_ITENS } from "@/lib/options";
 import { formatDate } from "@/lib/format";
 import type { Vehicle, ChecklistItem } from "@/types/database";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 
 const tipoLabel = (t: string) => VISTORIA_TIPO.find((x) => x.value === t)?.label ?? t;
 const tipoBadge: Record<string, "success" | "warning" | "destructive"> = { liberacao: "success", devolucao: "warning", sinistro: "destructive" };
@@ -200,6 +202,22 @@ export default function VistoriasPage() {
     });
   }, [rows, search, fTipo, fVistoriador, fDataIni, fDataFim]);
 
+  const { sortKey, sortDir, toggle, useSorted } = useSort<(typeof rows)[number]>("created_at", "desc");
+  const sorted = useSorted(filtered, (r, k) => {
+    switch (k) {
+      case "created_at": return r.created_at;
+      case "tipo": return r.tipo;
+      case "placa": return r.vehicles?.placa ?? r.placa;
+      case "modelo": return r.vehicles?.modelo;
+      case "locatario": return r.locatario_nome;
+      case "vistoriador": return r.vistoriador;
+      case "km": return r.km;
+      case "fotos": return r.fotos?.[0]?.count ?? 0;
+      case "laudo": return r.laudo_externo_path ? 1 : 0;
+      default: return null;
+    }
+  });
+
   const fotosPreenchidas = fotos.filter((f) => f.file).length;
   const hoje = new Date().toISOString().slice(0, 10);
   const noMes = rows.filter((r) => r.created_at.slice(0, 7) === hoje.slice(0, 7)).length;
@@ -257,20 +275,20 @@ export default function VistoriasPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap">Data/Hora</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Placa</TableHead>
-                  <TableHead>Modelo</TableHead>
-                  <TableHead>Locatário</TableHead>
-                  <TableHead>Vistoriador</TableHead>
-                  <TableHead className="text-right">KM</TableHead>
-                  <TableHead className="text-center">Fotos</TableHead>
-                  <TableHead className="text-center">Laudo</TableHead>
+                  <SortableHead sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={toggle} className="whitespace-nowrap">Data/Hora</SortableHead>
+                  <SortableHead sortKey="tipo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tipo</SortableHead>
+                  <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
+                  <SortableHead sortKey="modelo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Modelo</SortableHead>
+                  <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
+                  <SortableHead sortKey="vistoriador" activeKey={sortKey} dir={sortDir} onSort={toggle}>Vistoriador</SortableHead>
+                  <SortableHead sortKey="km" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM</SortableHead>
+                  <SortableHead sortKey="fotos" activeKey={sortKey} dir={sortDir} onSort={toggle}>Fotos</SortableHead>
+                  <SortableHead sortKey="laudo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Laudo</SortableHead>
                   <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {sorted.map((r) => (
                   <TableRow key={r.id} className="cursor-pointer" onClick={() => setViewId(r.id)}>
                     <TableCell className="whitespace-nowrap text-xs">{new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</TableCell>
                     <TableCell><Badge variant={tipoBadge[r.tipo]}>{tipoLabel(r.tipo)}</Badge></TableCell>

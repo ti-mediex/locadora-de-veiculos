@@ -22,6 +22,8 @@ import {
 import { gerarContratoHtml } from "@/lib/contrato-doc";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 
 const STATUS_BADGE: Record<string, "success" | "muted" | "warning" | "destructive"> = {
   ativo: "success", encerrado: "muted", renovado: "warning", cancelado: "destructive",
@@ -135,6 +137,19 @@ export default function ContratosPage() {
     });
   }, [rows, search, fStatus]);
 
+  const { sortKey, sortDir, toggle, useSorted } = useSort<ContratoRow>("numero", "asc");
+  const sorted = useSorted(filtered, (c, k) => {
+    switch (k) {
+      case "numero": return c.numero;
+      case "cliente": return c.cliente_nome;
+      case "veiculo": return c.vehicles?.placa ?? c.placa;
+      case "entrega": return c.data_entrega;
+      case "semanal": return c.valor_locacao;
+      case "status": return c.status;
+      default: return null;
+    }
+  });
+
   const ativos = rows.filter((r) => r.status === "ativo").length;
   const receitaAtiva = rows.filter((r) => r.status === "ativo").reduce((s, r) => s + (r.valor_locacao ?? 0), 0);
 
@@ -178,17 +193,17 @@ export default function ContratosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nº</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Veículo</TableHead>
-                  <TableHead>Entrega</TableHead>
-                  <TableHead className="text-right">Semanal</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHead sortKey="numero" activeKey={sortKey} dir={sortDir} onSort={toggle}>Nº</SortableHead>
+                  <SortableHead sortKey="cliente" activeKey={sortKey} dir={sortDir} onSort={toggle}>Cliente</SortableHead>
+                  <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="entrega" activeKey={sortKey} dir={sortDir} onSort={toggle}>Entrega</SortableHead>
+                  <SortableHead sortKey="semanal" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Semanal</SortableHead>
+                  <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                   {canWrite && <TableHead className="w-32"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c) => (
+                {sorted.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono font-medium">{c.numero}</TableCell>
                     <TableCell>{c.cliente_nome}</TableCell>

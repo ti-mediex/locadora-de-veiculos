@@ -14,6 +14,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useImportHistory, baixarImportacao, type ImportHistoryRow } from "@/hooks/use-import-history";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 
 const TIPO_LABEL: Record<string, string> = {
   detran: "Débitos (Detran)",
@@ -62,6 +64,18 @@ export default function ImportacoesPage() {
     });
   }, [rows, search, fTipo]);
 
+  const { sortKey, sortDir, toggle, useSorted } = useSort<ImportHistoryRow>("created_at", "desc");
+  const sorted = useSorted(filtered, (h, k) => {
+    switch (k) {
+      case "created_at": return h.created_at;
+      case "placa": return h.placa;
+      case "tipo": return h.tipo;
+      case "resumo": return resumoTexto(h);
+      case "file_name": return h.file_name;
+      default: return null;
+    }
+  });
+
   const qtdDetran = rows.filter((r) => r.tipo === "detran").length;
   const qtdPlaca = rows.filter((r) => r.tipo === "consulta_placa").length;
 
@@ -101,17 +115,17 @@ export default function ImportacoesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Veículo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Resumo</TableHead>
-                  <TableHead>Arquivo</TableHead>
+                  <SortableHead sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={toggle}>Data</SortableHead>
+                  <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="tipo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tipo</SortableHead>
+                  <SortableHead sortKey="resumo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Resumo</SortableHead>
+                  <SortableHead sortKey="file_name" activeKey={sortKey} dir={sortDir} onSort={toggle}>Arquivo</SortableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((h) => (
-                  <TableRow key={h.id}>
+                {sorted.map((h) => (
+                  <TableRow key={h.id} className={h.storage_path ? "cursor-pointer" : ""} onClick={() => h.storage_path && baixarImportacao(h.storage_path, h.file_name)}>
                     <TableCell className="whitespace-nowrap text-sm">{new Date(h.created_at).toLocaleString("pt-BR")}</TableCell>
                     <TableCell className="font-mono font-medium">{h.placa ?? "—"}</TableCell>
                     <TableCell><Badge variant="secondary">{TIPO_LABEL[h.tipo] ?? h.tipo}</Badge></TableCell>
@@ -119,7 +133,7 @@ export default function ImportacoesPage() {
                     <TableCell className="max-w-48 truncate text-xs text-muted-foreground">{h.file_name ?? "—"}</TableCell>
                     <TableCell>
                       <div className="flex justify-end">
-                        <Button variant="ghost" size="sm" disabled={!h.storage_path} onClick={() => baixarImportacao(h.storage_path, h.file_name)}>
+                        <Button variant="ghost" size="sm" disabled={!h.storage_path} onClick={(e) => { e.stopPropagation(); baixarImportacao(h.storage_path, h.file_name); }}>
                           <Download className="h-4 w-4" /> Baixar
                         </Button>
                       </div>

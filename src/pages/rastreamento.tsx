@@ -18,6 +18,8 @@ import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarGridDialog } from "@/components/rastreamento/importar-grid-dialog";
 import { abrirRelatorioRastreio } from "@/lib/relatorio-rastreamento";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 
 const AGORA = Date.now();
 
@@ -75,6 +77,18 @@ export default function RastreamentoPage() {
       return mG && mQ && mS;
     });
   }, [dados, search, fStatus, fGrupo]);
+
+  const { sortKey, sortDir, toggle, useSorted } = useSort<(typeof dados)[number]>("ultima", "asc");
+  const ordenados = useSorted(filtrados, ({ r, c }, k) => {
+    switch (k) {
+      case "placa": return r.vehicles?.placa ?? r.placa;
+      case "ultima": return r.ultima_comunicacao;
+      case "tempo": return c.dias ?? 1e9;
+      case "situacao": return c.vendido ? 0 : c.semCom ? 1 : 2;
+      case "local": return r.endereco;
+      default: return null;
+    }
+  });
 
   function gerarRelatorio() {
     const linhas = (arr: typeof dados) => arr.map(({ r, c }) => ({
@@ -176,16 +190,16 @@ export default function RastreamentoPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Placa</TableHead>
-                    <TableHead>Última comunicação</TableHead>
-                    <TableHead>Tempo</TableHead>
-                    <TableHead>Situação</TableHead>
-                    <TableHead>Localização</TableHead>
+                    <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
+                    <SortableHead sortKey="ultima" activeKey={sortKey} dir={sortDir} onSort={toggle}>Última comunicação</SortableHead>
+                    <SortableHead sortKey="tempo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tempo</SortableHead>
+                    <SortableHead sortKey="situacao" activeKey={sortKey} dir={sortDir} onSort={toggle}>Situação</SortableHead>
+                    <SortableHead sortKey="local" activeKey={sortKey} dir={sortDir} onSort={toggle}>Localização</SortableHead>
                     {podeEscrever && <TableHead className="text-right">Ação</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtrados.map(({ r, c }) => (
+                  {ordenados.map(({ r, c }) => (
                     <TableRow key={r.id} className={c.vendido ? "bg-destructive/5" : ""}>
                       <TableCell>
                         <span className="font-mono font-medium">{r.vehicles?.placa ?? r.placa}</span>

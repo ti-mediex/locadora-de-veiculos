@@ -17,6 +17,8 @@ import { useLocatarios, useSaveLocatario, useDeleteLocatario } from "@/hooks/use
 import { useContratos } from "@/hooks/use-contratos";
 import { formatDate, maskCpf } from "@/lib/format";
 import type { Locatario } from "@/types/database";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 
 type Form = Record<string, string>;
 
@@ -81,6 +83,19 @@ export default function LocatariosPage() {
     });
   }, [rows, search, fStatus]);
 
+  const { sortKey, sortDir, toggle, useSorted } = useSort<Locatario>("nome", "asc");
+  const sorted = useSorted(filtered, (l, k) => {
+    switch (k) {
+      case "nome": return l.nome;
+      case "cpf": return l.cpf;
+      case "cnh": return l.cnh;
+      case "telefone": return l.telefone;
+      case "veiculo": return veicPorLocatario.get(l.id)?.placa;
+      case "status": return l.status;
+      default: return null;
+    }
+  });
+
   const ativos = rows.filter((l) => l.status === "ativo").length;
   const comVeiculo = rows.filter((l) => veicPorLocatario.has(l.id)).length;
 
@@ -122,17 +137,17 @@ export default function LocatariosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>CPF</TableHead>
-                  <TableHead>CNH</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Veículo atual</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHead sortKey="nome" activeKey={sortKey} dir={sortDir} onSort={toggle}>Nome</SortableHead>
+                  <SortableHead sortKey="cpf" activeKey={sortKey} dir={sortDir} onSort={toggle}>CPF</SortableHead>
+                  <SortableHead sortKey="cnh" activeKey={sortKey} dir={sortDir} onSort={toggle}>CNH</SortableHead>
+                  <SortableHead sortKey="telefone" activeKey={sortKey} dir={sortDir} onSort={toggle}>Telefone</SortableHead>
+                  <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo atual</SortableHead>
+                  <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                   {canWrite && <TableHead className="w-20"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((l) => {
+                {sorted.map((l) => {
                   const veic = veicPorLocatario.get(l.id);
                   return (
                     <TableRow key={l.id} className="cursor-pointer" onClick={() => abrirEdicao(l)}>

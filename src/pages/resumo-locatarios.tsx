@@ -24,6 +24,8 @@ import {
   useDebitos, useCaucoes, useSaveDebito, useDeleteDebito, useSaveCaucao, useDeleteCaucao, useDevolverCaucao,
 } from "@/hooks/use-financeiro-locatario";
 import type { DebitoCategoria, Locatario } from "@/types/database";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 
 const CAT: { value: DebitoCategoria; label: string }[] = [
   { value: "locacao", label: "Locação" }, { value: "multa", label: "Multa" }, { value: "juros", label: "Juros" },
@@ -84,6 +86,19 @@ export default function ResumoLocatariosPage() {
       return mQ && mR;
     }).sort((a, b) => b.risco - a.risco || b.debAberto - a.debAberto);
   }, [linhas, search, fRisco]);
+
+  const { sortKey, sortDir, toggle, useSorted } = useSort<(typeof linhas)[number]>("risco", "desc");
+  const ordenadas = useSorted(filtradas, (r, k) => {
+    switch (k) {
+      case "locatario": return r.l.nome;
+      case "contratos": return r.contratos.length;
+      case "debito": return r.debAberto;
+      case "caucao": return r.caucao;
+      case "saldo": return r.saldo;
+      case "risco": return r.risco;
+      default: return null;
+    }
+  });
 
   const kpi = useMemo(() => {
     let debTot = 0, caucaoTot = 0, criticos = 0, comDebito = 0;
@@ -177,16 +192,16 @@ export default function ResumoLocatariosPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Locatário</TableHead>
-                      <TableHead className="text-right">Contratos</TableHead>
-                      <TableHead className="text-right">Débito aberto</TableHead>
-                      <TableHead className="text-right">Caução</TableHead>
-                      <TableHead className="text-right">Saldo</TableHead>
-                      <TableHead className="text-right">Risco</TableHead>
+                      <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
+                      <SortableHead sortKey="contratos" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Contratos</SortableHead>
+                      <SortableHead sortKey="debito" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Débito aberto</SortableHead>
+                      <SortableHead sortKey="caucao" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Caução</SortableHead>
+                      <SortableHead sortKey="saldo" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Saldo</SortableHead>
+                      <SortableHead sortKey="risco" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Risco</SortableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtradas.slice(0, 500).map((r) => (
+                    {ordenadas.slice(0, 500).map((r) => (
                       <TableRow key={r.l.id} className="cursor-pointer" onClick={() => abrir(r.l)}>
                         <TableCell><span className="font-medium">{r.l.nome}</span> <span className="text-xs text-muted-foreground">{r.l.cpf ?? ""}</span></TableCell>
                         <TableCell className="text-right">{r.contratos.length}</TableCell>

@@ -37,6 +37,10 @@ import {
 } from "@/lib/options";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
+
+const RANK_PRIO: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
 
 const schema = z.object({
   vehicle_id: z.string().min(1, "Selecione o veículo"),
@@ -161,6 +165,20 @@ export default function PendenciasPage() {
       return matchSearch && matchCat && matchStatus;
     });
   }, [rows, search, fCategoria, fStatus]);
+
+  const { sortKey, sortDir, toggle, useSorted } = useSort<PendenciaRow>("vencimento", "asc");
+  const sorted = useSorted(filtered, (r, k) => {
+    switch (k) {
+      case "veiculo": return r.vehicles?.placa ?? vehicleLabel(r.vehicle_id);
+      case "categoria": return r.categoria;
+      case "titulo": return r.titulo;
+      case "responsavel": return r.responsavel;
+      case "vencimento": return r.vencimento;
+      case "prioridade": return RANK_PRIO[r.prioridade] ?? 9;
+      case "status": return r.status;
+      default: return null;
+    }
+  });
 
   // Subtotais por categoria das pendências filtradas (com valor).
   const subtotais = useMemo(() => {
@@ -310,18 +328,18 @@ export default function PendenciasPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Veículo</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Responsável</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Prioridade</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="categoria" activeKey={sortKey} dir={sortDir} onSort={toggle}>Categoria</SortableHead>
+                  <SortableHead sortKey="titulo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Título</SortableHead>
+                  <SortableHead sortKey="responsavel" activeKey={sortKey} dir={sortDir} onSort={toggle}>Responsável</SortableHead>
+                  <SortableHead sortKey="vencimento" activeKey={sortKey} dir={sortDir} onSort={toggle}>Vencimento</SortableHead>
+                  <SortableHead sortKey="prioridade" activeKey={sortKey} dir={sortDir} onSort={toggle}>Prioridade</SortableHead>
+                  <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                   {canWrite && <TableHead className="w-28"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {sorted.map((r) => (
                   <TableRow
                     key={r.id}
                     className={canWrite ? "cursor-pointer" : undefined}
