@@ -70,9 +70,19 @@ export function useImportarIturan() {
   const qc = useQueryClient();
   return useMutation<{ dias: number; arquivos: number; semVeiculo: string[] }, Error, { arquivos: { file: File; parsed: IturanParsed }[] }>({
     mutationFn: async ({ arquivos }) => {
-      const { data: veics, error: vErr } = await supabase.from("vehicles").select("id, placa");
+      const { data: veics, error: vErr } = await supabase.from("vehicles").select("id, placa, apelido_ituran, km_atual");
       if (vErr) throw vErr;
-      const placaMap = new Map((veics ?? []).map((v) => [(v as { placa: string }).placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase(), (v as { id: string }).id]));
+      const normp = (s: string) => (s ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      // Casa o identificador da planilha (placa OU apelido/Nome do Ituran) com o veículo.
+      const placaMap = new Map<string, string>();
+      const kmAtualMap = new Map<string, number>();
+      const vidPlaca = new Map<string, string>();
+      for (const v of (veics ?? []) as { id: string; placa: string; apelido_ituran: string | null; km_atual: number | null }[]) {
+        placaMap.set(normp(v.placa), v.id);
+        if (v.apelido_ituran) placaMap.set(normp(v.apelido_ituran), v.id);
+        kmAtualMap.set(v.id, Number(v.km_atual ?? 0));
+        vidPlaca.set(v.id, v.placa);
+      }
 
       const semVeic = new Set<string>();
       // Deduplica por (veículo, dia): a mesma placa/dia pode vir em mais de uma
@@ -95,7 +105,7 @@ export function useImportarIturan() {
             prev.registros = Math.max(prev.registros, it.registros);
             prev.min_ocioso_manut = Math.max(prev.min_ocioso_manut, it.min_ocioso_manut);
           } else {
-            rowMap.set(key, { vehicle_id: vid, placa: it.placa, dia: it.dia, odom_inicio: it.odom_inicio, odom_fim: it.odom_fim, registros: it.registros, min_ocioso_manut: it.min_ocioso_manut, updated_at: now });
+            rowMap.set(key, { vehicle_id: vid, placa: vidPlaca.get(vid) ?? it.placa, dia: it.dia, odom_inicio: it.odom_inicio, odom_fim: it.odom_fim, registros: it.registros, min_ocioso_manut: it.min_ocioso_manut, updated_at: now });
           }
         }
       }
@@ -103,6 +113,18 @@ export function useImportarIturan() {
       for (let i = 0; i < rows.length; i += 500) {
         const { error } = await supabase.from("km_diario").upsert(rows.slice(i, i + 500) as never, { onConflict: "vehicle_id,dia" });
         if (error) throw error;
+      }
+
+      // Atualiza o KM atual do veículo com o maior odômetro lido (nunca reduz).
+      const maxOdom = new Map<string, number>();
+      for (const r of rows as { vehicle_id: string; odom_fim: number }[]) {
+        if (r.odom_fim > (maxOdom.get(r.vehicle_id) ?? 0)) maxOdom.set(r.vehicle_id, r.odom_fim);
+      }
+      for (const [vid, odom] of maxOdom) {
+        const novo = Math.round(odom);
+        if (novo > (kmAtualMap.get(vid) ?? 0)) {
+          await supabase.from("vehicles").update({ km_atual: novo } as never).eq("id", vid);
+        }
       }
 
       // Histórico: guarda cada planilha no Storage + registro.

@@ -293,6 +293,7 @@ export interface Vehicle {
   potencia: string | null;
   cilindrada: number | null;
   parcelamento_cotas: string | null;
+  apelido_ituran: string | null;
   created_at: string;
   updated_at: string;
 }

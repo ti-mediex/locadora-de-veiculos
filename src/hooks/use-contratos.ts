@@ -21,6 +21,22 @@ export function useLocatarioPorVeiculo() {
   }, [contratos]);
 }
 
+export interface ContratoAtivoVeic { numero: string; cliente: string }
+
+/** Contrato ativo vigente de cada veículo (número + cliente), por vehicle_id. */
+export function useContratoAtivoPorVeiculo() {
+  const { data: contratos = [] } = useContratos();
+  return useMemo(() => {
+    const m = new Map<string, ContratoAtivoVeic>();
+    for (const c of contratos) {
+      if (c.status === "ativo" && c.vehicle_id && !m.has(c.vehicle_id)) {
+        m.set(c.vehicle_id, { numero: c.numero, cliente: c.cliente_nome ?? "" });
+      }
+    }
+    return m;
+  }, [contratos]);
+}
+
 export function useContratos() {
   return useQuery<ContratoRow[]>({
     queryKey: ["contratos", "list"],

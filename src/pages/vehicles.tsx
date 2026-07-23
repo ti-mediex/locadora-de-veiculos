@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
-import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
+import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo } from "@/hooks/use-contratos";
 import { useKmMesPorVeiculo } from "@/hooks/use-km";
 import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
 import { useUpdateFipe } from "@/hooks/use-fipe";
@@ -68,6 +68,7 @@ const schema = z.object({
   parcelamento_cotas: z.string().optional(),
   renavam: z.string().optional(),
   chassi: z.string().optional(),
+  apelido_ituran: z.string().optional(),
   km_atual: z.coerce.number().int().min(0).default(0),
   status: z.string().default("disponivel"),
   valor_aquisicao: z.coerce.number().optional().or(z.literal("")),
@@ -120,6 +121,7 @@ export default function VehiclesPage() {
   const { data: kmMesMap = {} } = useKmMesPorVeiculo();
   const rastMap = useRastreamentoStatusPorVeiculo();
   const locatarioMap = useLocatarioPorVeiculo();
+  const contratoMap = useContratoAtivoPorVeiculo();
 
   // Rótulos dos meses (atual e anterior) para os cabeçalhos das colunas de KM.
   const { mesAtualLabel, mesAntLabel } = useMemo(() => {
@@ -159,7 +161,12 @@ export default function VehiclesPage() {
   const [fProprietario, setFProprietario] = useState(TODOS);
   const [fLocatario, setFLocatario] = useState(TODOS);
   const [fRestricao, setFRestricao] = useState(TODOS); // todos | com | sem
+  const [fLocadoSemLoc, setFLocadoSemLoc] = useState(false); // status locado sem locatário designado
   const { sortKey, sortDir, toggle, useSorted } = useSort<Vehicle>("placa", "asc");
+
+  // Veículos locados sem contrato ativo (locatário não designado).
+  const locadoSemLocatario = (v: Vehicle) => v.status === "locado" && !locatarioMap.has(v.id);
+  const nLocadoSemLoc = useMemo(() => vehicles.filter(locadoSemLocatario).length, [vehicles, locatarioMap]);
 
   const {
     register,
@@ -208,9 +215,11 @@ export default function VehiclesPage() {
       const mProp = fProprietario === TODOS || prop === fProprietario;
       const mLoc = fLocatario === TODOS || loc === fLocatario;
       const mRestr = fRestricao === TODOS || (fRestricao === "com" ? temRestr : !temRestr);
-      return mSearch && mMarca && mAno && mStatus && mProp && mLoc && mRestr;
+      const mLocadoSemLoc = !fLocadoSemLoc || locadoSemLocatario(v);
+      return mSearch && mMarca && mAno && mStatus && mProp && mLoc && mRestr && mLocadoSemLoc;
     });
-  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, locatarioMap, restrMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, fLocadoSemLoc, locatarioMap, restrMap]);
 
   const sorted = useSorted(filtered, (v, k) => {
     switch (k) {
@@ -226,14 +235,15 @@ export default function VehiclesPage() {
       case "rastreamento": { const rs = rastMap.get(v.id); return rs ? (rs.comunicando ? 0 : 1) : 2; }
       case "proprietario": return (v.proprietario_nome ?? "").toLowerCase();
       case "locatario": return (locatarioMap.get(v.id) ?? "").toLowerCase();
+      case "contrato": return contratoMap.get(v.id)?.numero ?? "";
       case "status": return statusMap.get(v.status)?.label ?? v.status ?? "";
       default: return null;
     }
   });
 
-  const filtrosAtivos = [fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao].some((f) => f !== TODOS) || !!search;
+  const filtrosAtivos = [fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao].some((f) => f !== TODOS) || !!search || fLocadoSemLoc;
   function limparFiltros() {
-    setSearch(""); setFMarca(TODOS); setFAno(TODOS); setFStatus(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); setFRestricao(TODOS);
+    setSearch(""); setFMarca(TODOS); setFAno(TODOS); setFStatus(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); setFRestricao(TODOS); setFLocadoSemLoc(false);
   }
 
   function buildRelatorio(): RelatorioTabelaData {
@@ -241,7 +251,7 @@ export default function VehiclesPage() {
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
       { label: "KM", align: "right" }, { label: `KM ${mesAtualLabel}`, align: "right" }, { label: `KM ${mesAntLabel}`, align: "right" },
       { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
-      { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Rastreamento" }, { label: "Status" },
+      { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Contrato" }, { label: "Rastreamento" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
@@ -258,6 +268,7 @@ export default function VehiclesPage() {
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
         r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
         v.proprietario_nome ?? "—", locatarioMap.get(v.id) ?? "—",
+        contratoMap.get(v.id)?.numero ?? (v.status === "locado" ? "sem contrato" : "—"),
         rs ? (rs.comunicando ? "Comunicando" : "Sem comunicação") : "—",
         statusMap.get(v.status)?.label ?? v.status,
       ];
@@ -275,7 +286,7 @@ export default function VehiclesPage() {
         { label: "Restrição", valor: fRestricao === TODOS ? "Todas" : fRestricao === "com" ? "Com restrição" : "Sem restrição" },
       ],
       colunas, linhas,
-      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", "", ""],
+      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", "", "", ""],
     };
   }
 
@@ -306,6 +317,7 @@ export default function VehiclesPage() {
       parcelamento_cotas: v.parcelamento_cotas ?? "",
       renavam: v.renavam ?? "",
       chassi: v.chassi ?? "",
+      apelido_ituran: v.apelido_ituran ?? "",
       km_atual: v.km_atual,
       status: v.status,
       valor_aquisicao: v.valor_aquisicao ?? undefined,
@@ -332,6 +344,7 @@ export default function VehiclesPage() {
     const payload = {
       ...data,
       placa: data.placa.toUpperCase().replace(/\s/g, ""),
+      apelido_ituran: data.apelido_ituran?.trim() || null,
       ano_fabricacao: data.ano_fabricacao || null,
       ano_modelo: data.ano_modelo || null,
       capacidade_passageiros: data.capacidade_passageiros === "" ? null : data.capacidade_passageiros,
@@ -416,6 +429,16 @@ export default function VehiclesPage() {
                 <SelectItem value="sem">Sem restrição</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant={fLocadoSemLoc ? "destructive" : "outline"}
+              size="sm"
+              onClick={() => setFLocadoSemLoc((s) => !s)}
+              title="Veículos com status Locado, mas sem locatário/contrato ativo designado"
+            >
+              <AlertTriangle className="h-4 w-4" /> Locado s/ locatário
+              <Badge variant="secondary" className="ml-1">{nLocadoSemLoc}</Badge>
+            </Button>
             {filtrosAtivos && (
               <Button variant="ghost" size="sm" onClick={limparFiltros}><X className="h-4 w-4" /> Limpar</Button>
             )}
@@ -451,6 +474,7 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restr.</SortableHead>
                   <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Propriet.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
+                  <SortableHead sortKey="contrato" activeKey={sortKey} dir={sortDir} onSort={toggle}>Contrato</SortableHead>
                   <SortableHead sortKey="rastreamento" activeKey={sortKey} dir={sortDir} onSort={toggle}>Rastr.</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                   <TableHead className="w-[84px]"></TableHead>
@@ -547,6 +571,18 @@ export default function VehiclesPage() {
                             {loc}
                           </button>
                         );
+                      })()}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {(() => {
+                        const ct = contratoMap.get(v.id);
+                        if (ct) return (
+                          <button type="button" title={`Contrato ${ct.numero}${ct.cliente ? ` · ${ct.cliente}` : ""}`}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/contratos?veiculo=${encodeURIComponent(v.placa)}`); }}
+                            className="font-mono text-[11px] hover:underline">{ct.numero}</button>
+                        );
+                        if (v.status === "locado") return <span className="text-[11px] font-medium text-destructive" title="Locado sem contrato ativo">sem contrato</span>;
+                        return <span className="text-muted-foreground">—</span>;
                       })()}
                     </TableCell>
                     <TableCell className="text-center">
@@ -675,6 +711,9 @@ export default function VehiclesPage() {
               </Field>
               <Field label="Chassi">
                 <Input {...register("chassi")} />
+              </Field>
+              <Field label="Apelido no Ituran">
+                <Input {...register("apelido_ituran")} placeholder="Ex.: QYD6D57 (se diferente da placa)" />
               </Field>
               <Field label="Espécie / Tipo">
                 <Input {...register("especie_tipo")} placeholder="PAS / AUTOMOVEL" />

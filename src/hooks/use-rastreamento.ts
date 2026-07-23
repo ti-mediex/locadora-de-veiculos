@@ -100,9 +100,16 @@ export function useImportarGrid() {
   const qc = useQueryClient();
   return useMutation<{ total: number; semVeiculo: string[] }, Error, { arquivos: { file: File; parsed: GridParsed }[] }>({
     mutationFn: async ({ arquivos }) => {
-      const { data: veics, error: vErr } = await supabase.from("vehicles").select("id, placa");
+      const { data: veics, error: vErr } = await supabase.from("vehicles").select("id, placa, apelido_ituran, km_atual");
       if (vErr) throw vErr;
-      const placaMap = new Map((veics ?? []).map((v) => [(v as { placa: string }).placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase(), (v as { id: string }).id]));
+      const normp = (s: string) => (s ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      const placaMap = new Map<string, string>();
+      const kmAtualMap = new Map<string, number>();
+      for (const v of (veics ?? []) as { id: string; placa: string; apelido_ituran: string | null; km_atual: number | null }[]) {
+        placaMap.set(normp(v.placa), v.id);
+        if (v.apelido_ituran) placaMap.set(normp(v.apelido_ituran), v.id);
+        kmAtualMap.set(v.id, Number(v.km_atual ?? 0));
+      }
 
       // Auto-cadastra na frota os veículos do relatório que ainda não existem,
       // para que o status (ex.: vendido) possa ser associado.
@@ -137,6 +144,19 @@ export function useImportarGrid() {
       for (let i = 0; i < rows.length; i += 500) {
         const { error } = await supabase.from("rastreamento_ituran").upsert(rows.slice(i, i + 500) as never, { onConflict: "placa" });
         if (error) throw error;
+      }
+
+      // Atualiza o KM atual do veículo com o odômetro da grade (nunca reduz).
+      const maxKm = new Map<string, number>();
+      for (const r of rows as { vehicle_id: string | null; km: number | null }[]) {
+        if (!r.vehicle_id || r.km == null || !isFinite(r.km)) continue;
+        if (r.km > (maxKm.get(r.vehicle_id) ?? 0)) maxKm.set(r.vehicle_id, r.km);
+      }
+      for (const [vid, km] of maxKm) {
+        const novo = Math.round(km);
+        if (novo > (kmAtualMap.get(vid) ?? 0)) {
+          await supabase.from("vehicles").update({ km_atual: novo } as never).eq("id", vid);
+        }
       }
 
       // Histórico: guarda cada planilha no Storage + registro.
