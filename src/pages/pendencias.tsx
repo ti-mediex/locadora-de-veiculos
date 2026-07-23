@@ -33,6 +33,7 @@ import {
   vencimentoStatus, restricaoEhJudicial, type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
 import { soAlfa } from "@/lib/format";
+import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
 import {
   PENDENCIA_CATEGORIA, PENDENCIA_STATUS, PENDENCIA_PRIORIDADE,
 } from "@/lib/options";
@@ -103,6 +104,7 @@ export default function PendenciasPage() {
   const { data: rows = [], isLoading } = usePendencias();
   const { data: summary } = usePendenciasSummary();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
+  const locatarioMap = useLocatarioPorVeiculo();
   const create = useCreate("vehicle_pendencias", "Pendência");
   const update = useUpdate("vehicle_pendencias", "Pendência");
   const remove = useDelete("vehicle_pendencias", "Pendência");
@@ -228,6 +230,7 @@ export default function PendenciasPage() {
     switch (k) {
       case "veiculo": return r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "";
       case "statusv": return vehicles.find((v) => v.id === r.vehicle_id)?.status ?? "";
+      case "locatario": return locatarioMap.get(r.vehicle_id) ?? "";
       case "categoria": return r.categoria;
       case "titulo": return r.titulo;
       case "responsavel": return r.responsavel;
@@ -242,12 +245,13 @@ export default function PendenciasPage() {
     const catLabel = fCategoria === "todas" ? "Todas" : (PENDENCIA_CATEGORIA.find((c) => c.value === fCategoria)?.label ?? fCategoria);
     const statusLabel = fStatus === "todas" ? "Todas" : fStatus === "ativas" ? "Ativas (abertas)" : fStatus === "atrasadas" ? "Atrasadas" : (PENDENCIA_STATUS.find((s) => s.value === fStatus)?.label ?? fStatus);
     const colunas: RelColuna[] = [
-      { label: "Veículo" }, { label: "Status veículo" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
+      { label: "Veículo" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
       { label: "Vencimento" }, { label: "Valor", align: "right" }, { label: "Prioridade" }, { label: "Status" },
     ];
     const linhas = sorted.map((r) => [
       r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—",
       statusVeiculoLabel(vehicles.find((v) => v.id === r.vehicle_id)?.status),
+      locatarioMap.get(r.vehicle_id) ?? "—",
       r.categoria, r.titulo, r.responsavel ?? "—",
       r.vencimento ? formatDate(r.vencimento) : "—",
       r.valor != null ? formatCurrency(r.valor) : "—",
@@ -261,7 +265,7 @@ export default function PendenciasPage() {
     return {
       titulo: tituloRel, subtitulo: `${sorted.length} registro(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }],
-      colunas, linhas, rodape: ["", "", "", "", "", "Total", formatCurrency(total), "", ""],
+      colunas, linhas, rodape: ["", "", "", "", "", "", "Total", formatCurrency(total), "", ""],
     };
   }
 
@@ -467,6 +471,7 @@ export default function PendenciasPage() {
                 <TableRow>
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
                   <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
+                  <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="categoria" activeKey={sortKey} dir={sortDir} onSort={toggle}>Categoria</SortableHead>
                   <SortableHead sortKey="titulo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Título</SortableHead>
                   <SortableHead sortKey="responsavel" activeKey={sortKey} dir={sortDir} onSort={toggle}>Responsável</SortableHead>
@@ -485,6 +490,7 @@ export default function PendenciasPage() {
                   >
                     <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
                     <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === r.vehicle_id)?.status} /></TableCell>
+                    <TableCell className="text-sm">{locatarioMap.get(r.vehicle_id) ?? <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell><Badge variant="secondary">{r.categoria}</Badge></TableCell>
                     <TableCell>
                       <div>{r.titulo}</div>

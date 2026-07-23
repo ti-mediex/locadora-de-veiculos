@@ -1,9 +1,25 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import type { Contrato } from "@/types/database";
 
 export type ContratoRow = Contrato & { vehicles: { placa: string; modelo: string } | null };
+
+/** Locatário atual de cada veículo = contrato ativo (cliente_nome), por vehicle_id. */
+export function useLocatarioPorVeiculo() {
+  const { data: contratos = [] } = useContratos();
+  return useMemo(() => {
+    const m = new Map<string, string>();
+    // Contratos vêm ordenados por created_at desc; o primeiro ativo é o vigente.
+    for (const c of contratos) {
+      if (c.status === "ativo" && c.vehicle_id && c.cliente_nome && !m.has(c.vehicle_id)) {
+        m.set(c.vehicle_id, c.cliente_nome);
+      }
+    }
+    return m;
+  }, [contratos]);
+}
 
 export function useContratos() {
   return useQuery<ContratoRow[]>({

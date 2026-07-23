@@ -17,6 +17,7 @@ import { formatNumber } from "@/lib/format";
 import { VEHICLE_STATUS_CHART } from "@/lib/options";
 import { useRastreamento, useRastreamentoAcoes, useCreateRastreamentoAcao, useDefinirAcao, type RastreioRow } from "@/hooks/use-rastreamento";
 import { useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
+import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarGridDialog } from "@/components/rastreamento/importar-grid-dialog";
@@ -45,6 +46,7 @@ export default function RastreamentoPage() {
   const navigate = useNavigate();
   const { data: rows = [], isLoading } = useRastreamento();
   const { data: restrMap = {} } = useRestricoesPorVeiculo();
+  const locatarioMap = useLocatarioPorVeiculo();
   const { data: config } = useAppConfig();
   const { data: acoes = [] } = useRastreamentoAcoes();
   const criarAcao = useCreateRastreamentoAcao();
@@ -104,6 +106,7 @@ export default function RastreamentoPage() {
     switch (k) {
       case "placa": return r.vehicles?.placa ?? r.placa;
       case "statusv": return r.vehicles?.status;
+      case "locatario": return r.vehicle_id ? locatarioMap.get(r.vehicle_id) ?? "" : "";
       case "ultima": return r.ultima_comunicacao;
       case "tempo": return c.dias ?? 1e9;
       case "situacao": return c.vendido ? 0 : c.semCom ? 1 : 2;
@@ -114,10 +117,12 @@ export default function RastreamentoPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Placa" }, { label: "Status veículo" }, { label: "Última comunicação" }, { label: "Dias", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Convocado" },
+      { label: "Placa" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Última comunicação" }, { label: "Dias", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Convocado" },
     ];
     const linhas = ordenados.map(({ r, c }) => [
-      r.vehicles?.placa ?? r.placa, statusVeicLabel(r.vehicles?.status), fmtData(r.ultima_comunicacao), fmtDias(c.dias),
+      r.vehicles?.placa ?? r.placa, statusVeicLabel(r.vehicles?.status),
+      (r.vehicle_id && locatarioMap.get(r.vehicle_id)) || "—",
+      fmtData(r.ultima_comunicacao), fmtDias(c.dias),
       c.vendido ? "Vendido · retirar rastreador" : c.semCom ? "Sem comunicação" : "OK", r.endereco ?? "—", r.convocado ? "Sim" : "—",
     ]);
     return {
@@ -250,6 +255,7 @@ export default function RastreamentoPage() {
                   <TableRow>
                     <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
                     <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
+                    <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                     <SortableHead sortKey="ultima" activeKey={sortKey} dir={sortDir} onSort={toggle}>Última comunicação</SortableHead>
                     <SortableHead sortKey="tempo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tempo</SortableHead>
                     <SortableHead sortKey="situacao" activeKey={sortKey} dir={sortDir} onSort={toggle}>Situação</SortableHead>
@@ -269,6 +275,7 @@ export default function RastreamentoPage() {
                           ? <Badge variant="secondary" className="gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: VEHICLE_STATUS_CHART[r.vehicles.status]?.color ?? "currentColor" }} />{statusVeicLabel(r.vehicles.status)}</Badge>
                           : <span className="text-muted-foreground">—</span>}
                       </TableCell>
+                      <TableCell className="text-sm">{(r.vehicle_id && locatarioMap.get(r.vehicle_id)) || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm">{fmtData(r.ultima_comunicacao)}</TableCell>
                       <TableCell>{badgeDias(c)}</TableCell>
                       <TableCell>

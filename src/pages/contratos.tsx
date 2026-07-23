@@ -16,6 +16,7 @@ import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { useLocatarios, useSaveLocatario, acharPorCpf } from "@/hooks/use-locatarios";
+import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
 import {
   useContratos, useCreateContrato, useUpdateContrato, useRenovarContrato, useDeleteContrato, type ContratoRow,
 } from "@/hooks/use-contratos";
@@ -38,6 +39,7 @@ export default function ContratosPage() {
   const { data: rows = [], isLoading } = useContratos();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const { data: locatarios = [] } = useLocatarios();
+  const locatarioMap = useLocatarioPorVeiculo();
   const { data: config } = useAppConfig();
   const saveLoc = useSaveLocatario();
   const create = useCreateContrato();
@@ -147,6 +149,7 @@ export default function ContratosPage() {
       case "cliente": return c.cliente_nome;
       case "veiculo": return c.vehicles?.placa ?? c.placa;
       case "statusv": return vehicles.find((v) => v.id === c.vehicle_id)?.status ?? "";
+      case "locatario": return c.vehicle_id ? locatarioMap.get(c.vehicle_id) ?? "" : "";
       case "entrega": return c.data_entrega;
       case "semanal": return c.valor_locacao;
       case "status": return c.status;
@@ -156,18 +159,19 @@ export default function ContratosPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Nº" }, { label: "Cliente" }, { label: "Veículo" }, { label: "Status veículo" }, { label: "Entrega" }, { label: "Semanal", align: "right" }, { label: "Status" },
+      { label: "Nº" }, { label: "Cliente" }, { label: "Veículo" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Entrega" }, { label: "Semanal", align: "right" }, { label: "Status" },
     ];
     const linhas = sorted.map((c) => [
       c.numero, c.cliente_nome, c.vehicles?.placa ?? c.placa ?? "—",
       statusVeiculoLabel(vehicles.find((v) => v.id === c.vehicle_id)?.status),
+      (c.vehicle_id && locatarioMap.get(c.vehicle_id)) || "—",
       c.data_entrega ? formatDate(c.data_entrega) : "—", formatCurrency(c.valor_locacao), c.status,
     ]);
     const total = sorted.reduce((s, c) => s + (c.valor_locacao ?? 0), 0);
     return {
       titulo: "Contratos de locação", subtitulo: `${sorted.length} contrato(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }],
-      colunas, linhas, rodape: ["", "", "", "", "Total semanal", formatCurrency(total), ""],
+      colunas, linhas, rodape: ["", "", "", "", "", "Total semanal", formatCurrency(total), ""],
     };
   }
 
@@ -223,6 +227,7 @@ export default function ContratosPage() {
                   <SortableHead sortKey="cliente" activeKey={sortKey} dir={sortDir} onSort={toggle}>Cliente</SortableHead>
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
                   <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
+                  <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="entrega" activeKey={sortKey} dir={sortDir} onSort={toggle}>Entrega</SortableHead>
                   <SortableHead sortKey="semanal" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Semanal</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
@@ -236,6 +241,7 @@ export default function ContratosPage() {
                     <TableCell>{c.cliente_nome}</TableCell>
                     <TableCell className="font-mono">{c.vehicles?.placa ?? c.placa ?? "—"}</TableCell>
                     <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === c.vehicle_id)?.status} /></TableCell>
+                    <TableCell className="text-sm">{(c.vehicle_id && locatarioMap.get(c.vehicle_id)) || <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell className="whitespace-nowrap text-sm">{c.data_entrega ? formatDate(c.data_entrega) : "—"}</TableCell>
                     <TableCell className="text-right">{formatCurrency(c.valor_locacao)}</TableCell>
                     <TableCell><Badge variant={STATUS_BADGE[c.status]}>{c.status}</Badge></TableCell>

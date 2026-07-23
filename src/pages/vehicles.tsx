@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
-import { useContratos } from "@/hooks/use-contratos";
+import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
@@ -114,16 +114,7 @@ export default function VehiclesPage() {
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
   const { data: pendMap = {} } = usePendenciasPorVeiculo();
   const { data: restrMap = {} } = useRestricoesPorVeiculo();
-  const { data: contratos = [] } = useContratos();
-
-  // Locatário atual de cada veículo = contrato ativo (cliente_nome).
-  const locatarioMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of contratos) {
-      if (c.status === "ativo" && c.vehicle_id && c.cliente_nome) m.set(c.vehicle_id, c.cliente_nome);
-    }
-    return m;
-  }, [contratos]);
+  const locatarioMap = useLocatarioPorVeiculo();
   const { data: alienantes = [] } = useList<Alienante>("alienantes", { orderBy: { column: "nome", ascending: true } });
   const createAlienante = useCreate("alienantes", "Alienante");
   const create = useCreate<Vehicle>("vehicles", "Veículo");
