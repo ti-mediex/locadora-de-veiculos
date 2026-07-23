@@ -40,6 +40,7 @@ import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
+import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const RANK_PRIO: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
@@ -189,6 +190,7 @@ export default function PendenciasPage() {
   const sorted = useSorted(filtered, (r, k) => {
     switch (k) {
       case "veiculo": return r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "";
+      case "statusv": return vehicles.find((v) => v.id === r.vehicle_id)?.status ?? "";
       case "categoria": return r.categoria;
       case "titulo": return r.titulo;
       case "responsavel": return r.responsavel;
@@ -203,11 +205,12 @@ export default function PendenciasPage() {
     const catLabel = fCategoria === "todas" ? "Todas" : (PENDENCIA_CATEGORIA.find((c) => c.value === fCategoria)?.label ?? fCategoria);
     const statusLabel = fStatus === "todas" ? "Todas" : fStatus === "ativas" ? "Ativas (abertas)" : fStatus === "atrasadas" ? "Atrasadas" : (PENDENCIA_STATUS.find((s) => s.value === fStatus)?.label ?? fStatus);
     const colunas: RelColuna[] = [
-      { label: "Veículo" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
+      { label: "Veículo" }, { label: "Status veículo" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
       { label: "Vencimento" }, { label: "Valor", align: "right" }, { label: "Prioridade" }, { label: "Status" },
     ];
     const linhas = sorted.map((r) => [
       r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—",
+      statusVeiculoLabel(vehicles.find((v) => v.id === r.vehicle_id)?.status),
       r.categoria, r.titulo, r.responsavel ?? "—",
       r.vencimento ? formatDate(r.vencimento) : "—",
       r.valor != null ? formatCurrency(r.valor) : "—",
@@ -218,7 +221,7 @@ export default function PendenciasPage() {
     return {
       titulo: "Pendências por veículo", subtitulo: `${sorted.length} registro(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Situação", valor: statusLabel }],
-      colunas, linhas, rodape: ["", "", "", "", "Total", formatCurrency(total), "", ""],
+      colunas, linhas, rodape: ["", "", "", "", "", "Total", formatCurrency(total), "", ""],
     };
   }
 
@@ -394,6 +397,7 @@ export default function PendenciasPage() {
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
                   <SortableHead sortKey="categoria" activeKey={sortKey} dir={sortDir} onSort={toggle}>Categoria</SortableHead>
                   <SortableHead sortKey="titulo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Título</SortableHead>
                   <SortableHead sortKey="responsavel" activeKey={sortKey} dir={sortDir} onSort={toggle}>Responsável</SortableHead>
@@ -411,6 +415,7 @@ export default function PendenciasPage() {
                     onClick={canWrite ? () => openEdit(r) : undefined}
                   >
                     <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
+                    <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === r.vehicle_id)?.status} /></TableCell>
                     <TableCell><Badge variant="secondary">{r.categoria}</Badge></TableCell>
                     <TableCell>
                       <div>{r.titulo}</div>

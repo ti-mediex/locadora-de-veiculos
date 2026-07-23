@@ -26,6 +26,7 @@ import { useList } from "@/hooks/use-crud";
 import { ImportarIturanDialog } from "@/components/km/importar-ituran-dialog";
 import { abrirRelatorioKm } from "@/lib/relatorio-km";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
+import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 import type { Vehicle } from "@/types/database";
 
@@ -214,11 +215,11 @@ export default function ApuracaoKmPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Placa" }, { label: "Modelo" }, { label: "KM total", align: "right" }, { label: "KM/mês médio", align: "right" },
+      { label: "Placa" }, { label: "Modelo" }, { label: "Status veículo" }, { label: "KM total", align: "right" }, { label: "KM/mês médio", align: "right" },
       { label: "Dias rodados", align: "right" }, { label: "Dias c/ leitura", align: "right" }, { label: "Manutenção (min)", align: "right" },
     ];
     const linhas = porVeiculo.map((v) => [
-      v.placa, v.modelo, km0(v.km), km0(v.kmMes), v.diasRodados, v.dias, v.minManut,
+      v.placa, v.modelo, statusVeiculoLabel(vMap.get(v.vehicle_id)?.status), km0(v.km), km0(v.kmMes), v.diasRodados, v.dias, v.minManut,
     ]);
     return {
       empresa: config?.empresa_nome, titulo: "Apuração de KM por veículo", subtitulo: escopo,
@@ -382,6 +383,7 @@ export default function ApuracaoKmPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Veículo</TableHead>
+                          <TableHead>Status veículo</TableHead>
                           <TableHead className="text-right">KM total</TableHead>
                           <TableHead className="text-right">KM/mês médio</TableHead>
                           <TableHead className="text-right">Dias rodados</TableHead>
@@ -392,6 +394,7 @@ export default function ApuracaoKmPage() {
                         {porVeiculo.map((v) => (
                           <TableRow key={v.vehicle_id} className="cursor-pointer" onClick={() => selecionarVeiculo(v.vehicle_id)}>
                             <TableCell><span className="font-mono font-medium">{v.placa}</span> <span className="text-xs text-muted-foreground">{v.modelo}</span></TableCell>
+                            <TableCell><VehicleStatusBadge status={vMap.get(v.vehicle_id)?.status} /></TableCell>
                             <TableCell className="text-right font-semibold">{km0(v.km)}</TableCell>
                             <TableCell className="text-right"><span className={v.kmMes > franquia ? "font-semibold text-destructive" : ""}>{km0(v.kmMes)}</span></TableCell>
                             <TableCell className="text-right">{v.diasRodados}/{v.dias}</TableCell>

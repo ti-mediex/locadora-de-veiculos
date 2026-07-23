@@ -38,6 +38,7 @@ import type { Vehicle, ChecklistItem } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
+import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const tipoLabel = (t: string) => VISTORIA_TIPO.find((x) => x.value === t)?.label ?? t;
@@ -210,6 +211,7 @@ export default function VistoriasPage() {
       case "created_at": return r.created_at;
       case "tipo": return r.tipo;
       case "placa": return r.vehicles?.placa ?? r.placa;
+      case "statusv": return vehicles.find((v) => v.id === r.vehicle_id)?.status ?? "";
       case "modelo": return r.vehicles?.modelo;
       case "locatario": return r.locatario_nome;
       case "vistoriador": return r.vistoriador;
@@ -222,12 +224,12 @@ export default function VistoriasPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Data/Hora" }, { label: "Tipo" }, { label: "Placa" }, { label: "Modelo" }, { label: "Locatário" },
+      { label: "Data/Hora" }, { label: "Tipo" }, { label: "Placa" }, { label: "Status veículo" }, { label: "Modelo" }, { label: "Locatário" },
       { label: "Vistoriador" }, { label: "KM", align: "right" }, { label: "Fotos", align: "right" }, { label: "Laudo" },
     ];
     const linhas = sorted.map((r) => [
       new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
-      tipoLabel(r.tipo), r.vehicles?.placa ?? r.placa ?? "—", r.vehicles?.modelo ?? "—",
+      tipoLabel(r.tipo), r.vehicles?.placa ?? r.placa ?? "—", statusVeiculoLabel(vehicles.find((v) => v.id === r.vehicle_id)?.status), r.vehicles?.modelo ?? "—",
       r.locatario_nome ?? "—", r.vistoriador ?? "—", r.km ?? "—", r.fotos?.[0]?.count ?? 0, r.laudo_externo_path ? "Vex" : "—",
     ]);
     return {
@@ -302,6 +304,7 @@ export default function VistoriasPage() {
                   <SortableHead sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={toggle} className="whitespace-nowrap">Data/Hora</SortableHead>
                   <SortableHead sortKey="tipo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tipo</SortableHead>
                   <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
+                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
                   <SortableHead sortKey="modelo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Modelo</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="vistoriador" activeKey={sortKey} dir={sortDir} onSort={toggle}>Vistoriador</SortableHead>
@@ -317,6 +320,7 @@ export default function VistoriasPage() {
                     <TableCell className="whitespace-nowrap text-xs">{new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</TableCell>
                     <TableCell><Badge variant={tipoBadge[r.tipo]}>{tipoLabel(r.tipo)}</Badge></TableCell>
                     <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? r.placa ?? "—"}</TableCell>
+                    <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === r.vehicle_id)?.status} /></TableCell>
                     <TableCell className="max-w-40 truncate text-xs text-muted-foreground">{r.vehicles?.modelo ?? "—"}</TableCell>
                     <TableCell>{r.locatario_nome ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.vistoriador ?? "—"}</TableCell>

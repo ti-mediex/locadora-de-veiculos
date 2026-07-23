@@ -25,6 +25,7 @@ import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
+import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const STATUS_BADGE: Record<string, "success" | "muted" | "warning" | "destructive"> = {
@@ -145,6 +146,7 @@ export default function ContratosPage() {
       case "numero": return c.numero;
       case "cliente": return c.cliente_nome;
       case "veiculo": return c.vehicles?.placa ?? c.placa;
+      case "statusv": return vehicles.find((v) => v.id === c.vehicle_id)?.status ?? "";
       case "entrega": return c.data_entrega;
       case "semanal": return c.valor_locacao;
       case "status": return c.status;
@@ -154,17 +156,18 @@ export default function ContratosPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Nº" }, { label: "Cliente" }, { label: "Veículo" }, { label: "Entrega" }, { label: "Semanal", align: "right" }, { label: "Status" },
+      { label: "Nº" }, { label: "Cliente" }, { label: "Veículo" }, { label: "Status veículo" }, { label: "Entrega" }, { label: "Semanal", align: "right" }, { label: "Status" },
     ];
     const linhas = sorted.map((c) => [
       c.numero, c.cliente_nome, c.vehicles?.placa ?? c.placa ?? "—",
+      statusVeiculoLabel(vehicles.find((v) => v.id === c.vehicle_id)?.status),
       c.data_entrega ? formatDate(c.data_entrega) : "—", formatCurrency(c.valor_locacao), c.status,
     ]);
     const total = sorted.reduce((s, c) => s + (c.valor_locacao ?? 0), 0);
     return {
       titulo: "Contratos de locação", subtitulo: `${sorted.length} contrato(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }],
-      colunas, linhas, rodape: ["", "", "", "Total semanal", formatCurrency(total), ""],
+      colunas, linhas, rodape: ["", "", "", "", "Total semanal", formatCurrency(total), ""],
     };
   }
 
@@ -219,6 +222,7 @@ export default function ContratosPage() {
                   <SortableHead sortKey="numero" activeKey={sortKey} dir={sortDir} onSort={toggle}>Nº</SortableHead>
                   <SortableHead sortKey="cliente" activeKey={sortKey} dir={sortDir} onSort={toggle}>Cliente</SortableHead>
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
                   <SortableHead sortKey="entrega" activeKey={sortKey} dir={sortDir} onSort={toggle}>Entrega</SortableHead>
                   <SortableHead sortKey="semanal" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Semanal</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
@@ -231,6 +235,7 @@ export default function ContratosPage() {
                     <TableCell className="font-mono font-medium">{c.numero}</TableCell>
                     <TableCell>{c.cliente_nome}</TableCell>
                     <TableCell className="font-mono">{c.vehicles?.placa ?? c.placa ?? "—"}</TableCell>
+                    <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === c.vehicle_id)?.status} /></TableCell>
                     <TableCell className="whitespace-nowrap text-sm">{c.data_entrega ? formatDate(c.data_entrega) : "—"}</TableCell>
                     <TableCell className="text-right">{formatCurrency(c.valor_locacao)}</TableCell>
                     <TableCell><Badge variant={STATUS_BADGE[c.status]}>{c.status}</Badge></TableCell>
