@@ -39,6 +39,8 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const RANK_PRIO: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
 
@@ -168,7 +170,7 @@ export default function PendenciasPage() {
   const { sortKey, sortDir, toggle, useSorted } = useSort<PendenciaRow>("vencimento", "asc");
   const sorted = useSorted(filtered, (r, k) => {
     switch (k) {
-      case "veiculo": return r.vehicles?.placa ?? vehicleLabel(r.vehicle_id);
+      case "veiculo": return r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "";
       case "categoria": return r.categoria;
       case "titulo": return r.titulo;
       case "responsavel": return r.responsavel;
@@ -178,6 +180,29 @@ export default function PendenciasPage() {
       default: return null;
     }
   });
+
+  function buildRelatorio(): RelatorioTabelaData {
+    const catLabel = fCategoria === "todas" ? "Todas" : (PENDENCIA_CATEGORIA.find((c) => c.value === fCategoria)?.label ?? fCategoria);
+    const statusLabel = fStatus === "todas" ? "Todas" : fStatus === "ativas" ? "Ativas (abertas)" : fStatus === "atrasadas" ? "Atrasadas" : (PENDENCIA_STATUS.find((s) => s.value === fStatus)?.label ?? fStatus);
+    const colunas: RelColuna[] = [
+      { label: "Veículo" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
+      { label: "Vencimento" }, { label: "Valor", align: "right" }, { label: "Prioridade" }, { label: "Status" },
+    ];
+    const linhas = sorted.map((r) => [
+      r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—",
+      r.categoria, r.titulo, r.responsavel ?? "—",
+      r.vencimento ? formatDate(r.vencimento) : "—",
+      r.valor != null ? formatCurrency(r.valor) : "—",
+      PRIO[r.prioridade]?.label ?? r.prioridade,
+      PENDENCIA_STATUS.find((s) => s.value === r.status)?.label ?? r.status,
+    ]);
+    const total = sorted.reduce((s, r) => s + (r.valor ?? 0), 0);
+    return {
+      titulo: "Pendências por veículo", subtitulo: `${sorted.length} registro(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Situação", valor: statusLabel }],
+      colunas, linhas, rodape: ["", "", "", "", "Total", formatCurrency(total), "", ""],
+    };
+  }
 
   // Subtotais por categoria das pendências filtradas (com valor).
   const subtotais = useMemo(() => {
@@ -243,14 +268,17 @@ export default function PendenciasPage() {
         title="Pendências por veículo"
         description="Controle de rastreador, documentos, vencimentos e multas da frota"
         actions={
-          canWrite && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setImportOpen(true)}>
-                <FileUp className="h-4 w-4" /> Importar débitos (Detran)
-              </Button>
-              <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova pendência</Button>
-            </div>
-          )
+          <div className="flex flex-wrap gap-2">
+            <RelatorioExport build={buildRelatorio} nomeArquivo="pendencias" disabled={!sorted.length} />
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setImportOpen(true)}>
+                  <FileUp className="h-4 w-4" /> Importar débitos (Detran)
+                </Button>
+                <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova pendência</Button>
+              </>
+            )}
+          </div>
         }
       />
 
