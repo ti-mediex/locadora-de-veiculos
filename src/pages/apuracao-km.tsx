@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Gauge, Route, CalendarClock, Wrench, AlertTriangle, Upload, FileDown,
-  TrendingUp, ParkingCircle, ChevronLeft, FileText,
+  TrendingUp, ParkingCircle, ChevronLeft, FileText, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -256,23 +256,26 @@ export default function ApuracaoKmPage() {
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3 sm:p-4">
         <div className="w-full sm:w-64">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Veículo</label>
-          <div className="space-y-1.5">
+          {fVeiculo === "todos" ? (
             <BuscaPlaca
               value={buscaVeic}
               onChange={setBuscaVeic}
               onSelect={(v) => { setFVeiculo(v.id); setBuscaVeic(""); }}
               vehicles={veiculos}
-              placeholder="Buscar placa (ex.: 8451)..."
+              placeholder="Frota toda — buscar placa (ex.: 8451)…"
               className="h-9 rounded-md border px-2"
             />
-            <Select value={fVeiculo} onValueChange={setFVeiculo}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Frota toda</SelectItem>
-                {veiculos.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          ) : (
+            <div className="flex h-9 items-center justify-between gap-2 rounded-md border px-2">
+              <span className="truncate text-sm">
+                <span className="font-mono font-medium">{vMap.get(fVeiculo)?.placa ?? "veículo"}</span>{" "}
+                <span className="text-xs text-muted-foreground">{vMap.get(fVeiculo)?.modelo}</span>
+              </span>
+              <button type="button" title="Voltar para a frota toda" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={() => { setFVeiculo("todos"); setBuscaVeic(""); }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Mês</label>

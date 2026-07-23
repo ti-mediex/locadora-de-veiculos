@@ -466,6 +466,7 @@ export default function PendenciasPage() {
           ) : filtered.length === 0 ? (
             <EmptyState message="Nenhuma pendência" icon={<ListTodo className="h-6 w-6" />} />
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -535,6 +536,7 @@ export default function PendenciasPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -249,6 +249,7 @@ export default function ContratosPage() {
           ) : filtered.length === 0 ? (
             <EmptyState message="Nenhum contrato" icon={<FileSignature className="h-6 w-6" />} />
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -291,6 +292,7 @@ export default function ContratosPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
