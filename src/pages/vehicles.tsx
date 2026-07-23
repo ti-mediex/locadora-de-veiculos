@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -81,6 +81,8 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+type SortKey = "placa" | "veiculo" | "ano" | "km" | "fipe" | "pendencias" | "status";
+
 export default function VehiclesPage() {
   const navigate = useNavigate();
   const { data: vehicles = [], isLoading } = useList<Vehicle>("vehicles");
@@ -97,6 +99,12 @@ export default function VehiclesPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [search, setSearch] = useState("");
   const [importPlacaOpen, setImportPlacaOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("placa");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  function toggleSort(k: SortKey) {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir("asc"); }
+  }
 
   const {
     register,
@@ -116,6 +124,29 @@ export default function VehiclesPage() {
         v.marca.toLowerCase().includes(q)
     );
   }, [vehicles, search]);
+
+  const sorted = useMemo(() => {
+    const val = (v: Vehicle): string | number => {
+      switch (sortKey) {
+        case "placa": return v.placa.toUpperCase();
+        case "veiculo": return `${v.marca} ${v.modelo}`.toLowerCase();
+        case "ano": return v.ano_modelo ?? v.ano_fabricacao ?? 0;
+        case "km": return v.km_atual ?? 0;
+        case "fipe": return v.valor_fipe ?? 0;
+        case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
+        case "status": return v.status ?? "";
+      }
+    };
+    return [...filtered].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "pt-BR");
+      return sortDir === "asc" ? c : -c;
+    });
+  }, [filtered, sortKey, sortDir, pendMap]);
+
+  const arrow = (k: SortKey) => sortKey === k
+    ? (sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />)
+    : <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
 
   function openNew() {
     setEditing(null);
@@ -253,18 +284,18 @@ export default function VehiclesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Placa</TableHead>
-                  <TableHead>Veículo</TableHead>
-                  <TableHead>Ano</TableHead>
-                  <TableHead className="text-right">KM</TableHead>
-                  <TableHead className="text-right">FIPE</TableHead>
-                  <TableHead>Pendências</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead><button type="button" onClick={() => toggleSort("placa")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Placa {arrow("placa")}</button></TableHead>
+                  <TableHead><button type="button" onClick={() => toggleSort("veiculo")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Veículo {arrow("veiculo")}</button></TableHead>
+                  <TableHead><button type="button" onClick={() => toggleSort("ano")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Ano {arrow("ano")}</button></TableHead>
+                  <TableHead className="text-right"><button type="button" onClick={() => toggleSort("km")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">KM {arrow("km")}</button></TableHead>
+                  <TableHead className="text-right"><button type="button" onClick={() => toggleSort("fipe")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">FIPE {arrow("fipe")}</button></TableHead>
+                  <TableHead><button type="button" onClick={() => toggleSort("pendencias")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Pendências {arrow("pendencias")}</button></TableHead>
+                  <TableHead><button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 font-medium hover:text-foreground">Status {arrow("status")}</button></TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((v) => {
+                {sorted.map((v) => {
                   const pend = pendMap[v.id];
                   return (
                   <TableRow
