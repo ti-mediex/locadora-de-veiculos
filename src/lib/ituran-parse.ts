@@ -2,6 +2,7 @@
 // odômetro por placa e por dia (para apurar o KM rodado) e soma o tempo ocioso
 // na oficina/pátio de manutenção (rua informada) para o desconto por paralisação.
 // xlsx carregado sob demanda para não pesar no bundle inicial.
+import { extrairPlaca } from "@/lib/format";
 
 export interface KmDiarioItem {
   placa: string;
@@ -58,7 +59,7 @@ export async function parseIturanXlsx(buf: ArrayBuffer, enderecoManutencao = "")
     const r = rows[i] as unknown[];
     if (!Array.isArray(r)) continue;
     const m = String(r[colData] ?? "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
-    const placa = String(r[colPlaca] ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const placa = extrairPlaca(String(r[colPlaca] ?? ""));
     const odom = parseNum(r[colOdom]);
     if (!m || !placa || placa.length < 5 || !isFinite(odom)) continue;
     const dia = `${m[3]}-${m[2]}-${m[1]}`;

@@ -2,6 +2,7 @@
 // última comunicação de cada veículo com a central, para apurar conectividade
 // do rastreamento e convocar veículos sem comunicação.
 // xlsx carregado sob demanda para não pesar no bundle inicial.
+import { extrairPlaca } from "@/lib/format";
 
 export interface RastreioItem {
   placa: string;
@@ -62,7 +63,7 @@ export async function parseIturanGrid(buf: ArrayBuffer): Promise<GridParsed> {
   for (let i = hi + 1; i < rows.length; i++) {
     const r = rows[i] as unknown[];
     if (!Array.isArray(r)) continue;
-    const placa = String(r[cPlaca] ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const placa = extrairPlaca(String(r[cPlaca] ?? ""));
     if (!placa || placa.length < 5) continue;
     map.set(placa, {
       placa,

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { placaVariantes } from "@/lib/format";
 import type { IturanParsed } from "@/lib/ituran-parse";
 
 export interface KmDiaRow {
@@ -72,14 +73,14 @@ export function useImportarIturan() {
     mutationFn: async ({ arquivos }) => {
       const { data: veics, error: vErr } = await supabase.from("vehicles").select("id, placa, apelido_ituran, km_atual");
       if (vErr) throw vErr;
-      const normp = (s: string) => (s ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-      // Casa o identificador da planilha (placa OU apelido/Nome do Ituran) com o veículo.
+      // Casa o identificador da planilha (placa OU apelido/Nome do Ituran) com o
+      // veículo, tolerando diferença de formato Mercosul/antigo (placaVariantes).
       const placaMap = new Map<string, string>();
       const kmAtualMap = new Map<string, number>();
       const vidPlaca = new Map<string, string>();
       for (const v of (veics ?? []) as { id: string; placa: string; apelido_ituran: string | null; km_atual: number | null }[]) {
-        placaMap.set(normp(v.placa), v.id);
-        if (v.apelido_ituran) placaMap.set(normp(v.apelido_ituran), v.id);
+        for (const k of placaVariantes(v.placa)) placaMap.set(k, v.id);
+        for (const k of placaVariantes(v.apelido_ituran)) placaMap.set(k, v.id);
         kmAtualMap.set(v.id, Number(v.km_atual ?? 0));
         vidPlaca.set(v.id, v.placa);
       }
