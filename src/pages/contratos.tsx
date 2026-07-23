@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useAppConfig } from "@/hooks/use-app-config";
+import { useLocatarios, useSaveLocatario, acharPorCpf } from "@/hooks/use-locatarios";
 import {
   useContratos, useCreateContrato, useUpdateContrato, useRenovarContrato, useDeleteContrato, type ContratoRow,
 } from "@/hooks/use-contratos";
@@ -31,7 +32,9 @@ type Form = Record<string, string>;
 export default function ContratosPage() {
   const { data: rows = [], isLoading } = useContratos();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
+  const { data: locatarios = [] } = useLocatarios();
   const { data: config } = useAppConfig();
+  const saveLoc = useSaveLocatario();
   const create = useCreateContrato();
   const update = useUpdateContrato();
   const renovar = useRenovarContrato();
@@ -63,17 +66,48 @@ export default function ContratosPage() {
     setForm((f) => ({ ...f, vehicle_id: id, placa: v?.placa ?? "", grupo: v?.categoria ?? f.grupo ?? "", km_entrega: v ? String(v.km_atual) : f.km_entrega ?? "" }));
   }
 
+  // Preenche automaticamente os dados do cliente a partir do cadastro de locatários.
+  function selLocatario(id: string) {
+    if (id === "novo") { setForm((f) => ({ ...f, locatario_id: "" })); return; }
+    const l = locatarios.find((x) => x.id === id);
+    if (!l) return;
+    setForm((f) => ({
+      ...f, locatario_id: l.id,
+      cliente_nome: l.nome ?? "", cliente_cpf: l.cpf ?? "", cliente_cnh: l.cnh ?? "",
+      cliente_cnh_cat: l.categoria_cnh ?? "", cliente_email: l.email ?? "", cliente_telefone: l.telefone ?? "",
+      cliente_endereco: [l.endereco, l.numero, l.bairro, l.cidade, l.estado].filter(Boolean).join(", "),
+    }));
+  }
+
   const totalCalc = (() => {
     const vl = parseFloat((form.valor_locacao ?? "").replace(",", ".")) || 0;
     const sem = parseInt(form.semanas ?? "0", 10) || 0;
     return vl * sem;
   })();
 
-  function salvar() {
+  async function salvar() {
     const num = (s?: string) => (s && s !== "" ? Number(s.replace(",", ".")) : null);
     const int = (s?: string) => (s && s !== "" ? parseInt(s, 10) : null);
+
+    // Vincula (e, se novo, cadastra) o locatário — mantém o cadastro sempre populado.
+    let locatarioId = form.locatario_id || null;
+    if (!locatarioId && form.cliente_nome && form.cliente_nome !== "—") {
+      try {
+        const existente = acharPorCpf(locatarios, form.cliente_cpf);
+        if (existente) locatarioId = existente.id;
+        else {
+          const r = await saveLoc.mutateAsync({
+            nome: form.cliente_nome, cpf: form.cliente_cpf || null, cnh: form.cliente_cnh || null,
+            categoria_cnh: form.cliente_cnh_cat || null, email: form.cliente_email || null,
+            telefone: form.cliente_telefone || null, endereco: form.cliente_endereco || null, status: "ativo",
+          });
+          locatarioId = r.id;
+        }
+      } catch { /* não bloqueia a criação do contrato */ }
+    }
+
     create.mutate({
-      vehicle_id: form.vehicle_id || null, placa: form.placa || null,
+      vehicle_id: form.vehicle_id || null, placa: form.placa || null, locatario_id: locatarioId,
       cliente_nome: form.cliente_nome || "—", cliente_cpf: form.cliente_cpf || null, cliente_cnh: form.cliente_cnh || null,
       cliente_cnh_cat: form.cliente_cnh_cat || null, cliente_email: form.cliente_email || null,
       cliente_telefone: form.cliente_telefone || null, cliente_endereco: form.cliente_endereco || null,
@@ -202,6 +236,15 @@ export default function ContratosPage() {
             <section>
               <h4 className="mb-2 text-sm font-semibold">Cliente / locatário</h4>
               <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Selecionar do cadastro" className="sm:col-span-3">
+                  <Select value={form.locatario_id || "novo"} onValueChange={selLocatario}>
+                    <SelectTrigger><SelectValue placeholder="Novo — preencher manualmente" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="novo">Novo — preencher manualmente</SelectItem>
+                      {locatarios.map((l) => <SelectItem key={l.id} value={l.id}>{l.nome}{l.cpf ? ` — ${l.cpf}` : ""}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
                 <Field label="Nome" className="sm:col-span-2"><Input value={form.cliente_nome ?? ""} onChange={(e) => set("cliente_nome", e.target.value)} /></Field>
                 <Field label="CPF"><Input value={form.cliente_cpf ?? ""} onChange={(e) => set("cliente_cpf", e.target.value)} /></Field>
                 <Field label="CNH"><Input value={form.cliente_cnh ?? ""} onChange={(e) => set("cliente_cnh", e.target.value)} /></Field>

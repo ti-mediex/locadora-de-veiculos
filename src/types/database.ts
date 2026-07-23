@@ -301,6 +301,34 @@ export interface Alienante {
   created_at: string;
 }
 
+export interface Locatario {
+  id: string;
+  nome: string;
+  cpf: string | null;
+  rg: string | null;
+  cnh: string | null;
+  categoria_cnh: string | null;
+  validade_cnh: string | null;
+  data_nascimento: string | null;
+  telefone: string | null;
+  email: string | null;
+  cep: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  chave_pix: string | null;
+  contato_emergencia_nome: string | null;
+  contato_emergencia_telefone: string | null;
+  status: "ativo" | "inativo";
+  observacoes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Contrato {
   id: string;
   numero: string;
@@ -327,6 +355,7 @@ export interface Contrato {
   pre_autorizacao: number | null;
   informacoes_adicionais: string | null;
   status: "ativo" | "encerrado" | "renovado" | "cancelado";
+  locatario_id: string | null;
   contrato_pai_id: string | null;
   created_by: string | null;
   created_at: string;

@@ -72,7 +72,7 @@ export function useRenovarContrato() {
       const { data: prof } = await supabase.auth.getUser();
       const hoje = new Date().toISOString().slice(0, 10);
       const novo = {
-        vehicle_id: pai.vehicle_id, placa: pai.placa, cliente_nome: pai.cliente_nome, cliente_cpf: pai.cliente_cpf,
+        vehicle_id: pai.vehicle_id, placa: pai.placa, locatario_id: pai.locatario_id, cliente_nome: pai.cliente_nome, cliente_cpf: pai.cliente_cpf,
         cliente_cnh: pai.cliente_cnh, cliente_cnh_cat: pai.cliente_cnh_cat, cliente_email: pai.cliente_email,
         cliente_telefone: pai.cliente_telefone, cliente_endereco: pai.cliente_endereco, atendente: pai.atendente,
         local_entrega: pai.local_entrega, data_entrega: hoje, hora_entrega: pai.hora_entrega,

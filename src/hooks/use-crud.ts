@@ -34,7 +34,8 @@ type TableName =
   | "import_history"
   | "vistorias"
   | "vistoria_fotos"
-  | "contratos";
+  | "contratos"
+  | "locatarios";
 
 interface CrudOptions {
   select?: string;
