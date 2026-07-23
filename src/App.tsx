@@ -15,6 +15,7 @@ import VistoriasPage from "@/pages/vistorias";
 import ContratosPage from "@/pages/contratos";
 import LocatariosPage from "@/pages/locatarios";
 import ApuracaoKmPage from "@/pages/apuracao-km";
+import RastreamentoPage from "@/pages/rastreamento";
 import ImportacoesPage from "@/pages/importacoes";
 import VehiclesPage from "@/pages/vehicles";
 import ImportPage from "@/pages/import";
@@ -54,6 +55,7 @@ export default function App() {
               <Route path="/locatarios" element={<LocatariosPage />} />
               <Route path="/contratos" element={<ContratosPage />} />
               <Route path="/apuracao-km" element={<ApuracaoKmPage />} />
+              <Route path="/rastreamento" element={<RastreamentoPage />} />
               <Route path="/importacoes" element={<ImportacoesPage />} />
               <Route path="/importar" element={<ImportPage />} />
               <Route path="/configuracoes" element={<SettingsPage />} />

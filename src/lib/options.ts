@@ -4,6 +4,7 @@ export const VEHICLE_STATUS = [
   { value: "disponivel", label: "Disponível" },
   { value: "locado", label: "Locado" },
   { value: "manutencao", label: "Em manutenção" },
+  { value: "vendido", label: "Vendido" },
   { value: "inativo", label: "Inativo" },
 ];
 
@@ -171,6 +172,7 @@ export const VEHICLE_STATUS_CHART: Record<string, { label: string; color: string
   disponivel: { label: "Disponível", color: "hsl(340 82% 66%)" },
   locado: { label: "Locado", color: "hsl(211 90% 64%)" },
   manutencao: { label: "Manutenção", color: "hsl(38 92% 60%)" },
+  vendido: { label: "Vendido", color: "hsl(0 72% 60%)" },
   inativo: { label: "Inativo", color: "hsl(215 16% 70%)" },
 };
 
