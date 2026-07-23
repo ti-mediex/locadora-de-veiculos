@@ -1,0 +1,85 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import type { IturanParsed } from "@/lib/ituran-parse";
+
+export interface KmDiaRow {
+  vehicle_id: string | null;
+  placa: string;
+  dia: string;
+  odom_inicio: number | null;
+  odom_fim: number | null;
+  registros: number;
+  min_ocioso_manut: number;
+  km: number;
+}
+
+/** Leituras de KM por dia (view calculada), com filtros de período e veículo. */
+export function useKmDiario(inicio?: string, fim?: string, vehicleId?: string) {
+  return useQuery<KmDiaRow[]>({
+    queryKey: ["km_diario", inicio ?? "", fim ?? "", vehicleId ?? ""],
+    queryFn: async () => {
+      let q = supabase.from("km_diario_calc").select("*").order("dia", { ascending: true }).limit(50000);
+      if (inicio) q = q.gte("dia", inicio);
+      if (fim) q = q.lte("dia", fim);
+      if (vehicleId) q = q.eq("vehicle_id", vehicleId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return ((data ?? []) as KmDiaRow[]).map((r) => ({ ...r, km: Number(r.km), odom_inicio: r.odom_inicio == null ? null : Number(r.odom_inicio), odom_fim: r.odom_fim == null ? null : Number(r.odom_fim) }));
+    },
+  });
+}
+
+const slug = (s: string) => s.replace(/[^\w.\-]+/g, "_");
+
+/** Importa uma ou várias planilhas do Ituran (lote): grava as leituras diárias
+ *  por veículo e guarda cada arquivo no histórico de importações. */
+export function useImportarIturan() {
+  const qc = useQueryClient();
+  return useMutation<{ dias: number; arquivos: number; semVeiculo: string[] }, Error, { arquivos: { file: File; parsed: IturanParsed }[] }>({
+    mutationFn: async ({ arquivos }) => {
+      const { data: veics, error: vErr } = await supabase.from("vehicles").select("id, placa");
+      if (vErr) throw vErr;
+      const placaMap = new Map((veics ?? []).map((v) => [(v as { placa: string }).placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase(), (v as { id: string }).id]));
+
+      const semVeic = new Set<string>();
+      const rows: Record<string, unknown>[] = [];
+      for (const { parsed } of arquivos) {
+        for (const it of parsed.itens) {
+          const vid = placaMap.get(it.placa);
+          if (!vid) { semVeic.add(it.placa); continue; }
+          rows.push({ vehicle_id: vid, placa: it.placa, dia: it.dia, odom_inicio: it.odom_inicio, odom_fim: it.odom_fim, registros: it.registros, min_ocioso_manut: it.min_ocioso_manut, updated_at: new Date().toISOString() });
+        }
+      }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await supabase.from("km_diario").upsert(rows.slice(i, i + 500) as never, { onConflict: "vehicle_id,dia" });
+        if (error) throw error;
+      }
+
+      // Histórico: guarda cada planilha no Storage + registro.
+      const { data: prof } = await supabase.auth.getUser();
+      for (const { file, parsed } of arquivos) {
+        try {
+          const placa0 = parsed.placas[0] ?? "ituran";
+          const path = `ituran/${placa0}-${Date.now()}-${slug(file.name)}`;
+          const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", upsert: false });
+          if (!up.error) {
+            await supabase.from("import_history").insert({
+              vehicle_id: placaMap.get(placa0) ?? null, placa: parsed.placas.join(", "), tipo: "ituran",
+              file_name: file.name, storage_path: path,
+              resumo: { placas: parsed.placas, periodo_ini: parsed.periodoIni, periodo_fim: parsed.periodoFim, dias: parsed.itens.length, registros: parsed.totalRegistros },
+              created_by: prof.user?.id ?? null,
+            } as never);
+          }
+        } catch { /* não bloqueia a apuração */ }
+      }
+      return { dias: rows.length, arquivos: arquivos.length, semVeiculo: [...semVeic] };
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["km_diario"] });
+      qc.invalidateQueries({ queryKey: ["import_history"] });
+      toast.success(`${r.arquivos} planilha(s) importada(s) · ${r.dias} dia(s) de leitura` + (r.semVeiculo.length ? ` · ${r.semVeiculo.length} placa(s) sem veículo` : ""));
+    },
+    onError: (e: Error) => toast.error("Erro na importação: " + e.message),
+  });
+}

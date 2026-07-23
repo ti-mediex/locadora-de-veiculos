@@ -18,6 +18,7 @@ import { useImportHistory, baixarImportacao, type ImportHistoryRow } from "@/hoo
 const TIPO_LABEL: Record<string, string> = {
   detran: "Débitos (Detran)",
   consulta_placa: "Consulta Placa",
+  ituran: "Ociosidade (Ituran)",
 };
 
 function resumoTexto(h: ImportHistoryRow): string {
@@ -32,6 +33,13 @@ function resumoTexto(h: ImportHistoryRow): string {
   }
   if (h.tipo === "consulta_placa") {
     return `${r.campos ?? 0} campo(s)${r.criado ? " · veículo criado" : " · veículo atualizado"}`;
+  }
+  if (h.tipo === "ituran") {
+    const p = [];
+    if (r.dias) p.push(`${r.dias} dia(s) de leitura`);
+    if (r.registros) p.push(`${r.registros} registro(s)`);
+    if (r.periodo_ini && r.periodo_fim) p.push(`${r.periodo_ini} a ${r.periodo_fim}`);
+    return p.join(" · ") || "—";
   }
   return "—";
 }
@@ -76,6 +84,7 @@ export default function ImportacoesPage() {
                 <SelectItem value="todos">Todos os tipos</SelectItem>
                 <SelectItem value="detran">Débitos (Detran)</SelectItem>
                 <SelectItem value="consulta_placa">Consulta Placa</SelectItem>
+                <SelectItem value="ituran">Ociosidade (Ituran)</SelectItem>
               </SelectContent>
             </Select>
           </div>
