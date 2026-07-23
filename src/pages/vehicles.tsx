@@ -39,6 +39,8 @@ import { usePendenciasPorVeiculo } from "@/hooks/use-pendencias";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 import { ImportarConsultaPlacaDialog } from "@/components/vehicles/importar-consulta-placa-dialog";
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
@@ -163,6 +165,29 @@ export default function VehiclesPage() {
     ? (sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />)
     : <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
+      { label: "KM", align: "right" }, { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" }, { label: "Status" },
+    ];
+    const linhas = sorted.map((v) => {
+      const p = pendMap[v.id];
+      return [
+        maskPlaca(v.placa), `${v.marca} ${v.modelo}`,
+        `${v.ano_fabricacao ?? "—"}/${v.ano_modelo ?? "—"}`,
+        formatNumber(v.km_atual), formatCurrency(v.valor_fipe),
+        p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
+        statusMap.get(v.status)?.label ?? v.status,
+      ];
+    });
+    const fipeTotal = sorted.reduce((s, v) => s + (v.valor_fipe ?? 0), 0);
+    return {
+      titulo: "Veículos", subtitulo: `${sorted.length} veículo(s)`,
+      filtros: [{ label: "Busca", valor: search }],
+      colunas, linhas, rodape: ["", "", "", "", formatCurrency(fipeTotal), "", ""],
+    };
+  }
+
   function openNew() {
     setEditing(null);
     reset({
@@ -255,19 +280,22 @@ export default function VehiclesPage() {
         title="Veículos"
         description="Cadastro e gestão da frota"
         actions={
-          canWrite && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setImportPlacaOpen(true)}>
-                <FileUp className="h-4 w-4" /> Importar Consulta Placa
-              </Button>
-              <Button variant="outline" onClick={() => updateFipe.mutate({ all: true })} disabled={updateFipe.isPending}>
-                <RefreshCw className={`h-4 w-4 ${updateFipe.isPending ? "animate-spin" : ""}`} /> Atualizar FIPE
-              </Button>
-              <Button onClick={openNew}>
-                <Plus className="h-4 w-4" /> Novo veículo
-              </Button>
-            </div>
-          )
+          <div className="flex flex-wrap gap-2">
+            <RelatorioExport build={buildRelatorio} nomeArquivo="veiculos" disabled={!sorted.length} />
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setImportPlacaOpen(true)}>
+                  <FileUp className="h-4 w-4" /> Importar Consulta Placa
+                </Button>
+                <Button variant="outline" onClick={() => updateFipe.mutate({ all: true })} disabled={updateFipe.isPending}>
+                  <RefreshCw className={`h-4 w-4 ${updateFipe.isPending ? "animate-spin" : ""}`} /> Atualizar FIPE
+                </Button>
+                <Button onClick={openNew}>
+                  <Plus className="h-4 w-4" /> Novo veículo
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
 

@@ -20,6 +20,8 @@ import { ImportarGridDialog } from "@/components/rastreamento/importar-grid-dial
 import { abrirRelatorioRastreio } from "@/lib/relatorio-rastreamento";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const AGORA = Date.now();
 
@@ -90,6 +92,21 @@ export default function RastreamentoPage() {
     }
   });
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Placa" }, { label: "Última comunicação" }, { label: "Dias", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Convocado" },
+    ];
+    const linhas = ordenados.map(({ r, c }) => [
+      r.vehicles?.placa ?? r.placa, fmtData(r.ultima_comunicacao), fmtDias(c.dias),
+      c.vendido ? "Vendido · retirar rastreador" : c.semCom ? "Sem comunicação" : "OK", r.endereco ?? "—", r.convocado ? "Sim" : "—",
+    ]);
+    return {
+      titulo: "Rastreamento Ituran", subtitulo: `${ordenados.length} veículo(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }, { label: "Grupo", valor: fGrupo === "todos" ? "Todos" : fGrupo }],
+      colunas, linhas,
+    };
+  }
+
   function gerarRelatorio() {
     const linhas = (arr: typeof dados) => arr.map(({ r, c }) => ({
       placa: r.vehicles?.placa ?? r.placa, modelo: r.vehicles?.modelo ?? "", ultima: r.ultima_comunicacao,
@@ -117,7 +134,8 @@ export default function RastreamentoPage() {
         description="Conectividade da frota com a central — última comunicação por veículo"
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={gerarRelatorio} disabled={!rows.length}><FileText className="h-4 w-4" /> Relatório</Button>
+            <Button variant="outline" size="sm" onClick={gerarRelatorio} disabled={!rows.length}><FileText className="h-4 w-4" /> Gerencial</Button>
+            <RelatorioExport build={buildRelatorio} nomeArquivo="rastreamento" disabled={!ordenados.length} />
             {podeEscrever && <Button size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4" /> Importar Ituran</Button>}
           </>
         }

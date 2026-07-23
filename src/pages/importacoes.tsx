@@ -16,6 +16,8 @@ import {
 import { useImportHistory, baixarImportacao, type ImportHistoryRow } from "@/hooks/use-import-history";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const TIPO_LABEL: Record<string, string> = {
   detran: "Débitos (Detran)",
@@ -76,12 +78,28 @@ export default function ImportacoesPage() {
     }
   });
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Data" }, { label: "Veículo" }, { label: "Tipo" }, { label: "Resumo" }, { label: "Arquivo" },
+    ];
+    const linhas = sorted.map((h) => [
+      new Date(h.created_at).toLocaleString("pt-BR"), h.placa ?? "—",
+      TIPO_LABEL[h.tipo] ?? h.tipo, resumoTexto(h), h.file_name ?? "—",
+    ]);
+    return {
+      titulo: "Histórico de importações", subtitulo: `${sorted.length} importação(ões)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Tipo", valor: fTipo === "todos" ? "Todos" : (TIPO_LABEL[fTipo] ?? fTipo) }],
+      colunas, linhas,
+    };
+  }
+
   const qtdDetran = rows.filter((r) => r.tipo === "detran").length;
   const qtdPlaca = rows.filter((r) => r.tipo === "consulta_placa").length;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Importações" description="Histórico de importações de débitos e consultas por veículo" />
+      <PageHeader title="Importações" description="Histórico de importações de débitos e consultas por veículo"
+        actions={<RelatorioExport build={buildRelatorio} nomeArquivo="importacoes" disabled={!sorted.length} />} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard title="Total de importações" value={rows.length} icon={<FileText className="h-5 w-5" />} />

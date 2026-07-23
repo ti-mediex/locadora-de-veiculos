@@ -24,6 +24,8 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const STATUS_BADGE: Record<string, "success" | "muted" | "warning" | "destructive"> = {
   ativo: "success", encerrado: "muted", renovado: "warning", cancelado: "destructive",
@@ -150,6 +152,22 @@ export default function ContratosPage() {
     }
   });
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Nº" }, { label: "Cliente" }, { label: "Veículo" }, { label: "Entrega" }, { label: "Semanal", align: "right" }, { label: "Status" },
+    ];
+    const linhas = sorted.map((c) => [
+      c.numero, c.cliente_nome, c.vehicles?.placa ?? c.placa ?? "—",
+      c.data_entrega ? formatDate(c.data_entrega) : "—", formatCurrency(c.valor_locacao), c.status,
+    ]);
+    const total = sorted.reduce((s, c) => s + (c.valor_locacao ?? 0), 0);
+    return {
+      titulo: "Contratos de locação", subtitulo: `${sorted.length} contrato(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }],
+      colunas, linhas, rodape: ["", "", "", "Total semanal", formatCurrency(total), ""],
+    };
+  }
+
   const ativos = rows.filter((r) => r.status === "ativo").length;
   const receitaAtiva = rows.filter((r) => r.status === "ativo").reduce((s, r) => s + (r.valor_locacao ?? 0), 0);
 
@@ -158,7 +176,12 @@ export default function ContratosPage() {
       <PageHeader
         title="Contratos"
         description="Emissão de contratos de locação por locatário — novos e renovações"
-        actions={canWrite && <Button onClick={abrirNovo}><Plus className="h-4 w-4" /> Novo contrato</Button>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <RelatorioExport build={buildRelatorio} nomeArquivo="contratos" disabled={!sorted.length} />
+            {canWrite && <Button onClick={abrirNovo}><Plus className="h-4 w-4" /> Novo contrato</Button>}
+          </div>
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

@@ -26,6 +26,8 @@ import {
 import type { DebitoCategoria, Locatario } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const CAT: { value: DebitoCategoria; label: string }[] = [
   { value: "locacao", label: "Locação" }, { value: "multa", label: "Multa" }, { value: "juros", label: "Juros" },
@@ -134,11 +136,24 @@ export default function ResumoLocatariosPage() {
   const debSel = sel ? debitos.filter((d) => d.locatario_id === sel.id) : [];
   const cauSel = sel ? caucoes.filter((c) => c.locatario_id === sel.id) : [];
 
-  function relatorio() {
-    const win = window.open("", "_blank"); if (!win) return;
-    const rows = filtradas.map((r) => `<tr><td>${r.l.nome}</td><td>${r.l.cpf ?? "—"}</td><td class=r>${formatCurrency(r.cat.locacao ?? 0)}</td><td class=r>${formatCurrency(r.cat.multa ?? 0)}</td><td class=r>${formatCurrency(r.cat.juros ?? 0)}</td><td class=r>${formatCurrency(r.cat.avaria ?? 0)}</td><td class=r>${formatCurrency(r.cat.km_excedente ?? 0)}</td><td class=r><b>${formatCurrency(r.debAberto)}</b></td><td class=r>${formatCurrency(r.caucao)}</td><td class=r>${formatCurrency(r.saldo)}</td><td class="r ${r.risco >= 0.5 ? "crit" : ""}">${pct(r.risco)}</td></tr>`).join("");
-    win.document.write(`<!doctype html><meta charset=utf-8><title>Resumo por locatário</title><style>body{font-family:system-ui;padding:20px;color:#0f172a}h1{color:#1d4ed8;font-size:18px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border-bottom:1px solid #eee;padding:4px 6px;text-align:left}.r{text-align:right}.crit{color:#dc2626;font-weight:700}thead th{background:#f8fafc;font-size:9px;text-transform:uppercase}button{margin-bottom:12px;background:#1d4ed8;color:#fff;border:0;border-radius:6px;padding:8px 14px;cursor:pointer}@media print{button{display:none}}</style><button onclick=print()>Imprimir / PDF</button><h1>${config?.empresa_nome ?? "VIP CARS"} — Resumo financeiro por locatário</h1><table><thead><tr><th>Locatário</th><th>CPF</th><th class=r>Locação</th><th class=r>Multa</th><th class=r>Juros</th><th class=r>Avaria</th><th class=r>KM exc.</th><th class=r>Débito aberto</th><th class=r>Caução</th><th class=r>Saldo</th><th class=r>Risco</th></tr></thead><tbody>${rows}</tbody></table>`);
-    win.document.close();
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Locatário" }, { label: "CPF" }, { label: "Locação", align: "right" }, { label: "Multa", align: "right" },
+      { label: "Juros", align: "right" }, { label: "Avaria", align: "right" }, { label: "KM exc.", align: "right" },
+      { label: "Débito aberto", align: "right" }, { label: "Caução", align: "right" }, { label: "Saldo", align: "right" }, { label: "Risco", align: "right" },
+    ];
+    const linhas = ordenadas.map((r) => [
+      r.l.nome, r.l.cpf ?? "—",
+      formatCurrency(r.cat.locacao ?? 0), formatCurrency(r.cat.multa ?? 0), formatCurrency(r.cat.juros ?? 0),
+      formatCurrency(r.cat.avaria ?? 0), formatCurrency(r.cat.km_excedente ?? 0),
+      formatCurrency(r.debAberto), formatCurrency(r.caucao), formatCurrency(r.saldo), pct(r.risco),
+    ]);
+    const tD = ordenadas.reduce((s, r) => s + r.debAberto, 0), tC = ordenadas.reduce((s, r) => s + r.caucao, 0);
+    return {
+      empresa: config?.empresa_nome, titulo: "Resumo financeiro por locatário", subtitulo: `${ordenadas.length} locatário(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Risco", valor: fRisco === "todos" ? "Todos" : fRisco }],
+      colunas, linhas, rodape: ["Total", "", "", "", "", "", "", formatCurrency(tD), formatCurrency(tC), formatCurrency(tC - tD), ""],
+    };
   }
 
   const riscoBadge = (risco: number, debAberto: number) => {
@@ -152,7 +167,7 @@ export default function ResumoLocatariosPage() {
       <PageHeader
         title="Resumo por Locatário"
         description="Débitos, cauções e risco por locatário — histórico de contratos e veículos"
-        actions={<Button variant="outline" size="sm" onClick={relatorio} disabled={!linhas.length}><FileText className="h-4 w-4" /> Relatório</Button>}
+        actions={<RelatorioExport build={buildRelatorio} nomeArquivo="resumo-locatarios" disabled={!ordenadas.length} />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

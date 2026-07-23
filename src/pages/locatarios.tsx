@@ -19,6 +19,8 @@ import { formatDate, maskCpf } from "@/lib/format";
 import type { Locatario } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 type Form = Record<string, string>;
 
@@ -96,6 +98,21 @@ export default function LocatariosPage() {
     }
   });
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Nome" }, { label: "CPF" }, { label: "CNH" }, { label: "Telefone" }, { label: "Veículo atual" }, { label: "Status" },
+    ];
+    const linhas = sorted.map((l) => [
+      l.nome, l.cpf ? maskCpf(l.cpf) : "—", l.cnh ? `${l.cnh}${l.categoria_cnh ? ` (${l.categoria_cnh})` : ""}` : "—",
+      l.telefone ?? "—", veicPorLocatario.get(l.id)?.placa ?? "—", l.status,
+    ]);
+    return {
+      titulo: "Locatários", subtitulo: `${sorted.length} locatário(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }],
+      colunas, linhas,
+    };
+  }
+
   const ativos = rows.filter((l) => l.status === "ativo").length;
   const comVeiculo = rows.filter((l) => veicPorLocatario.has(l.id)).length;
 
@@ -104,7 +121,12 @@ export default function LocatariosPage() {
       <PageHeader
         title="Locatários"
         description="Cadastro de locatários — integrado aos contratos e ao veículo locado"
-        actions={canWrite && <Button onClick={abrirNovo}><Plus className="h-4 w-4" /> Novo locatário</Button>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <RelatorioExport build={buildRelatorio} nomeArquivo="locatarios" disabled={!sorted.length} />
+            {canWrite && <Button onClick={abrirNovo}><Plus className="h-4 w-4" /> Novo locatário</Button>}
+          </div>
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

@@ -37,6 +37,8 @@ import { formatDate } from "@/lib/format";
 import type { Vehicle, ChecklistItem } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const tipoLabel = (t: string) => VISTORIA_TIPO.find((x) => x.value === t)?.label ?? t;
 const tipoBadge: Record<string, "success" | "warning" | "destructive"> = { liberacao: "success", devolucao: "warning", sinistro: "destructive" };
@@ -218,6 +220,23 @@ export default function VistoriasPage() {
     }
   });
 
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: "Data/Hora" }, { label: "Tipo" }, { label: "Placa" }, { label: "Modelo" }, { label: "Locatário" },
+      { label: "Vistoriador" }, { label: "KM", align: "right" }, { label: "Fotos", align: "right" }, { label: "Laudo" },
+    ];
+    const linhas = sorted.map((r) => [
+      new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
+      tipoLabel(r.tipo), r.vehicles?.placa ?? r.placa ?? "—", r.vehicles?.modelo ?? "—",
+      r.locatario_nome ?? "—", r.vistoriador ?? "—", r.km ?? "—", r.fotos?.[0]?.count ?? 0, r.laudo_externo_path ? "Vex" : "—",
+    ]);
+    return {
+      titulo: "Vistorias", subtitulo: `${sorted.length} vistoria(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Tipo", valor: fTipo === "todos" ? "Todos" : tipoLabel(fTipo) }, { label: "Vistoriador", valor: fVistoriador }, { label: "De", valor: fDataIni }, { label: "Até", valor: fDataFim }],
+      colunas, linhas,
+    };
+  }
+
   const fotosPreenchidas = fotos.filter((f) => f.file).length;
   const hoje = new Date().toISOString().slice(0, 10);
   const noMes = rows.filter((r) => r.created_at.slice(0, 7) === hoje.slice(0, 7)).length;
@@ -227,12 +246,17 @@ export default function VistoriasPage() {
       <PageHeader
         title="Vistoria de veículos"
         description="Checklist com fotos na liberação, devolução e sinistro"
-        actions={canWrite && (
-          <>
-            <Button variant="outline" onClick={() => setExtOpen(true)}><FileUp className="h-4 w-4" /> Anexar laudos (Vex)</Button>
-            <Button onClick={abrirNova}><Plus className="h-4 w-4" /> Nova vistoria</Button>
-          </>
-        )}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <RelatorioExport build={buildRelatorio} nomeArquivo="vistorias" disabled={!sorted.length} />
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setExtOpen(true)}><FileUp className="h-4 w-4" /> Anexar laudos (Vex)</Button>
+                <Button onClick={abrirNova}><Plus className="h-4 w-4" /> Nova vistoria</Button>
+              </>
+            )}
+          </div>
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
