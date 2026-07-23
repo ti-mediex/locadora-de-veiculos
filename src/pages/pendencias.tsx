@@ -45,6 +45,8 @@ import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const RANK_PRIO: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
 const soAlfa = (s: string) => (s ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+// Restrição de natureza judicial (bloqueio/penhora/busca e apreensão/RENAJUD).
+const ehJudicial = (titulo: string) => /judicial|renajud|busca e apreens|penhor|bloqueio/i.test(titulo ?? "");
 
 const schema = z.object({
   vehicle_id: z.string().min(1, "Selecione o veículo"),
@@ -105,6 +107,8 @@ export default function PendenciasPage() {
   const [search, setSearch] = useState(searchParams.get("veiculo") ?? "");
   const [fCategoria, setFCategoria] = useState("todas");
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
+  // Atalho de restrições: "off" (sem recorte), "todas" (só restrições) ou "judicial" (judicial/RENAJUD).
+  const [fRestricao, setFRestricao] = useState<"off" | "todas" | "judicial">("off");
 
   const [importOpen, setImportOpen] = useState(false);
   const [sugAberta, setSugAberta] = useState(false);
@@ -164,14 +168,30 @@ export default function PendenciasPage() {
         (r.responsavel ?? "").toLowerCase().includes(q) || modeloVeic.toLowerCase().includes(q) ||
         (soAlfa(search) !== "" && soAlfa(placaVeic).includes(soAlfa(search)));
       const matchCat = fCategoria === "todas" || r.categoria === fCategoria;
+      const matchRestr =
+        fRestricao === "off" ? true :
+        r.categoria === "Restrição" && (fRestricao === "todas" || ehJudicial(r.titulo));
       const matchStatus =
         fStatus === "todas" ? true :
         fStatus === "ativas" ? (r.status === "aberta" || r.status === "em_andamento") :
         fStatus === "atrasadas" ? vencimentoStatus(r.vencimento, r.status) === "vencida" :
         r.status === fStatus;
-      return matchSearch && matchCat && matchStatus;
+      return matchSearch && matchCat && matchRestr && matchStatus;
     });
-  }, [rows, search, fCategoria, fStatus, vehicles]);
+  }, [rows, search, fCategoria, fRestricao, fStatus, vehicles]);
+
+  // Contadores dos atalhos de restrição (para exibir nos botões).
+  const restrCount = useMemo(() => {
+    const veicTodas = new Set<string>();
+    const veicJud = new Set<string>();
+    let total = 0, judicial = 0;
+    for (const r of rows) {
+      if (r.categoria !== "Restrição") continue;
+      total++; veicTodas.add(r.vehicle_id);
+      if (ehJudicial(r.titulo)) { judicial++; veicJud.add(r.vehicle_id); }
+    }
+    return { total, judicial, veicTodas: veicTodas.size, veicJud: veicJud.size };
+  }, [rows]);
 
   // Sugestões de veículos cadastrados ao digitar (qualquer parte da placa/modelo).
   const sugestoes = useMemo(() => {
@@ -218,9 +238,12 @@ export default function PendenciasPage() {
       PENDENCIA_STATUS.find((s) => s.value === r.status)?.label ?? r.status,
     ]);
     const total = sorted.reduce((s, r) => s + (r.valor ?? 0), 0);
+    const restrLabel = fRestricao === "todas" ? "Só restrições" : fRestricao === "judicial" ? "Só judicial / RENAJUD" : "—";
+    const tituloRel = fRestricao === "judicial" ? "Restrições judiciais / RENAJUD por veículo"
+      : fRestricao === "todas" ? "Restrições por veículo" : "Pendências por veículo";
     return {
-      titulo: "Pendências por veículo", subtitulo: `${sorted.length} registro(s)`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Situação", valor: statusLabel }],
+      titulo: tituloRel, subtitulo: `${sorted.length} registro(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }],
       colunas, linhas, rodape: ["", "", "", "", "", "Total", formatCurrency(total), "", ""],
     };
   }
@@ -376,6 +399,44 @@ export default function PendenciasPage() {
                 <SelectItem value="todas">Todas</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          {/* Atalhos rápidos de restrições */}
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm">
+            <span className="text-muted-foreground">Atalhos:</span>
+            <Button
+              type="button"
+              variant={fRestricao === "todas" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (fRestricao === "todas") { setFRestricao("off"); setFCategoria("todas"); }
+                else { setFRestricao("todas"); setFCategoria("Restrição"); setFStatus("todas"); }
+              }}
+            >
+              <AlertTriangle className="h-4 w-4" /> Restrições
+              <Badge variant="secondary" className="ml-1">{restrCount.veicTodas}</Badge>
+            </Button>
+            <Button
+              type="button"
+              variant={fRestricao === "judicial" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (fRestricao === "judicial") { setFRestricao("off"); setFCategoria("todas"); }
+                else { setFRestricao("judicial"); setFCategoria("Restrição"); setFStatus("todas"); }
+              }}
+            >
+              <AlertTriangle className="h-4 w-4 text-destructive" /> Restrição judicial / RENAJUD
+              <Badge variant="secondary" className="ml-1">{restrCount.veicJud}</Badge>
+            </Button>
+            {fRestricao !== "off" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setFRestricao("off"); setFCategoria("todas"); setFStatus("ativas"); }}
+              >
+                <X className="h-4 w-4" /> Limpar
+              </Button>
+            )}
           </div>
           {subtotais.total > 0 && (
             <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-4 py-2 text-sm">
