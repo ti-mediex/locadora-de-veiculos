@@ -121,16 +121,25 @@ export default function RastreamentoPage() {
     }
   });
 
+  const acaoLabel = (v: string | null) => (v ? (acoes.find((a) => a.value === v)?.label ?? v) : "—");
   function buildRelatorio(): RelatorioTabelaData {
+    // Mesmas colunas/dados da tela: Placa (+modelo), Status veículo, Locatário,
+    // Última comunicação, Tempo, Situação (com Convocado), Localização, Ação.
     const colunas: RelColuna[] = [
-      { label: "Placa" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Última comunicação" }, { label: "Dias", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Convocado" },
+      { label: "Placa" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Última comunicação" },
+      { label: "Tempo", align: "right" }, { label: "Situação" }, { label: "Localização" }, { label: "Ação" },
     ];
-    const linhas = ordenados.map(({ r, c }) => [
-      r.vehicles?.placa ?? r.placa, statusVeicLabel(r.vehicles?.status),
-      (r.vehicle_id && locatarioMap.get(r.vehicle_id)) || "—",
-      fmtData(r.ultima_comunicacao), fmtDias(c.dias),
-      c.vendido ? "Vendido · retirar rastreador" : c.semCom ? "Sem comunicação" : "OK", r.endereco ?? "—", r.convocado ? "Sim" : "—",
-    ]);
+    const linhas = ordenados.map(({ r, c }) => {
+      const placa = r.vehicles?.placa ?? r.placa;
+      const modelo = r.vehicles?.modelo && r.vehicles.modelo !== "(a definir)" ? r.vehicles.modelo : "";
+      const situacao = (c.vendido ? "Vendido · retirar rastreador" : c.semCom ? "Sem comunicação" : "OK") + (r.convocado ? " · Convocado" : "");
+      return [
+        modelo ? `${placa} — ${modelo}` : placa,
+        statusVeicLabel(r.vehicles?.status),
+        (r.vehicle_id && locatarioMap.get(r.vehicle_id)) || "—",
+        fmtData(r.ultima_comunicacao), fmtDias(c.dias), situacao, r.endereco ?? "—", acaoLabel(r.acao),
+      ];
+    });
     return {
       titulo: "Rastreamento Ituran", subtitulo: `${ordenados.length} veículo(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }, { label: "Grupo", valor: fGrupo === "todos" ? "Todos" : fGrupo }],
