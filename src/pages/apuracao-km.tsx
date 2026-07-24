@@ -229,11 +229,13 @@ export default function ApuracaoKmPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Placa" }, { label: "Modelo" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "KM total", align: "right" }, { label: "KM/mês médio", align: "right" },
-      { label: "Dias rodados", align: "right" }, { label: "Dias c/ leitura", align: "right" }, { label: "Manutenção (min)", align: "right" },
+      { label: "Veículo" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "KM total", align: "right" }, { label: "KM/mês médio", align: "right" },
+      { label: "Dias rodados", align: "right" }, { label: "Manutenção", align: "right" },
     ];
-    const linhas = porVeiculo.map((v) => [
-      v.placa, v.modelo, statusVeiculoLabel(vMap.get(v.vehicle_id)?.status), locatarioMap.get(v.vehicle_id) || "—", km0(v.km), km0(v.kmMes), v.diasRodados, v.dias, v.minManut,
+    const linhas = porVeiculoFiltrado.map((v) => [
+      v.modelo ? `${v.placa} — ${v.modelo}` : v.placa,
+      statusVeiculoLabel(vMap.get(v.vehicle_id)?.status), locatarioMap.get(v.vehicle_id) || "—", km0(v.km), km0(v.kmMes),
+      `${v.diasRodados}/${v.dias}`, v.minManut > 0 ? `${formatNumber(Math.round(v.minManut / 60))} h` : "—",
     ]);
     return {
       empresa: config?.empresa_nome, titulo: "Apuração de KM por veículo", subtitulo: escopo,

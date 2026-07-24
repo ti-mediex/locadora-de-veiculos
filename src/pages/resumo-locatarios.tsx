@@ -138,21 +138,18 @@ export default function ResumoLocatariosPage() {
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
-      { label: "Locatário" }, { label: "CPF" }, { label: "Locação", align: "right" }, { label: "Multa", align: "right" },
-      { label: "Juros", align: "right" }, { label: "Avaria", align: "right" }, { label: "KM exc.", align: "right" },
-      { label: "Débito aberto", align: "right" }, { label: "Caução", align: "right" }, { label: "Saldo", align: "right" }, { label: "Risco", align: "right" },
+      { label: "Locatário" }, { label: "Contratos", align: "right" }, { label: "Débito aberto", align: "right" },
+      { label: "Caução", align: "right" }, { label: "Saldo", align: "right" }, { label: "Risco", align: "right" },
     ];
     const linhas = ordenadas.map((r) => [
-      r.l.nome, r.l.cpf ?? "—",
-      formatCurrency(r.cat.locacao ?? 0), formatCurrency(r.cat.multa ?? 0), formatCurrency(r.cat.juros ?? 0),
-      formatCurrency(r.cat.avaria ?? 0), formatCurrency(r.cat.km_excedente ?? 0),
+      r.l.cpf ? `${r.l.nome} — ${r.l.cpf}` : r.l.nome, String(r.contratos.length),
       formatCurrency(r.debAberto), formatCurrency(r.caucao), formatCurrency(r.saldo), pct(r.risco),
     ]);
     const tD = ordenadas.reduce((s, r) => s + r.debAberto, 0), tC = ordenadas.reduce((s, r) => s + r.caucao, 0);
     return {
       empresa: config?.empresa_nome, titulo: "Resumo financeiro por locatário", subtitulo: `${ordenadas.length} locatário(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Risco", valor: fRisco === "todos" ? "Todos" : fRisco }],
-      colunas, linhas, rodape: ["Total", "", "", "", "", "", "", formatCurrency(tD), formatCurrency(tC), formatCurrency(tC - tD), ""],
+      colunas, linhas, rodape: ["Total", "", formatCurrency(tD), formatCurrency(tC), formatCurrency(tC - tD), ""],
     };
   }
 

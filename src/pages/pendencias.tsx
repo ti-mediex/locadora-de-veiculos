@@ -246,18 +246,21 @@ export default function PendenciasPage() {
     const statusLabel = fStatus === "todas" ? "Todas" : fStatus === "ativas" ? "Ativas (abertas)" : fStatus === "atrasadas" ? "Atrasadas" : (PENDENCIA_STATUS.find((s) => s.value === fStatus)?.label ?? fStatus);
     const colunas: RelColuna[] = [
       { label: "Veículo" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
-      { label: "Vencimento" }, { label: "Valor", align: "right" }, { label: "Prioridade" }, { label: "Status" },
+      { label: "Vencimento" }, { label: "Prioridade" }, { label: "Status" },
     ];
-    const linhas = sorted.map((r) => [
-      r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—",
-      statusVeiculoLabel(vehicles.find((v) => v.id === r.vehicle_id)?.status),
-      locatarioMap.get(r.vehicle_id) ?? "—",
-      r.categoria, r.titulo, r.responsavel ?? "—",
-      r.vencimento ? formatDate(r.vencimento) : "—",
-      r.valor != null ? formatCurrency(r.valor) : "—",
-      PRIO[r.prioridade]?.label ?? r.prioridade,
-      PENDENCIA_STATUS.find((s) => s.value === r.status)?.label ?? r.status,
-    ]);
+    const linhas = sorted.map((r) => {
+      const ituran = r.categoria.toLowerCase().includes("ituran") ? (r.ativo ? " (Ativo)" : " (Inativo)") : "";
+      const valor = r.valor != null ? ` · ${formatCurrency(r.valor)}${r.pago ? " (pago)" : ""}` : "";
+      return [
+        r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—",
+        statusVeiculoLabel(vehicles.find((v) => v.id === r.vehicle_id)?.status),
+        locatarioMap.get(r.vehicle_id) ?? "—",
+        r.categoria, `${r.titulo}${ituran}${valor}`, r.responsavel ?? "—",
+        r.vencimento ? formatDate(r.vencimento) : "—",
+        PRIO[r.prioridade]?.label ?? r.prioridade,
+        PENDENCIA_STATUS.find((s) => s.value === r.status)?.label ?? r.status,
+      ];
+    });
     const total = sorted.reduce((s, r) => s + (r.valor ?? 0), 0);
     const atalhoAtivo = RESTR_ATALHOS.find((a) => a.key === fRestricao);
     const restrLabel = atalhoAtivo ? atalhoAtivo.label : "—";
@@ -265,7 +268,7 @@ export default function PendenciasPage() {
     return {
       titulo: tituloRel, subtitulo: `${sorted.length} registro(s)`,
       filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }],
-      colunas, linhas, rodape: ["", "", "", "", "", "", "Total", formatCurrency(total), "", ""],
+      colunas, linhas, rodape: ["", "", "", "", `Total: ${formatCurrency(total)}`, "", "", "", ""],
     };
   }
 

@@ -112,18 +112,18 @@ export default function OrdensServicoPage() {
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
       { label: "Nº" }, { label: "Veículo" }, { label: "Status veículo" }, { label: "Oficina" },
-      { label: "Abertura" }, { label: "Status" }, { label: "Mão de obra", align: "right" }, { label: "Peças", align: "right" }, { label: "Total", align: "right" },
+      { label: "Abertura" }, { label: "Status" }, { label: "Total", align: "right" },
     ];
     const linhas = sorted.map((r) => [
       r.numero, r.vehicles?.placa ?? r.placa ?? "—", statusVeiculoLabel(vMap.get(r.vehicle_id ?? "")?.status),
       r.oficina ?? "—", formatDate(r.data_abertura), statusLabel(r.status),
-      formatCurrency(r.valor_mao_obra), formatCurrency(r.valor_pecas), formatCurrency(r.valor_total),
+      formatCurrency(r.valor_total),
     ]);
     const total = sorted.reduce((s, r) => s + Number(r.valor_total ?? 0), 0);
     return {
       titulo: "Ordens de serviço", subtitulo: `${sorted.length} OS`,
       filtros: [{ label: "Busca", valor: search }, { label: "Situação", valor: fStatus }],
-      colunas, linhas, rodape: ["", "", "", "", "", "", "", "Total", formatCurrency(total)],
+      colunas, linhas, rodape: ["", "", "", "", "", "Total", formatCurrency(total)],
     };
   }
 
