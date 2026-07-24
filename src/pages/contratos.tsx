@@ -144,7 +144,11 @@ export default function ContratosPage() {
       informacoes_adicionais: form.informacoes_adicionais || null,
     };
     if (editing) {
-      const patch = form.status ? { ...payload, status: form.status as ContratoRow["status"] } : payload;
+      const novoStatus = form.status as ContratoRow["status"] | undefined;
+      const encerrou = novoStatus && novoStatus !== "ativo" && editing.status === "ativo";
+      const patch = novoStatus
+        ? { ...payload, status: novoStatus, ...(encerrou ? { data_encerramento: new Date().toISOString().slice(0, 10) } : {}) }
+        : payload;
       update.mutate({ id: editing.id, ...patch }, { onSuccess: () => setOpen(false) });
     } else {
       create.mutate(payload, { onSuccess: () => setOpen(false) });
@@ -282,7 +286,7 @@ export default function ContratosPage() {
                           <Button variant="ghost" size="icon" title="Emitir/imprimir" aria-label="Emitir contrato" onClick={() => emitir(c)}><FileText className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" title="Renovar" aria-label="Renovar contrato" onClick={() => confirm(`Renovar o contrato ${c.numero}?`) && renovar.mutate(c)}><RefreshCw className="h-4 w-4 text-primary" /></Button>
                           {c.status === "ativo" && (
-                            <Button variant="ghost" size="icon" title="Encerrar" aria-label="Encerrar contrato" onClick={() => update.mutate({ id: c.id, status: "encerrado" })}><XCircle className="h-4 w-4 text-warning" /></Button>
+                            <Button variant="ghost" size="icon" title="Encerrar" aria-label="Encerrar contrato" onClick={() => update.mutate({ id: c.id, status: "encerrado", data_encerramento: new Date().toISOString().slice(0, 10) })}><XCircle className="h-4 w-4 text-warning" /></Button>
                           )}
                           <Button variant="ghost" size="icon" title="Remover" aria-label="Remover contrato" onClick={() => confirm("Remover contrato?") && remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>

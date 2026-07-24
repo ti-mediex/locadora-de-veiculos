@@ -134,6 +134,53 @@ export const OCCURRENCE_STATUS = [
   { value: "cancelada", label: "Cancelada" },
 ];
 
+// ===== Ocorrências (aba nova) =====
+export const OCORRENCIA_TIPO = [
+  { value: "manutencao", label: "Manutenção", color: "hsl(38 92% 60%)", servico: true },
+  { value: "sinistro", label: "Sinistro / Colisão", color: "hsl(0 72% 55%)", servico: true },
+  { value: "avaria", label: "Avaria", color: "hsl(340 82% 60%)", servico: true },
+  { value: "pane", label: "Pane / Quebra", color: "hsl(24 90% 55%)", servico: true },
+  { value: "carro_reserva", label: "Carro reserva", color: "hsl(262 70% 66%)", servico: false },
+  { value: "infracao", label: "Infração / Multa", color: "hsl(48 90% 50%)", servico: false },
+  { value: "translado", label: "Translado", color: "hsl(180 50% 45%)", servico: false },
+  { value: "outros", label: "Outros", color: "hsl(215 16% 55%)", servico: false },
+] as const;
+
+export const OCORRENCIA_STATUS = [
+  { value: "aberta", label: "Aberta" },
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "resolvida", label: "Resolvida" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
+export const OCORRENCIA_GRAVIDADE = [
+  { value: "baixa", label: "Baixa" },
+  { value: "media", label: "Média" },
+  { value: "alta", label: "Alta" },
+  { value: "critica", label: "Crítica" },
+];
+
+export const OS_STATUS = [
+  { value: "aberta", label: "Aberta" },
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "aguardando_peca", label: "Aguardando peça" },
+  { value: "aguardando_aprovacao", label: "Aguardando aprovação" },
+  { value: "concluida", label: "Concluída" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
+/** Categoria de Despesa gerada quando a OS de uma ocorrência é concluída. */
+export const OCORRENCIA_DESPESA_CATEGORIA: Record<string, string> = {
+  manutencao: "Manutenção",
+  sinistro: "Manutenção",
+  avaria: "Manutenção",
+  pane: "Manutenção",
+  infracao: "Multas",
+  translado: "Administrativo",
+  carro_reserva: "Administrativo",
+  outros: "Outros",
+};
+
 export const INSPECTION_TYPE = [
   { value: "entrega", label: "Entrega" },
   { value: "devolucao", label: "Devolução" },

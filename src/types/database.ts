@@ -202,6 +202,8 @@ export interface FinanceEntry {
   valor: number;
   forma_pagamento: string | null;
   observacoes: string | null;
+  ocorrencia_id: string | null;
+  ordem_servico_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -394,8 +396,59 @@ export interface Contrato {
   pre_autorizacao: number | null;
   informacoes_adicionais: string | null;
   status: "ativo" | "encerrado" | "renovado" | "cancelado";
+  data_encerramento: string | null;
   locatario_id: string | null;
   contrato_pai_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OcorrenciaTipo = "manutencao" | "sinistro" | "avaria" | "pane" | "carro_reserva" | "infracao" | "translado" | "outros";
+export type OcorrenciaStatus = "aberta" | "em_andamento" | "resolvida" | "cancelada";
+
+export interface Ocorrencia {
+  id: string;
+  vehicle_id: string | null;
+  placa: string | null;
+  tipo: OcorrenciaTipo;
+  gravidade: "baixa" | "media" | "alta" | "critica";
+  titulo: string | null;
+  descricao: string | null;
+  local: string | null;
+  km: number | null;
+  inicio: string;
+  fim: string | null;
+  status: OcorrenciaStatus;
+  custo: number | null;
+  responsavel: string | null;
+  contrato_id: string | null;
+  locatario_id: string | null;
+  muda_status_veiculo: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OrdemServicoStatus = "aberta" | "em_andamento" | "aguardando_peca" | "aguardando_aprovacao" | "concluida" | "cancelada";
+
+export interface OrdemServico {
+  id: string;
+  numero: string;
+  ocorrencia_id: string | null;
+  vehicle_id: string | null;
+  placa: string | null;
+  tipo_servico: string | null;
+  oficina: string | null;
+  responsavel: string | null;
+  descricao: string | null;
+  valor_mao_obra: number;
+  valor_pecas: number;
+  valor_total: number;
+  status: OrdemServicoStatus;
+  data_abertura: string;
+  previsao: string | null;
+  data_conclusao: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

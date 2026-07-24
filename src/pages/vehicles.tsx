@@ -36,7 +36,8 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
-import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo } from "@/hooks/use-contratos";
+import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo, useContratos } from "@/hooks/use-contratos";
+import { useSyncCarroReserva, useReservaAtualPorVeiculo } from "@/hooks/use-ocorrencias";
 import { useKmMesPorVeiculo } from "@/hooks/use-km";
 import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
 import { useUpdateFipe } from "@/hooks/use-fipe";
@@ -71,6 +72,8 @@ const schema = z.object({
   apelido_ituran: z.string().optional(),
   km_atual: z.coerce.number().int().min(0).default(0),
   status: z.string().default("disponivel"),
+  contrato_reserva_id: z.string().optional(),
+  locatario_reserva_id: z.string().optional(),
   valor_aquisicao: z.coerce.number().optional().or(z.literal("")),
   valor_fipe: z.coerce.number().optional().or(z.literal("")),
   fipe_manual: z.boolean().default(false),
@@ -88,6 +91,9 @@ const schema = z.object({
   busca_apreensao_solicitante: z.string().optional(),
   bloqueio_judicial: z.boolean().default(false),
   bloqueio_judicial_solicitante: z.string().optional(),
+}).refine((d) => d.status !== "carro_reserva" || !!d.contrato_reserva_id, {
+  message: "Indique o contrato/locatário que este carro reserva atende",
+  path: ["contrato_reserva_id"],
 });
 
 type FormData = z.infer<typeof schema>;
@@ -122,6 +128,10 @@ export default function VehiclesPage() {
   const rastMap = useRastreamentoStatusPorVeiculo();
   const locatarioMap = useLocatarioPorVeiculo();
   const contratoMap = useContratoAtivoPorVeiculo();
+  const { data: contratos = [] } = useContratos();
+  const { data: reservaMap = {} } = useReservaAtualPorVeiculo();
+  const syncReserva = useSyncCarroReserva();
+  const contratosAtivos = useMemo(() => contratos.filter((c) => c.status === "ativo"), [contratos]);
 
   // Rótulos dos meses (atual e anterior) para os cabeçalhos das colunas de KM.
   const { mesAtualLabel, mesAntLabel } = useMemo(() => {
@@ -336,14 +346,19 @@ export default function VehiclesPage() {
       busca_apreensao_solicitante: v.busca_apreensao_solicitante ?? "",
       bloqueio_judicial: v.bloqueio_judicial ?? false,
       bloqueio_judicial_solicitante: v.bloqueio_judicial_solicitante ?? "",
+      contrato_reserva_id: reservaMap[v.id]?.contrato_id ?? "",
+      locatario_reserva_id: reservaMap[v.id]?.locatario_id ?? "",
     });
     setOpen(true);
   }
 
   function onSubmit(data: FormData) {
+    // Campos auxiliares do carro reserva (não são colunas de vehicles).
+    const { contrato_reserva_id, locatario_reserva_id, ...rest } = data;
+    const placaNorm = data.placa.toUpperCase().replace(/\s/g, "");
     const payload = {
-      ...data,
-      placa: data.placa.toUpperCase().replace(/\s/g, ""),
+      ...rest,
+      placa: placaNorm,
       apelido_ituran: data.apelido_ituran?.trim() || null,
       ano_fabricacao: data.ano_fabricacao || null,
       ano_modelo: data.ano_modelo || null,
@@ -362,15 +377,21 @@ export default function VehiclesPage() {
     if (data.alienacao_fiduciaria && nomeAlienante && !alienantes.some((a) => a.nome.toLowerCase() === nomeAlienante.toLowerCase())) {
       createAlienante.mutate({ nome: nomeAlienante });
     }
+    // Cria/encerra a ocorrência de carro reserva conforme o status.
+    const sincronizarReserva = (vehicleId: string) => syncReserva.mutate({
+      vehicleId, placa: placaNorm, isReserva: data.status === "carro_reserva",
+      contrato_id: contrato_reserva_id || null, locatario_id: locatario_reserva_id || null,
+    });
     if (editing) {
       update.mutate(
         { id: editing.id, ...payload },
-        { onSuccess: () => setOpen(false) }
+        { onSuccess: () => { setOpen(false); sincronizarReserva(editing.id); } }
       );
     } else {
       create.mutate(payload, {
         onSuccess: (novo: Vehicle) => {
           setOpen(false);
+          if (novo?.id) sincronizarReserva(novo.id);
           // Busca a FIPE automaticamente só quando o valor não foi fixado manualmente.
           if (novo?.id && !data.fipe_manual && !data.valor_fipe) updateFipe.mutate({ vehicle_id: novo.id });
         },
@@ -706,6 +727,24 @@ export default function VehiclesPage() {
                   </button>
                 ))}
               </Field>
+              {watch("status") === "carro_reserva" && (
+                <div className="sm:col-span-3 grid gap-4 rounded-lg border border-primary/40 bg-primary/5 p-3 sm:grid-cols-2">
+                  <p className="text-xs font-medium text-primary sm:col-span-2">Carro reserva — indique o contrato/locatário que este veículo está atendendo:</p>
+                  <Field label="Contrato (locação atendida)" error={errors.contrato_reserva_id?.message}>
+                    <Select value={watch("contrato_reserva_id") || ""} onValueChange={(v) => {
+                      setValue("contrato_reserva_id", v);
+                      const c = contratos.find((x) => x.id === v);
+                      setValue("locatario_reserva_id", c?.locatario_id ?? "");
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
+                      <SelectContent>{contratosAtivos.map((c) => <SelectItem key={c.id} value={c.id}>{c.numero} — {c.cliente_nome}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Locatário">
+                    <Input readOnly className="bg-muted" value={contratos.find((c) => c.id === watch("contrato_reserva_id"))?.cliente_nome ?? ""} placeholder="(do contrato)" />
+                  </Field>
+                </div>
+              )}
               <Field label="Renavam">
                 <Input {...register("renavam")} />
               </Field>

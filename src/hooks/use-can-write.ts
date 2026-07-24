@@ -26,6 +26,8 @@ export type WriteModule =
   | "locatarios"
   | "financeiro_locatario"
   | "rastreamento"
+  | "ocorrencias"
+  | "ordens_servico"
   | "contracts"
   | "receivables"
   | "expenses"
@@ -55,6 +57,8 @@ const MODULE_ROLES: Record<WriteModule, AppRole[]> = {
   locatarios: ["admin", "financeiro", "operador"],
   financeiro_locatario: ["admin", "financeiro", "operador"],
   rastreamento: ["admin", "financeiro", "operador"],
+  ocorrencias: ["admin", "financeiro", "operador"],
+  ordens_servico: ["admin", "financeiro", "operador"],
   occurrences: ["admin", "operador", "financeiro"],
   contracts: ["admin", "financeiro"],
   receivables: ["admin", "financeiro"],

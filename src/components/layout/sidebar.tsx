@@ -15,6 +15,8 @@ import {
   Car,
   Upload,
   Settings,
+  AlertOctagon,
+  Wrench,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,8 @@ const NAV: {
   { to: "/receitas", label: "Receitas", icon: TrendingUp, roles: ["admin", "financeiro"] },
   { to: "/despesas", label: "Despesas", icon: TrendingDown, roles: ["admin", "financeiro"] },
   { to: "/pendencias", label: "Pendências", icon: AlertTriangle, roles: ALL },
+  { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "financeiro", "operador"] },
+  { to: "/ordens-servico", label: "Ordens de Serviço", icon: Wrench, roles: ["admin", "financeiro", "operador"] },
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["admin", "financeiro"] },
   { to: "/veiculos", label: "Veículos", icon: Car, roles: ALL },
   { to: "/vistorias", label: "Vistorias", icon: ClipboardCheck, roles: ["admin", "financeiro", "operador", "vistoriador"] },

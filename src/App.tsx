@@ -13,6 +13,8 @@ const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const RevenuesPage = lazy(() => import("@/pages/revenues"));
 const ExpensesPage = lazy(() => import("@/pages/expenses"));
 const PendenciasPage = lazy(() => import("@/pages/pendencias"));
+const OcorrenciasPage = lazy(() => import("@/pages/ocorrencias"));
+const OrdensServicoPage = lazy(() => import("@/pages/ordens-servico"));
 const RelatoriosPage = lazy(() => import("@/pages/relatorios"));
 const VistoriasPage = lazy(() => import("@/pages/vistorias"));
 const ContratosPage = lazy(() => import("@/pages/contratos"));
@@ -54,6 +56,8 @@ export default function App() {
               <Route path="/receitas" element={<RevenuesPage />} />
               <Route path="/despesas" element={<ExpensesPage />} />
               <Route path="/pendencias" element={<PendenciasPage />} />
+              <Route path="/ocorrencias" element={<OcorrenciasPage />} />
+              <Route path="/ordens-servico" element={<OrdensServicoPage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/veiculos" element={<VehiclesPage />} />
               <Route path="/vistorias" element={<VistoriasPage />} />
