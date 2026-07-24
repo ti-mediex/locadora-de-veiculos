@@ -26,6 +26,7 @@ import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
+import { SelectVeiculo } from "@/components/shared/select-veiculo";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -357,12 +358,7 @@ export default function ContratosPage() {
               <h4 className="mb-2 text-sm font-semibold">Veículo e pagamento</h4>
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="Veículo" className="sm:col-span-2">
-                  <Select value={form.vehicle_id ?? ""} onValueChange={selVeiculo}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SelectVeiculo value={form.vehicle_id ?? ""} onChange={selVeiculo} vehicles={vehicles} placeholder="Selecione" />
                 </Field>
                 <Field label="Grupo"><Input value={form.grupo ?? ""} onChange={(e) => set("grupo", e.target.value)} placeholder="PADRÃO" /></Field>
                 <Field label="KM de entrega"><Input type="number" value={form.km_entrega ?? ""} onChange={(e) => set("km_entrega", e.target.value)} /></Field>

@@ -25,6 +25,7 @@ import type { Vehicle, OrdemServicoStatus } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
+import { SelectVeiculo } from "@/components/shared/select-veiculo";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -263,10 +264,7 @@ export default function OrdensServicoPage() {
                 </Select>
               </Field>
               <Field label="Veículo">
-                <Select value={watch("vehicle_id") || ""} onValueChange={(v) => setValue("vehicle_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}</SelectContent>
-                </Select>
+                <SelectVeiculo value={watch("vehicle_id") || ""} onChange={(v) => setValue("vehicle_id", v)} vehicles={vehicles} placeholder="Selecione" />
               </Field>
               <Field label="Status">
                 <Select value={watch("status") || "aberta"} onValueChange={(v) => setValue("status", v)}>

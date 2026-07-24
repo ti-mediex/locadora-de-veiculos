@@ -28,6 +28,7 @@ import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
+import { SelectVeiculo } from "@/components/shared/select-veiculo";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -386,10 +387,7 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Veículo" error={errors.vehicle_id?.message}>
-                <Select value={watch("vehicle_id") || ""} onValueChange={(v) => setValue("vehicle_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}</SelectContent>
-                </Select>
+                <SelectVeiculo value={watch("vehicle_id") || ""} onChange={(v) => setValue("vehicle_id", v)} vehicles={vehicles} placeholder="Selecione" />
               </Field>
               <Field label="Tipo">
                 <Select value={tipoSel || "manutencao"} onValueChange={(v) => setValue("tipo", v)}>

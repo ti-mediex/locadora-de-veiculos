@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Plus, Pencil, Trash2, Search, FileDown, TrendingUp, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
+import { SelectVeiculo } from "@/components/shared/select-veiculo";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Field } from "@/components/shared/field";
@@ -236,14 +237,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                 <Input type="number" step="0.01" {...register("valor")} />
               </Field>
               <Field label="Veículo (opcional)">
-                <Select value={watch("vehicle_id") || ""} onValueChange={(v) => setValue("vehicle_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Frota (geral)" /></SelectTrigger>
-                  <SelectContent>
-                    {vehicles.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectVeiculo value={watch("vehicle_id") || ""} onChange={(v) => setValue("vehicle_id", v)} vehicles={vehicles} noneLabel="Frota (geral)" />
               </Field>
               <Field label="Categoria">
                 <Select value={watch("categoria") || ""} onValueChange={(v) => setValue("categoria", v)}>

@@ -7,6 +7,7 @@ import {
   Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, ReceiptText, X, FileUp,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { SelectVeiculo } from "@/components/shared/select-veiculo";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Field } from "@/components/shared/field";
@@ -552,12 +553,7 @@ export default function PendenciasPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Veículo" error={errors.vehicle_id?.message}>
-                <Select value={watch("vehicle_id") || ""} onValueChange={(v) => setValue("vehicle_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SelectVeiculo value={watch("vehicle_id") || ""} onChange={(v) => setValue("vehicle_id", v)} vehicles={vehicles} placeholder="Selecione" />
               </Field>
               <Field label="Categoria" error={errors.categoria?.message}>
                 <Select value={categoriaSel} onValueChange={(v) => {

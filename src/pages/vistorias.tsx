@@ -38,6 +38,7 @@ import type { Vehicle, ChecklistItem } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
+import { SelectVeiculo } from "@/components/shared/select-veiculo";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { VehicleStatusBadge, statusVeiculoLabel } from "@/components/shared/vehicle-status-badge";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -363,12 +364,7 @@ export default function VistoriasPage() {
             {/* Dados */}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Veículo">
-                <Select value={vehicleId} onValueChange={setVehicleId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SelectVeiculo value={vehicleId} onChange={setVehicleId} vehicles={vehicles} placeholder="Selecione" />
               </Field>
               <Field label="Tipo de operação">
                 <Select value={tipo} onValueChange={setTipo}>
@@ -515,12 +511,7 @@ export default function VistoriasPage() {
                           {t.duplicado && <Badge variant="destructive" className="ml-1">já anexado ({t.motivoDup})</Badge>}
                         </td>
                         <td className="p-2">
-                          <Select value={t.vehicleId} onValueChange={(v) => setItem(i, { vehicleId: v })}>
-                            <SelectTrigger className="h-8 min-w-40 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          <SelectVeiculo value={t.vehicleId} onChange={(v) => setItem(i, { vehicleId: v })} vehicles={vehicles} placeholder="Selecione" className="min-w-40" />
                         </td>
                         <td className="p-2">
                           <Select value={t.tipo} onValueChange={(v) => setItem(i, { tipo: v })}>
