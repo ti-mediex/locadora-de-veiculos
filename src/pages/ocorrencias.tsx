@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, CheckCircle2, AlertOctagon, Wrench, CarFront, ListTodo, CalendarClock, Camera, X } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle2, AlertOctagon, Wrench, CarFront, ListTodo, CalendarClock, Camera, X, Printer } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -216,6 +217,37 @@ export default function OcorrenciasPage() {
   function resolver(r: OcorrenciaRow) {
     update.mutate({ id: r.id, status: "resolvida", fim: r.fim ?? new Date().toISOString() });
   }
+  // Ficha imprimível da ocorrência (com fotos) — o "relatório com fotos".
+  function imprimirFicha() {
+    if (!editing) return;
+    const v = vMap.get(editing.vehicle_id ?? "");
+    const linha = (r: string, val: string) => `<tr><td class="k">${r}</td><td>${val || "—"}</td></tr>`;
+    const fotosHtml = fotos.filter((f) => f.url).map((f) => `<img src="${f.url}" />`).join("");
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ocorrência ${editing.placa ?? ""}</title>
+<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px}h1{font-size:18px;margin:0 0 4px}.meta{color:#666;font-size:12px;margin-bottom:16px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px}td{border:1px solid #ddd;padding:6px 8px;vertical-align:top}td.k{background:#f3f4f6;width:180px;font-weight:600}
+.fotos{display:flex;flex-wrap:wrap;gap:8px}.fotos img{width:31%;border:1px solid #ddd;border-radius:6px}@media print{body{margin:0}}</style></head><body>
+<h1>VIP CARS — Ficha de Ocorrência</h1><div class="meta">Emitida em ${new Date().toLocaleString("pt-BR")}</div>
+<table>
+${linha("Veículo", `${editing.placa ?? "—"} ${v ? `— ${v.marca} ${v.modelo}` : ""}`)}
+${linha("Tipo", tipoLabel(editing.tipo))}
+${linha("Gravidade", editing.gravidade)}
+${linha("Título", editing.titulo ?? "")}
+${linha("Início", fmtDataHora(editing.inicio))}
+${linha("Fim", fmtDataHora(editing.fim))}
+${linha("Status", statusLabel(editing.status))}
+${linha("Local", editing.local ?? "")}
+${linha("KM", editing.km != null ? String(editing.km) : "")}
+${linha("Custo", editing.custo != null ? formatCurrency(editing.custo) : "")}
+${linha("Responsável", editing.responsavel ?? "")}
+${linha("Descrição", editing.descricao ?? "")}
+</table>
+${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHtml}</div>` : ""}
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("Permita pop-ups para imprimir a ficha."); return; }
+    w.document.write(html); w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
+  }
 
   const contadorOc = (id: string) => { const n = rows.filter((r) => r.vehicle_id === id && (r.status === "aberta" || r.status === "em_andamento")).length; return n ? `${n} aberta${n > 1 ? "s" : ""}` : null; };
 
@@ -416,7 +448,7 @@ export default function OcorrenciasPage() {
                   <div className="flex flex-wrap gap-2">
                     {fotos.map((f) => (
                       <div key={f.id} className="relative h-20 w-20 overflow-hidden rounded-md border">
-                        {f.url ? <img src={f.url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">foto</div>}
+                        {f.url ? <img src={f.url} alt="" className="h-full w-full cursor-zoom-in object-cover" onClick={() => window.open(f.url!, "_blank")} /> : <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">foto</div>}
                         <button type="button" title="Remover" onClick={() => confirm("Remover foto?") && delFoto.mutate(f)} className="absolute right-0 top-0 bg-destructive/90 p-0.5 text-white"><X className="h-3 w-3" /></button>
                       </div>
                     ))}
@@ -433,6 +465,7 @@ export default function OcorrenciasPage() {
               </div>
             </div>
             <DialogFooter>
+              {editing && <Button type="button" variant="outline" onClick={imprimirFicha}><Printer className="h-4 w-4" /> Imprimir ficha</Button>}
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={create.isPending || update.isPending}>{editing ? "Salvar" : "Cadastrar"}</Button>
             </DialogFooter>

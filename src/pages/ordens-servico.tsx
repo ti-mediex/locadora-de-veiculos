@@ -295,7 +295,7 @@ export default function OrdensServicoPage() {
                   <div className="flex flex-wrap gap-2">
                     {fotos.map((f) => (
                       <div key={f.id} className="relative h-20 w-20 overflow-hidden rounded-md border">
-                        {f.url ? <img src={f.url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">anexo</div>}
+                        {f.url ? <img src={f.url} alt="" className="h-full w-full cursor-zoom-in object-cover" onClick={() => window.open(f.url!, "_blank")} /> : <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">anexo</div>}
                         <button type="button" title="Remover" onClick={() => confirm("Remover anexo?") && delFoto.mutate(f)} className="absolute right-0 top-0 bg-destructive/90 p-0.5 text-white"><X className="h-3 w-3" /></button>
                       </div>
                     ))}

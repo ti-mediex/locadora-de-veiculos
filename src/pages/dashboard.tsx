@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet, TrendingUp, TrendingDown, PiggyBank, Percent, Car, FileDown,
-  AlertTriangle, Clock, ChevronRight, Receipt, ShieldAlert, WifiOff, AlertOctagon,
+  AlertTriangle, Clock, ChevronRight, Receipt, ShieldAlert, WifiOff, AlertOctagon, Wrench,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -160,6 +160,19 @@ export default function DashboardPage() {
     return [...map.values()].filter((m) => m.valor > 0 || m.qtd > 0).sort((a, b) => b.valor - a.valor);
   }, [pendF]);
   const totalMultasFrota = useMemo(() => multasRank.reduce((s, m) => s + m.valor, 0), [multasRank]);
+
+  // Custo de manutenção por veículo (despesas de categoria Manutenção, do escopo).
+  const manutencaoRank = useMemo(() => {
+    const map = new Map<string, { vehicle_id: string; placa: string; qtd: number; valor: number }>();
+    for (const e of entriesF) {
+      if (e.tipo !== "despesa" || !e.vehicle_id || !/manuten/i.test(e.categoria ?? "")) continue;
+      const cur = map.get(e.vehicle_id) ?? { vehicle_id: e.vehicle_id, placa: e.placa ?? vMap.get(e.vehicle_id)?.placa ?? "—", qtd: 0, valor: 0 };
+      cur.qtd += 1; cur.valor += e.valor;
+      map.set(e.vehicle_id, cur);
+    }
+    return [...map.values()].sort((a, b) => b.valor - a.valor);
+  }, [entriesF, vMap]);
+  const totalManutencao = useMemo(() => manutencaoRank.reduce((s, m) => s + m.valor, 0), [manutencaoRank]);
 
   // ---- Frota ----
   const ativos = useMemo(() => veiculos.filter((v) => v.status !== "inativo"), [veiculos]);
@@ -332,11 +345,12 @@ export default function DashboardPage() {
       </Dialog>
 
       {/* Indicadores da frota */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard title="Valor da frota (FIPE)" value={formatCurrency(valorFrota)} hint={`${ativos.length} veículo(s) ativo(s)`} icon={<Wallet className="h-5 w-5" />} />
         <StatCard title="Idade média da frota" value={idadeMedia != null ? `${idadeMedia.toFixed(1)} anos` : "—"} icon={<Clock className="h-5 w-5" />} />
         <StatCard title="Frota disponível" value={`${disponiveis}/${veiculos.length}`} hint="disponíveis / no escopo" icon={<Car className="h-5 w-5" />} />
         <StatCard title="Multas (valor total)" value={formatCurrency(totalMultasFrota)} hint={`${multasRank.length} veículo(s) com multa`} tone={totalMultasFrota > 0 ? "warning" : undefined} icon={<Receipt className="h-5 w-5" />} />
+        <StatCard title="Custo de manutenção" value={formatCurrency(totalManutencao)} hint={`${manutencaoRank.length} veículo(s) — ocorrências/OS`} tone={totalManutencao > 0 ? "warning" : undefined} icon={<Wrench className="h-5 w-5" />} />
       </div>
 
       {/* Ranking: veículos com mais multas */}
@@ -362,6 +376,38 @@ export default function DashboardPage() {
                       <TableCell><span className="font-mono font-medium">{m.placa}</span> <span className="text-xs text-muted-foreground">{m.modelo}</span></TableCell>
                       <TableCell className="text-right">{m.qtd}</TableCell>
                       <TableCell className="text-right font-semibold text-destructive">{formatCurrency(m.valor)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ranking: custo de manutenção por veículo */}
+      {manutencaoRank.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Custo de manutenção por veículo</CardTitle>
+            <CardDescription>Despesas de manutenção (ocorrências/OS) — clique para ver as ocorrências</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-80 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Veículo</TableHead>
+                    <TableHead className="text-right">Lançamentos</TableHead>
+                    <TableHead className="text-right">Custo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {manutencaoRank.slice(0, 10).map((m) => (
+                    <TableRow key={m.vehicle_id} className="cursor-pointer" onClick={() => navigate(`/ocorrencias?veiculo=${encodeURIComponent(m.placa)}`)}>
+                      <TableCell className="font-mono font-medium">{m.placa}</TableCell>
+                      <TableCell className="text-right">{m.qtd}</TableCell>
+                      <TableCell className="text-right font-semibold text-warning">{formatCurrency(m.valor)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
