@@ -9,6 +9,57 @@ export type OrdemServicoRow = OrdemServico & {
   ocorrencias: { tipo: string; titulo: string | null } | null;
 };
 
+const BUCKET = "ocorrencias";
+const slug = (s: string) => s.replace(/[^\w.]+/g, "_");
+export interface OsFoto { id: string; storage_path: string; observacao: string | null; url?: string | null }
+
+/** Fotos/anexos de uma OS (nota fiscal, orçamento, fotos) com signed URLs. */
+export function useOsFotos(osId?: string) {
+  return useQuery<OsFoto[]>({
+    queryKey: ["os_fotos", osId ?? ""],
+    enabled: !!osId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("os_fotos").select("*").eq("ordem_servico_id", osId!).order("created_at", { ascending: true });
+      if (error) throw error;
+      const fotos = (data ?? []) as OsFoto[];
+      return Promise.all(fotos.map(async (f) => {
+        const { data: s } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 3600);
+        return { ...f, url: s?.signedUrl ?? null };
+      }));
+    },
+  });
+}
+
+export function useSaveOsFotos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ osId, files }: { osId: string; files: File[] }) => {
+      for (const file of files) {
+        const path = `os/${osId}/${Date.now()}-${slug(file.name)}`;
+        const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+        if (up.error) throw up.error;
+        const { error } = await supabase.from("os_fotos").insert({ ordem_servico_id: osId, storage_path: path } as never);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["os_fotos", v.osId] }),
+    onError: (e: Error) => toast.error("Erro ao enviar anexo: " + e.message),
+  });
+}
+
+export function useDeleteOsFoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (f: OsFoto) => {
+      await supabase.storage.from(BUCKET).remove([f.storage_path]);
+      const { error } = await supabase.from("os_fotos").delete().eq("id", f.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["os_fotos"] }),
+    onError: (e: Error) => toast.error("Erro ao remover anexo: " + e.message),
+  });
+}
+
 /** Lista de ordens de serviço (com join de veículo e ocorrência). */
 export function useOrdensServico() {
   return useQuery<OrdemServicoRow[]>({

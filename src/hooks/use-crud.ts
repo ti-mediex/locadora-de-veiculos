@@ -41,7 +41,8 @@ type TableName =
   | "vehicle_statuses"
   | "ocorrencias"
   | "ordens_servico"
-  | "ocorrencia_fotos";
+  | "ocorrencia_fotos"
+  | "os_fotos";
 
 interface CrudOptions {
   select?: string;

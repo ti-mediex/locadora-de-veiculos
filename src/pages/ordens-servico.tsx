@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Wrench, ClipboardList, CheckCircle2, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Wrench, ClipboardList, CheckCircle2, Clock, Camera, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useOcorrencias } from "@/hooks/use-ocorrencias";
-import { useOrdensServico, useSalvarOrdemServico, useDeleteOrdemServico, type OrdemServicoRow } from "@/hooks/use-ordens-servico";
+import { useOrdensServico, useSalvarOrdemServico, useDeleteOrdemServico, useOsFotos, useSaveOsFotos, useDeleteOsFoto, type OrdemServicoRow } from "@/hooks/use-ordens-servico";
 import { OS_STATUS } from "@/lib/options";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import type { Vehicle, OrdemServicoStatus } from "@/types/database";
@@ -57,10 +57,14 @@ export default function OrdensServicoPage() {
   const { data: ocorrencias = [] } = useOcorrencias();
   const salvar = useSalvarOrdemServico();
   const remove = useDeleteOrdemServico();
+  const saveFotos = useSaveOsFotos();
+  const delFoto = useDeleteOsFoto();
   const canWrite = useCanWrite("ordens_servico");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<OrdemServicoRow | null>(null);
+  const [fotosNovas, setFotosNovas] = useState<File[]>([]);
+  const { data: fotos = [] } = useOsFotos(editing?.id);
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("ativas");
 
@@ -125,11 +129,13 @@ export default function OrdensServicoPage() {
 
   function openNew() {
     setEditing(null);
+    setFotosNovas([]);
     reset({ status: "aberta", valor_mao_obra: 0, valor_pecas: 0, data_abertura: hoje() });
     setOpen(true);
   }
   function openEdit(r: OrdemServicoRow) {
     setEditing(r);
+    setFotosNovas([]);
     reset({
       ocorrencia_id: r.ocorrencia_id ?? "", vehicle_id: r.vehicle_id ?? "", tipo_servico: r.tipo_servico ?? "",
       oficina: r.oficina ?? "", responsavel: r.responsavel ?? "", descricao: r.descricao ?? "",
@@ -148,7 +154,12 @@ export default function OrdensServicoPage() {
       status: data.status as OrdemServicoStatus, data_abertura: data.data_abertura || hoje(), previsao: data.previsao || null,
       data_conclusao: data.data_conclusao || (conclui ? hoje() : null),
     };
-    salvar.mutate(editing ? { id: editing.id, ...payload } : payload, { onSuccess: () => setOpen(false) });
+    salvar.mutate(editing ? { id: editing.id, ...payload } : payload, {
+      onSuccess: (saved) => {
+        if (saved?.id && fotosNovas.length) saveFotos.mutate({ osId: saved.id, files: fotosNovas });
+        setFotosNovas([]); setOpen(false);
+      },
+    });
   }
 
   return (
@@ -273,6 +284,31 @@ export default function OrdensServicoPage() {
               <Field label="Peças (R$)" error={errors.valor_pecas?.message}><Input type="number" step="0.01" {...register("valor_pecas")} /></Field>
               <Field label="Total (calculado)"><Input readOnly value={formatCurrency(totalForm)} className="bg-muted" /></Field>
               <Field label="Descrição / observações" className="space-y-1.5 sm:col-span-2"><Textarea {...register("descricao")} /></Field>
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium">Anexos (nota fiscal, orçamento, fotos)</label>
+                <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm hover:bg-accent">
+                  <Camera className="h-4 w-4" /> Adicionar anexo
+                  <input type="file" accept="image/*" capture="environment" multiple className="hidden"
+                    onChange={(e) => { setFotosNovas((f) => [...f, ...Array.from(e.target.files ?? [])]); e.currentTarget.value = ""; }} />
+                </label>
+                {(fotos.length > 0 || fotosNovas.length > 0) && (
+                  <div className="flex flex-wrap gap-2">
+                    {fotos.map((f) => (
+                      <div key={f.id} className="relative h-20 w-20 overflow-hidden rounded-md border">
+                        {f.url ? <img src={f.url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">anexo</div>}
+                        <button type="button" title="Remover" onClick={() => confirm("Remover anexo?") && delFoto.mutate(f)} className="absolute right-0 top-0 bg-destructive/90 p-0.5 text-white"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    {fotosNovas.map((file, i) => (
+                      <div key={i} className="relative h-20 w-20 overflow-hidden rounded-md border">
+                        <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
+                        <button type="button" title="Tirar da lista" onClick={() => setFotosNovas((fs) => fs.filter((_, idx) => idx !== i))} className="absolute right-0 top-0 bg-destructive/90 p-0.5 text-white"><X className="h-3 w-3" /></button>
+                        <span className="absolute bottom-0 left-0 bg-primary/80 px-1 text-[9px] text-white">novo</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">Ao salvar como <b>Concluída</b> com total maior que zero, uma despesa é lançada/atualizada automaticamente no módulo Despesas.</p>
             <DialogFooter>

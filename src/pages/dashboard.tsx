@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet, TrendingUp, TrendingDown, PiggyBank, Percent, Car, FileDown,
-  AlertTriangle, Clock, ChevronRight, Receipt, ShieldAlert, WifiOff,
+  AlertTriangle, Clock, ChevronRight, Receipt, ShieldAlert, WifiOff, AlertOctagon,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -21,6 +21,7 @@ import { exportToCsv } from "@/lib/csv";
 import { useFinanceEntries } from "@/hooks/use-finance";
 import { usePendencias, vencimentoStatus, restricaoEhJudicial } from "@/hooks/use-pendencias";
 import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
+import { useOcorrenciasAbertasPorVeiculo } from "@/hooks/use-ocorrencias";
 import { useList } from "@/hooks/use-crud";
 import type { Vehicle } from "@/types/database";
 
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const { data: pendAll = [] } = usePendencias();
   const { data: veiculosAll = [] } = useList<Vehicle>("vehicles");
   const rastMap = useRastreamentoStatusPorVeiculo();
+  const { data: ocorrMap = {} } = useOcorrenciasAbertasPorVeiculo();
 
   const ativosSet = useMemo(() => new Set(veiculosAll.filter((v) => v.status !== "inativo").map((v) => v.id)), [veiculosAll]);
   const vMap = useMemo(() => new Map(veiculosAll.map((v) => [v.id, v])), [veiculosAll]);
@@ -125,6 +127,13 @@ export default function DashboardPage() {
     }
     return { comunicando, sem, semRastreador };
   }, [veiculos, rastMap]);
+
+  // Ocorrências abertas nos veículos do escopo.
+  const ocorrKpi = useMemo(() => {
+    let veic = 0, total = 0;
+    for (const v of veiculos) { const n = ocorrMap[v.id] ?? 0; if (n) { veic++; total += n; } }
+    return { veic, total };
+  }, [veiculos, ocorrMap]);
 
   const finPorVeiculo = useMemo(() => {
     const map = new Map<string, { vehicle_id: string; placa: string; modelo: string; total: number; vencido: number; qtd: number }>();
@@ -241,6 +250,19 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Faixa de ocorrências abertas */}
+      {ocorrKpi.total > 0 && (
+        <button type="button" onClick={() => navigate("/ocorrencias")}
+          className="flex w-full items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-left transition-colors hover:bg-warning/20">
+          <AlertOctagon className="h-5 w-5 shrink-0 text-warning" />
+          <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="font-medium">Ocorrências abertas:</span>
+            <span>{ocorrKpi.total} em {ocorrKpi.veic} veículo(s)</span>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
       )}
 
       {/* KPIs do mês */}

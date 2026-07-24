@@ -641,7 +641,13 @@ export default function VehiclesPage() {
                         const cid = reservaMap[v.id]?.contrato_id;
                         const c = cid ? contratos.find((x) => x.id === cid) : undefined;
                         const placaAtend = c?.vehicles?.placa ?? c?.placa;
-                        return placaAtend ? <div className="mt-0.5 text-[10px] text-muted-foreground" title={`Reserva do contrato ${c?.numero ?? ""}`}>→ {placaAtend}</div> : null;
+                        if (!placaAtend && !c?.cliente_nome) return null;
+                        return (
+                          <div className="mt-0.5 max-w-[110px] text-[10px] text-muted-foreground" title={`Reserva do contrato ${c?.numero ?? ""} — ${c?.cliente_nome ?? ""}`}>
+                            {placaAtend && <div>→ {placaAtend}</div>}
+                            {c?.cliente_nome && <div className="truncate">{c.cliente_nome}</div>}
+                          </div>
+                        );
                       })()}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
