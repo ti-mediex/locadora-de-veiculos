@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, CheckCircle2, AlertOctagon, Wrench, CarFront, ListTodo, CalendarClock } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle2, AlertOctagon, Wrench, CarFront, ListTodo, CalendarClock, Camera, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -18,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useContratos } from "@/hooks/use-contratos";
-import { useOcorrencias, construirLinhaTempo, type OcorrenciaRow } from "@/hooks/use-ocorrencias";
+import { useOcorrencias, construirLinhaTempo, useOcorrenciaFotos, useSaveOcorrenciaFotos, useDeleteOcorrenciaFoto, type OcorrenciaRow } from "@/hooks/use-ocorrencias";
 import { useAbrirOSAuto } from "@/hooks/use-ordens-servico";
 import { OCORRENCIA_TIPO, OCORRENCIA_STATUS, OCORRENCIA_GRAVIDADE } from "@/lib/options";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
@@ -72,17 +73,28 @@ export default function OcorrenciasPage() {
   const remove = useDelete("ocorrencias", "Ocorrência");
   const abrirOS = useAbrirOSAuto();
   const canWrite = useCanWrite("ocorrencias");
+  const saveFotos = useSaveOcorrenciaFotos();
+  const delFoto = useDeleteOcorrenciaFoto();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [aba, setAba] = useState<"lista" | "timeline">("lista");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<OcorrenciaRow | null>(null);
-  const [search, setSearch] = useState("");
+  const [fotosNovas, setFotosNovas] = useState<File[]>([]);
+  const [search, setSearch] = useState(searchParams.get("veiculo") ?? "");
+  const { data: fotos = [] } = useOcorrenciaFotos(editing?.id);
   const [fTipo, setFTipo] = useState("todos");
   const [fStatus, setFStatus] = useState("ativas");
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
   const tipoSel = watch("tipo");
   const contratoSel = watch("contrato_id");
+
+  // Pré-filtra pela placa vinda por link (ex.: da tela de Veículos).
+  useEffect(() => {
+    if (searchParams.get("veiculo")) { searchParams.delete("veiculo"); setSearchParams(searchParams, { replace: true }); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const vMap = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const contratosAtivos = useMemo(() => contratos.filter((c) => c.status === "ativo"), [contratos]);
@@ -157,11 +169,13 @@ export default function OcorrenciasPage() {
 
   function openNew() {
     setEditing(null);
+    setFotosNovas([]);
     reset({ tipo: "manutencao", gravidade: "media", status: "aberta", inicio: nowLocal() });
     setOpen(true);
   }
   function openEdit(r: OcorrenciaRow) {
     setEditing(r);
+    setFotosNovas([]);
     reset({
       vehicle_id: r.vehicle_id ?? "", tipo: r.tipo, gravidade: r.gravidade, titulo: r.titulo ?? "",
       descricao: r.descricao ?? "", local: r.local ?? "", km: r.km ?? undefined,
@@ -183,11 +197,16 @@ export default function OcorrenciasPage() {
       contrato_id: data.contrato_id || null, locatario_id: data.locatario_id || null,
     };
     if (editing) {
-      update.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) });
+      update.mutate({ id: editing.id, ...payload }, { onSuccess: () => {
+        if (fotosNovas.length) saveFotos.mutate({ ocorrenciaId: editing.id, files: fotosNovas });
+        setFotosNovas([]); setOpen(false);
+      } });
     } else {
       create.mutate(payload, {
         onSuccess: (nova: { id?: string } | undefined) => {
           setOpen(false);
+          if (nova?.id && fotosNovas.length) saveFotos.mutate({ ocorrenciaId: nova.id, files: fotosNovas });
+          setFotosNovas([]);
           // Abre OS automaticamente para tipos de serviço.
           if (nova?.id && ehServico(data.tipo)) abrirOS.mutate({ id: nova.id, vehicle_id: data.vehicle_id, placa: v?.placa ?? null, tipo: data.tipo, titulo: data.titulo || null });
         },
@@ -358,11 +377,11 @@ export default function OcorrenciasPage() {
                       if (c?.locatario_id) setValue("locatario_id", c.locatario_id);
                     }}>
                       <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
-                      <SelectContent>{contratosAtivos.map((c) => <SelectItem key={c.id} value={c.id}>{c.numero} — {c.cliente_nome}</SelectItem>)}</SelectContent>
+                      <SelectContent>{contratosAtivos.map((c) => <SelectItem key={c.id} value={c.id}>{c.numero} — {c.cliente_nome}{(c.vehicles?.placa ?? c.placa) ? ` · ${c.vehicles?.placa ?? c.placa}` : ""}</SelectItem>)}</SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Locatário">
-                    <Input readOnly className="bg-muted" value={contratos.find((c) => c.id === contratoSel)?.cliente_nome ?? ""} placeholder="(do contrato)" />
+                  <Field label="Locatário / veículo do contrato">
+                    <Input readOnly className="bg-muted" value={(() => { const c = contratos.find((x) => x.id === contratoSel); return c ? `${c.cliente_nome}${(c.vehicles?.placa ?? c.placa) ? ` · ${c.vehicles?.placa ?? c.placa}` : ""}` : ""; })()} placeholder="(do contrato)" />
                   </Field>
                 </>
               )}
@@ -386,6 +405,32 @@ export default function OcorrenciasPage() {
               <Field label="Local"><Input {...register("local")} /></Field>
               <Field label="Responsável"><Input {...register("responsavel")} /></Field>
               <Field label="Descrição" className="space-y-1.5 sm:col-span-2"><Textarea {...register("descricao")} /></Field>
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium">Fotos (colisão / avaria)</label>
+                <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm hover:bg-accent">
+                  <Camera className="h-4 w-4" /> Adicionar foto
+                  <input type="file" accept="image/*" capture="environment" multiple className="hidden"
+                    onChange={(e) => { setFotosNovas((f) => [...f, ...Array.from(e.target.files ?? [])]); e.currentTarget.value = ""; }} />
+                </label>
+                {(fotos.length > 0 || fotosNovas.length > 0) && (
+                  <div className="flex flex-wrap gap-2">
+                    {fotos.map((f) => (
+                      <div key={f.id} className="relative h-20 w-20 overflow-hidden rounded-md border">
+                        {f.url ? <img src={f.url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">foto</div>}
+                        <button type="button" title="Remover" onClick={() => confirm("Remover foto?") && delFoto.mutate(f)} className="absolute right-0 top-0 bg-destructive/90 p-0.5 text-white"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    {fotosNovas.map((file, i) => (
+                      <div key={i} className="relative h-20 w-20 overflow-hidden rounded-md border">
+                        <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
+                        <button type="button" title="Tirar da lista" onClick={() => setFotosNovas((fs) => fs.filter((_, idx) => idx !== i))} className="absolute right-0 top-0 bg-destructive/90 p-0.5 text-white"><X className="h-3 w-3" /></button>
+                        <span className="absolute bottom-0 left-0 bg-primary/80 px-1 text-[9px] text-white">nova</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!editing && fotosNovas.length > 0 && <p className="text-[11px] text-muted-foreground">As fotos serão enviadas ao salvar.</p>}
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

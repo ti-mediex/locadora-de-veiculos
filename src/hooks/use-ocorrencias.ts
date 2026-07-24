@@ -6,6 +6,73 @@ import type { ContratoRow } from "@/hooks/use-contratos";
 
 export type OcorrenciaRow = Ocorrencia & { vehicles: { placa: string; modelo: string } | null };
 
+const BUCKET = "ocorrencias";
+const slug = (s: string) => s.replace(/[^\w.]+/g, "_");
+
+export interface OcorrenciaFoto { id: string; storage_path: string; avaria: boolean; observacao: string | null; url?: string | null }
+
+/** Fotos de uma ocorrência (com signed URLs de 1h). */
+export function useOcorrenciaFotos(ocorrenciaId?: string) {
+  return useQuery<OcorrenciaFoto[]>({
+    queryKey: ["ocorrencia_fotos", ocorrenciaId ?? ""],
+    enabled: !!ocorrenciaId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ocorrencia_fotos").select("*").eq("ocorrencia_id", ocorrenciaId!).order("created_at", { ascending: true });
+      if (error) throw error;
+      const fotos = (data ?? []) as OcorrenciaFoto[];
+      return Promise.all(fotos.map(async (f) => {
+        const { data: s } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 3600);
+        return { ...f, url: s?.signedUrl ?? null };
+      }));
+    },
+  });
+}
+
+/** Envia fotos (câmera do celular) para uma ocorrência. */
+export function useSaveOcorrenciaFotos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ocorrenciaId, files }: { ocorrenciaId: string; files: File[] }) => {
+      for (const file of files) {
+        const path = `${ocorrenciaId}/${Date.now()}-${slug(file.name)}`;
+        const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+        if (up.error) throw up.error;
+        const { error } = await supabase.from("ocorrencia_fotos").insert({ ocorrencia_id: ocorrenciaId, storage_path: path } as never);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["ocorrencia_fotos", v.ocorrenciaId] }),
+    onError: (e: Error) => toast.error("Erro ao enviar foto: " + e.message),
+  });
+}
+
+export function useDeleteOcorrenciaFoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (f: OcorrenciaFoto) => {
+      await supabase.storage.from(BUCKET).remove([f.storage_path]);
+      const { error } = await supabase.from("ocorrencia_fotos").delete().eq("id", f.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ocorrencia_fotos"] }),
+    onError: (e: Error) => toast.error("Erro ao remover foto: " + e.message),
+  });
+}
+
+/** Nº de ocorrências abertas/em andamento por veículo (para badge em Veículos). */
+export function useOcorrenciasAbertasPorVeiculo() {
+  return useQuery<Record<string, number>>({
+    queryKey: ["ocorrencias", "abertas-por-veiculo"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ocorrencias").select("vehicle_id").in("status", ["aberta", "em_andamento"]).limit(5000);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const r of (data ?? []) as { vehicle_id: string | null }[]) if (r.vehicle_id) map[r.vehicle_id] = (map[r.vehicle_id] ?? 0) + 1;
+      return map;
+    },
+  });
+}
+
 /** Lista de ocorrências (com join do veículo), mais recentes primeiro. */
 export function useOcorrencias() {
   return useQuery<OcorrenciaRow[]>({

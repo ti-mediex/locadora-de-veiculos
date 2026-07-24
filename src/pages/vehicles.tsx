@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X, Wifi, WifiOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Car, Power, RotateCcw, AlertTriangle, RefreshCw, FileUp, X, Wifi, WifiOff, AlertOctagon } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -37,7 +37,7 @@ import {
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo, useContratos } from "@/hooks/use-contratos";
-import { useSyncCarroReserva, useReservaAtualPorVeiculo } from "@/hooks/use-ocorrencias";
+import { useSyncCarroReserva, useReservaAtualPorVeiculo, useOcorrenciasAbertasPorVeiculo } from "@/hooks/use-ocorrencias";
 import { useKmMesPorVeiculo } from "@/hooks/use-km";
 import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
 import { useUpdateFipe } from "@/hooks/use-fipe";
@@ -130,6 +130,7 @@ export default function VehiclesPage() {
   const contratoMap = useContratoAtivoPorVeiculo();
   const { data: contratos = [] } = useContratos();
   const { data: reservaMap = {} } = useReservaAtualPorVeiculo();
+  const { data: ocorrMap = {} } = useOcorrenciasAbertasPorVeiculo();
   const syncReserva = useSyncCarroReserva();
   const contratosAtivos = useMemo(() => contratos.filter((c) => c.status === "ativo"), [contratos]);
 
@@ -242,6 +243,7 @@ export default function VehiclesPage() {
       case "fipe": return v.valor_fipe ?? 0;
       case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
       case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
+      case "ocorrencias": return ocorrMap[v.id] ?? -1;
       case "rastreamento": { const rs = rastMap.get(v.id); return rs ? (rs.comunicando ? 0 : 1) : 2; }
       case "proprietario": return (v.proprietario_nome ?? "").toLowerCase();
       case "locatario": return (locatarioMap.get(v.id) ?? "").toLowerCase();
@@ -261,7 +263,7 @@ export default function VehiclesPage() {
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
       { label: "KM", align: "right" }, { label: `KM ${mesAtualLabel}`, align: "right" }, { label: `KM ${mesAntLabel}`, align: "right" },
       { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
-      { label: "Restrições", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Contrato" }, { label: "Rastreamento" }, { label: "Status" },
+      { label: "Restrições", align: "right" }, { label: "Ocorrências", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Contrato" }, { label: "Rastreamento" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
@@ -277,6 +279,7 @@ export default function VehiclesPage() {
         formatCurrency(v.valor_fipe),
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
         r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
+        ocorrMap[v.id] ? `${ocorrMap[v.id]} aberta(s)` : "—",
         v.proprietario_nome ?? "—", locatarioMap.get(v.id) ?? "—",
         contratoMap.get(v.id)?.numero ?? (v.status === "locado" ? "sem contrato" : "—"),
         rs ? (rs.comunicando ? "Comunicando" : "Sem comunicação") : "—",
@@ -296,7 +299,7 @@ export default function VehiclesPage() {
         { label: "Restrição", valor: fRestricao === TODOS ? "Todas" : fRestricao === "com" ? "Com restrição" : "Sem restrição" },
       ],
       colunas, linhas,
-      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", "", "", ""],
+      rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", "", "", "", ""],
     };
   }
 
@@ -493,6 +496,7 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="fipe" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">FIPE</SortableHead>
                   <SortableHead sortKey="pendencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pend.</SortableHead>
                   <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restr.</SortableHead>
+                  <SortableHead sortKey="ocorrencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Ocorr.</SortableHead>
                   <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Propriet.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="contrato" activeKey={sortKey} dir={sortDir} onSort={toggle}>Contrato</SortableHead>
@@ -511,7 +515,7 @@ export default function VehiclesPage() {
                     onClick={() => (canWrite ? openEdit(v) : navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`))}
                   >
                     <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(v.placa)}</TableCell>
-                    <TableCell className="max-w-[132px]">
+                    <TableCell className="max-w-[116px]">
                       <div className="truncate font-medium" title={`${v.marca} ${v.modelo}`}>{v.marca} {v.modelo}</div>
                       <div className="truncate text-[10px] text-muted-foreground">{v.cor} · {v.categoria}</div>
                       <div className="mt-0.5 flex flex-wrap gap-1">
@@ -573,12 +577,19 @@ export default function VehiclesPage() {
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="max-w-[92px]">
+                    <TableCell className="text-center">
+                      {ocorrMap[v.id] ? (
+                        <button type="button" title="Ver ocorrências abertas" onClick={(e) => { e.stopPropagation(); navigate(`/ocorrencias?veiculo=${encodeURIComponent(v.placa)}`); }} className="inline-flex">
+                          <Badge variant="warning" className="gap-0.5 px-1.5 py-0 text-[10px]"><AlertOctagon className="h-3 w-3" />{ocorrMap[v.id]}</Badge>
+                        </button>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="max-w-[84px]">
                       {v.proprietario_nome
                         ? <span className="block truncate" title={`${v.proprietario_nome}${v.proprietario_documento ? ` · ${v.proprietario_documento}` : ""}`}>{v.proprietario_nome}</span>
                         : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="max-w-[92px]">
+                    <TableCell className="max-w-[84px]">
                       {(() => {
                         const loc = locatarioMap.get(v.id);
                         if (!loc) return <span className="text-muted-foreground">—</span>;
@@ -626,6 +637,12 @@ export default function VehiclesPage() {
                           {statusMap.get(v.status)?.label}
                         </Badge>
                       ) : <StatusBadge status={v.status} />}
+                      {(v.status as string) === "carro_reserva" && (() => {
+                        const cid = reservaMap[v.id]?.contrato_id;
+                        const c = cid ? contratos.find((x) => x.id === cid) : undefined;
+                        const placaAtend = c?.vehicles?.placa ?? c?.placa;
+                        return placaAtend ? <div className="mt-0.5 text-[10px] text-muted-foreground" title={`Reserva do contrato ${c?.numero ?? ""}`}>→ {placaAtend}</div> : null;
+                      })()}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {canWrite && (
@@ -737,11 +754,14 @@ export default function VehiclesPage() {
                       setValue("locatario_reserva_id", c?.locatario_id ?? "");
                     }}>
                       <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
-                      <SelectContent>{contratosAtivos.map((c) => <SelectItem key={c.id} value={c.id}>{c.numero} — {c.cliente_nome}</SelectItem>)}</SelectContent>
+                      <SelectContent>{contratosAtivos.map((c) => <SelectItem key={c.id} value={c.id}>{c.numero} — {c.cliente_nome}{(c.vehicles?.placa ?? c.placa) ? ` · ${c.vehicles?.placa ?? c.placa}` : ""}</SelectItem>)}</SelectContent>
                     </Select>
                   </Field>
                   <Field label="Locatário">
                     <Input readOnly className="bg-muted" value={contratos.find((c) => c.id === watch("contrato_reserva_id"))?.cliente_nome ?? ""} placeholder="(do contrato)" />
+                  </Field>
+                  <Field label="Veículo do contrato (que o reserva atende)">
+                    <Input readOnly className="bg-muted font-mono" value={(() => { const c = contratos.find((x) => x.id === watch("contrato_reserva_id")); return c ? (c.vehicles?.placa ?? c.placa ?? "—") : ""; })()} placeholder="(placa do contrato)" />
                   </Field>
                 </div>
               )}
