@@ -60,7 +60,9 @@ export function Sidebar({
 }) {
   const { profile } = useAuth();
   const role = profile?.role;
-  const items = NAV.filter((item) => !role || item.roles.includes(role));
+  const items = NAV.filter((item) => !role || item.roles.includes(role)).sort((a, b) =>
+    a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" })
+  );
   return (
     <>
       {open && (
