@@ -280,7 +280,11 @@ export default function RastreamentoPage() {
                 </TableHeader>
                 <TableBody>
                   {ordenados.map(({ r, c }) => (
-                    <TableRow key={r.id} className={c.vendido ? "bg-destructive/5" : ""}>
+                    <TableRow
+                      key={r.id}
+                      className={`cursor-pointer ${c.vendido ? "bg-destructive/5" : ""}`}
+                      onClick={() => navigate(r.vehicle_id ? `/frota-ativa/${r.vehicle_id}` : `/pendencias?veiculo=${encodeURIComponent(r.placa)}`)}
+                    >
                       <TableCell>
                         <span className="font-mono font-medium">{r.vehicles?.placa ?? r.placa}</span>
                         {r.vehicles?.modelo && r.vehicles.modelo !== "(a definir)" && <div className="text-xs text-muted-foreground">{r.vehicles.modelo}</div>}
@@ -305,7 +309,7 @@ export default function RastreamentoPage() {
                         {r.endereco ? <span className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{r.endereco}</span></span> : "—"}
                       </TableCell>
                       {podeEscrever && (
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={r.acao ?? ""}
                             onValueChange={(v) => {

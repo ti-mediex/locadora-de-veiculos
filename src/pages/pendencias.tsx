@@ -471,19 +471,19 @@ export default function PendenciasPage() {
             <EmptyState message="Nenhuma pendência" icon={<ListTodo className="h-6 w-6" />} />
           ) : (
             <div className="overflow-x-auto">
-            <Table>
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1 [&_th]:text-[11px] [&_td]:px-1 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
-                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
+                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veíc.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="categoria" activeKey={sortKey} dir={sortDir} onSort={toggle}>Categoria</SortableHead>
                   <SortableHead sortKey="titulo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Título</SortableHead>
                   <SortableHead sortKey="responsavel" activeKey={sortKey} dir={sortDir} onSort={toggle}>Responsável</SortableHead>
                   <SortableHead sortKey="vencimento" activeKey={sortKey} dir={sortDir} onSort={toggle}>Vencimento</SortableHead>
-                  <SortableHead sortKey="prioridade" activeKey={sortKey} dir={sortDir} onSort={toggle}>Prioridade</SortableHead>
+                  <SortableHead sortKey="prioridade" activeKey={sortKey} dir={sortDir} onSort={toggle}>Prior.</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
-                  {canWrite && <TableHead className="w-28"></TableHead>}
+                  {canWrite && <TableHead className="w-20"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -493,12 +493,12 @@ export default function PendenciasPage() {
                     className={canWrite ? "cursor-pointer" : undefined}
                     onClick={canWrite ? () => openEdit(r) : undefined}
                   >
-                    <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono font-medium">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
                     <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === r.vehicle_id)?.status} /></TableCell>
-                    <TableCell className="text-sm">{locatarioMap.get(r.vehicle_id) ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell><Badge variant="secondary">{r.categoria}</Badge></TableCell>
-                    <TableCell>
-                      <div>{r.titulo}</div>
+                    <TableCell className="max-w-[110px] truncate" title={locatarioMap.get(r.vehicle_id) ?? undefined}>{locatarioMap.get(r.vehicle_id) ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell><Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{r.categoria}</Badge></TableCell>
+                    <TableCell className="max-w-[190px]">
+                      <div className="truncate" title={r.titulo}>{r.titulo}</div>
                       {r.categoria.toLowerCase().includes("ituran") && (
                         <span className={`text-xs ${r.ativo ? "text-success" : "text-destructive"}`}>
                           {r.ativo ? "Ativo" : "Inativo"}
@@ -513,11 +513,11 @@ export default function PendenciasPage() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{r.responsavel ?? "—"}</TableCell>
-                    <TableCell><VencBadge venc={r.vencimento} status={r.status} /></TableCell>
-                    <TableCell><Badge variant={PRIO[r.prioridade].variant}>{PRIO[r.prioridade].label}</Badge></TableCell>
+                    <TableCell className="max-w-[110px] truncate" title={r.responsavel ?? undefined}>{r.responsavel ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap"><VencBadge venc={r.vencimento} status={r.status} /></TableCell>
+                    <TableCell><Badge variant={PRIO[r.prioridade].variant} className="px-1.5 py-0 text-[10px]">{PRIO[r.prioridade].label}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={r.status === "resolvida" ? "success" : r.status === "cancelada" ? "muted" : "warning"}>
+                      <Badge variant={r.status === "resolvida" ? "success" : r.status === "cancelada" ? "muted" : "warning"} className="px-1.5 py-0 text-[10px]">
                         {PENDENCIA_STATUS.find((s) => s.value === r.status)?.label}
                       </Badge>
                     </TableCell>

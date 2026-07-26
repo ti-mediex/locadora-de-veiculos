@@ -255,41 +255,41 @@ export default function ContratosPage() {
             <EmptyState message="Nenhum contrato" icon={<FileSignature className="h-6 w-6" />} />
           ) : (
             <div className="overflow-x-auto">
-            <Table>
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1 [&_th]:text-[11px] [&_td]:px-1 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="numero" activeKey={sortKey} dir={sortDir} onSort={toggle}>Nº</SortableHead>
                   <SortableHead sortKey="cliente" activeKey={sortKey} dir={sortDir} onSort={toggle}>Cliente</SortableHead>
                   <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
-                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
+                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veíc.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="entrega" activeKey={sortKey} dir={sortDir} onSort={toggle}>Entrega</SortableHead>
                   <SortableHead sortKey="semanal" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Semanal</SortableHead>
                   <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
-                  {canWrite && <TableHead className="w-32"></TableHead>}
+                  {canWrite && <TableHead className="w-24"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sorted.map((c) => (
                   <TableRow key={c.id} className={canWrite ? "cursor-pointer" : undefined} onClick={canWrite ? () => abrirEditar(c) : undefined}>
-                    <TableCell className="font-mono font-medium">{c.numero}</TableCell>
-                    <TableCell>{c.cliente_nome}</TableCell>
-                    <TableCell className="font-mono">{c.vehicles?.placa ?? c.placa ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono font-medium">{c.numero}</TableCell>
+                    <TableCell className="max-w-[150px] truncate" title={c.cliente_nome}>{c.cliente_nome}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono">{c.vehicles?.placa ?? c.placa ?? "—"}</TableCell>
                     <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === c.vehicle_id)?.status} /></TableCell>
-                    <TableCell className="text-sm">{(c.vehicle_id && locatarioMap.get(c.vehicle_id)) || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="whitespace-nowrap text-sm">{c.data_entrega ? formatDate(c.data_entrega) : "—"}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(c.valor_locacao)}</TableCell>
-                    <TableCell><Badge variant={STATUS_BADGE[c.status]}>{c.status}</Badge></TableCell>
+                    <TableCell className="max-w-[130px] truncate" title={(c.vehicle_id && locatarioMap.get(c.vehicle_id)) || undefined}>{(c.vehicle_id && locatarioMap.get(c.vehicle_id)) || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="whitespace-nowrap">{c.data_entrega ? formatDate(c.data_entrega) : "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(c.valor_locacao)}</TableCell>
+                    <TableCell><Badge variant={STATUS_BADGE[c.status]} className="px-1.5 py-0 text-[10px]">{c.status}</Badge></TableCell>
                     {canWrite && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" title="Editar" aria-label={`Editar contrato ${c.numero}`} onClick={() => abrirEditar(c)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" title="Emitir/imprimir" aria-label="Emitir contrato" onClick={() => emitir(c)}><FileText className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" title="Renovar" aria-label="Renovar contrato" onClick={() => confirm(`Renovar o contrato ${c.numero}?`) && renovar.mutate(c)}><RefreshCw className="h-4 w-4 text-primary" /></Button>
+                        <div className="flex justify-end gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" aria-label={`Editar contrato ${c.numero}`} onClick={() => abrirEditar(c)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Emitir/imprimir" aria-label="Emitir contrato" onClick={() => emitir(c)}><FileText className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Renovar" aria-label="Renovar contrato" onClick={() => confirm(`Renovar o contrato ${c.numero}?`) && renovar.mutate(c)}><RefreshCw className="h-4 w-4 text-primary" /></Button>
                           {c.status === "ativo" && (
-                            <Button variant="ghost" size="icon" title="Encerrar" aria-label="Encerrar contrato" onClick={() => update.mutate({ id: c.id, status: "encerrado", data_encerramento: new Date().toISOString().slice(0, 10) })}><XCircle className="h-4 w-4 text-warning" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Encerrar" aria-label="Encerrar contrato" onClick={() => update.mutate({ id: c.id, status: "encerrado", data_encerramento: new Date().toISOString().slice(0, 10) })}><XCircle className="h-4 w-4 text-warning" /></Button>
                           )}
-                          <Button variant="ghost" size="icon" title="Remover" aria-label="Remover contrato" onClick={() => confirm("Remover contrato?") && remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Remover" aria-label="Remover contrato" onClick={() => confirm("Remover contrato?") && remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
                       </TableCell>
                     )}

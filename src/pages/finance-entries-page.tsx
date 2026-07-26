@@ -182,7 +182,8 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
           ) : filtered.length === 0 ? (
             <EmptyState message={`Nenhuma ${label.toLowerCase()} lançada`} />
           ) : (
-            <Table>
+            <div className="overflow-x-auto">
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
@@ -190,7 +191,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
-                  {canWrite && <TableHead className="w-24"></TableHead>}
+                  {canWrite && <TableHead className="w-20"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -200,18 +201,18 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                     className={canWrite ? "cursor-pointer" : undefined}
                     onClick={canWrite ? () => openEdit(r) : undefined}
                   >
-                    <TableCell>{formatDate(r.data)}</TableCell>
-                    <TableCell>{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
-                    <TableCell>{r.categoria ?? "—"}</TableCell>
-                    <TableCell>{r.descricao}</TableCell>
-                    <TableCell className={`text-right font-medium ${isReceita ? "text-success" : "text-destructive"}`}>
+                    <TableCell className="whitespace-nowrap">{formatDate(r.data)}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.categoria ?? "—"}</TableCell>
+                    <TableCell className="max-w-[320px] truncate" title={r.descricao}>{r.descricao}</TableCell>
+                    <TableCell className={`whitespace-nowrap text-right font-medium tabular-nums ${isReceita ? "text-success" : "text-destructive"}`}>
                       {isReceita ? "+" : "−"} {formatCurrency(r.valor)}
                     </TableCell>
                     {canWrite && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => del(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <div className="flex justify-end gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" aria-label="Editar" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Remover" aria-label="Remover" onClick={() => del(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
                       </TableCell>
                     )}
@@ -219,6 +220,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

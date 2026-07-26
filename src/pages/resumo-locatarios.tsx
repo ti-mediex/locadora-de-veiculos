@@ -250,14 +250,14 @@ export default function ResumoLocatariosPage() {
                     </TableHeader>
                     <TableBody>
                       {devolucoes.map((d) => (
-                        <TableRow key={d.c.id}>
+                        <TableRow key={d.c.id} className={d.loc ? "cursor-pointer" : undefined} onClick={d.loc ? () => abrir(d.loc!) : undefined}>
                           <TableCell className="font-medium">{d.loc?.nome ?? "—"}</TableCell>
                           <TableCell className="text-sm">{d.termino ? formatDate(d.termino) : "—"}</TableCell>
                           <TableCell className="text-sm font-medium">{d.prevista ? formatDate(d.prevista) : "—"}</TableCell>
                           <TableCell className="text-right">{formatCurrency(Number(d.c.valor))}</TableCell>
                           <TableCell className="text-right text-warning">{formatCurrency(d.debAberto)}</TableCell>
                           <TableCell className="text-right font-semibold text-success">{formatCurrency(d.saldo)}</TableCell>
-                          {canWrite && <TableCell><Button size="sm" variant="outline" onClick={() => confirm(`Registrar devolução de ${formatCurrency(d.saldo)}?`) && devolver.mutate({ id: d.c.id, valor: d.saldo })}>Devolver</Button></TableCell>}
+                          {canWrite && <TableCell onClick={(e) => e.stopPropagation()}><Button size="sm" variant="outline" onClick={() => confirm(`Registrar devolução de ${formatCurrency(d.saldo)}?`) && devolver.mutate({ id: d.c.id, valor: d.saldo })}>Devolver</Button></TableCell>}
                         </TableRow>
                       ))}
                     </TableBody>
