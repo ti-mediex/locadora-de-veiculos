@@ -204,6 +204,7 @@ export interface FinanceEntry {
   observacoes: string | null;
   ocorrencia_id: string | null;
   ordem_servico_id: string | null;
+  contrato_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
 export interface FinanceSummary {
@@ -88,6 +89,91 @@ export function useFinanceEntries(inicio?: string, fim?: string) {
         placa: r.vehicles?.placa ?? null,
       }));
     },
+  });
+}
+
+export interface GerarReceitaResult { criados: number; contratos: number; jaExistiam: number }
+
+/** Gera lançamentos de receita de aluguel (categoria "Aluguel") por semana a
+ *  partir dos contratos ATIVOS, para o mês de referência. Uma semana por
+ *  contrato, ancorada na data de entrega, apenas para semanas já ocorridas
+ *  (início ≤ hoje) e dentro da vigência. Idempotente por (contrato_id, data). */
+export function useGerarReceitaAluguel() {
+  const qc = useQueryClient();
+  return useMutation<GerarReceitaResult, Error, { refMes?: Date }>({
+    mutationFn: async ({ refMes = new Date() }) => {
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const y = refMes.getFullYear(), m = refMes.getMonth();
+      const monthStart = new Date(y, m, 1);
+      const monthEnd = new Date(y, m + 1, 0);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const iniStr = fmt(monthStart), fimStr = fmt(monthEnd);
+
+      const { data: contratos, error: cErr } = await supabase
+        .from("contratos")
+        .select("id, numero, cliente_nome, vehicle_id, valor_locacao, semanas, data_entrega, devolucao_prevista, status")
+        .eq("status", "ativo");
+      if (cErr) throw cErr;
+      const ativos = ((contratos ?? []) as {
+        id: string; numero: string; cliente_nome: string | null; vehicle_id: string | null;
+        valor_locacao: number | string | null; semanas: number | null; data_entrega: string | null; devolucao_prevista: string | null;
+      }[]).filter((c) => c.vehicle_id && Number(c.valor_locacao) > 0 && c.data_entrega);
+
+      // Idempotência: lançamentos de aluguel já existentes no mês, por contrato+data.
+      const { data: existentes, error: eErr } = await supabase
+        .from("finance_entries")
+        .select("contrato_id, data")
+        .eq("tipo", "receita")
+        .not("contrato_id", "is", null)
+        .gte("data", iniStr).lte("data", fimStr);
+      if (eErr) throw eErr;
+      const jaTem = new Set(((existentes ?? []) as { contrato_id: string; data: string }[]).map((e) => `${e.contrato_id}|${e.data}`));
+
+      const rows: Record<string, unknown>[] = [];
+      const contratosLancados = new Set<string>();
+      let jaExistiam = 0;
+      for (const c of ativos) {
+        const inicio = new Date(c.data_entrega! + "T00:00:00");
+        // Fim da vigência: nunca além de hoje.
+        let limite = today;
+        if (c.devolucao_prevista) {
+          const dev = new Date(c.devolucao_prevista + "T00:00:00");
+          if (dev < limite) limite = dev;
+        } else if (c.semanas) {
+          const s = new Date(inicio); s.setDate(s.getDate() + Number(c.semanas) * 7 - 1);
+          if (s < limite) limite = s;
+        }
+        for (const d = new Date(inicio); d <= monthEnd && d <= limite; d.setDate(d.getDate() + 7)) {
+          if (d < monthStart) continue;
+          const ds = fmt(d);
+          const key = `${c.id}|${ds}`;
+          if (jaTem.has(key)) { jaExistiam++; contratosLancados.add(c.id); continue; }
+          jaTem.add(key);
+          contratosLancados.add(c.id);
+          rows.push({
+            tipo: "receita", data: ds, vehicle_id: c.vehicle_id, categoria: "Aluguel",
+            descricao: `Aluguel semanal — ${c.numero} (${c.cliente_nome ?? ""})`.trim(),
+            valor: Number(c.valor_locacao), contrato_id: c.id,
+            observacoes: "Gerado automaticamente do contrato ativo",
+          });
+        }
+      }
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase.from("finance_entries").insert(rows.slice(i, i + 200) as never);
+        if (error) throw error;
+      }
+      return { criados: rows.length, contratos: contratosLancados.size, jaExistiam };
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["finance"] });
+      qc.invalidateQueries({ queryKey: ["finance_entries"] });
+      toast.success(
+        r.criados > 0
+          ? `${r.criados} lançamento(s) de aluguel gerado(s) para ${r.contratos} contrato(s)` + (r.jaExistiam ? ` · ${r.jaExistiam} já existia(m)` : "")
+          : r.jaExistiam ? `Nada a gerar — ${r.jaExistiam} semana(s) já lançada(s)` : "Nenhuma semana de aluguel a lançar no período"
+      );
+    },
+    onError: (e: Error) => toast.error("Erro ao gerar receita de aluguel: " + e.message),
   });
 }
 

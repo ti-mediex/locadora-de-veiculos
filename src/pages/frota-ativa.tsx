@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, TrendingUp, Wallet, Wrench, AlertTriangle, WifiOff, AlertOctagon, Wifi, X } from "lucide-react";
+import { Car, TrendingUp, Wallet, Wrench, AlertTriangle, WifiOff, AlertOctagon, Wifi, X, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSort } from "@/hooks/use-sort";
+import { useCanWrite } from "@/hooks/use-can-write";
+import { useGerarReceitaAluguel } from "@/hooks/use-finance";
 import { useFrotaAtiva, GRUPO_LABEL, type FrotaVeiculo } from "@/hooks/use-frota-ativa";
 import { formatCurrency, formatNumber, maskPlaca, soAlfa } from "@/lib/format";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -52,6 +54,8 @@ function StatusBadge({ label, cor }: { label: string; cor: string | null }) {
 export default function FrotaAtivaPage() {
   const navigate = useNavigate();
   const { linhas, totais, statusMap, isLoading } = useFrotaAtiva();
+  const canWriteFin = useCanWrite("finance");
+  const gerarReceita = useGerarReceitaAluguel();
 
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState(TODOS);
@@ -163,7 +167,25 @@ export default function FrotaAtivaPage() {
       <PageHeader
         title="Frota Ativa"
         description={`Gestão dos veículos operacionais (locado, carro reserva, disponível, manutenção) · ${mesLabel}`}
-        actions={<RelatorioExport build={buildRelatorio} nomeArquivo="frota-ativa" disabled={!sorted.length} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canWriteFin && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={gerarReceita.isPending}
+                onClick={() => {
+                  if (confirm(`Gerar os lançamentos de receita de aluguel dos contratos ativos para ${mesLabel}?\n\nUma semana por contrato (valor semanal), apenas para semanas já ocorridas. Não duplica lançamentos já existentes.`))
+                    gerarReceita.mutate({ refMes: new Date() });
+                }}
+                title="Lança a receita de aluguel semanal dos contratos ativos no mês (idempotente)"
+              >
+                <Receipt className="h-4 w-4" /> {gerarReceita.isPending ? "Gerando..." : "Gerar receita de aluguel"}
+              </Button>
+            )}
+            <RelatorioExport build={buildRelatorio} nomeArquivo="frota-ativa" disabled={!sorted.length} />
+          </div>
+        }
       />
 
       {/* KPIs principais */}
