@@ -23,6 +23,17 @@ import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 const TODOS = "__todos__";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
+/** Rótulos curtos de status para a tabela (o rótulo completo vai no tooltip). */
+const STATUS_CURTO: Record<string, string> = {
+  locado: "Locado",
+  carro_reserva: "Reserva",
+  disponivel_para_locar: "Disponível",
+  disponivel: "Disponível",
+  em_manutencao_rapida: "Manut. rápida",
+  em_manutencao_demorada: "Manut. demorada",
+  manutencao: "Manutenção",
+};
+
 /** Select de filtro por coluna, com opção "Todos". */
 function FiltroSelect({ label, value, onChange, options, render }: {
   label: string; value: string; onChange: (v: string) => void; options: string[]; render?: (v: string) => string;
@@ -42,10 +53,10 @@ function FiltroSelect({ label, value, onChange, options, render }: {
   );
 }
 
-function StatusBadge({ label, cor }: { label: string; cor: string | null }) {
+function StatusBadge({ label, cor, title }: { label: string; cor: string | null; title?: string }) {
   return (
-    <Badge variant="secondary" className="gap-1.5 whitespace-nowrap px-1.5 py-0 text-[10px]">
-      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cor ?? "currentColor" }} />
+    <Badge variant="secondary" className="gap-1 whitespace-nowrap px-1.5 py-0 text-[10px]" title={title}>
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cor ?? "currentColor" }} />
       {label}
     </Badge>
   );
@@ -284,7 +295,7 @@ export default function FrotaAtivaPage() {
                         <TableRow key={l.vehicle.id} className="cursor-pointer" onClick={() => navigate(`/frota-ativa/${l.vehicle.id}`)}>
                           <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(l.vehicle.placa)}</TableCell>
                           <TableCell className="max-w-[104px] truncate" title={`${l.vehicle.marca} ${l.vehicle.modelo}`}>{l.vehicle.marca} {l.vehicle.modelo}</TableCell>
-                          <TableCell><StatusBadge label={l.statusLabel} cor={l.statusCor} /></TableCell>
+                          <TableCell><StatusBadge label={STATUS_CURTO[l.status] ?? l.statusLabel} cor={l.statusCor} title={l.statusLabel} /></TableCell>
                           <TableCell className="max-w-[96px] truncate" title={l.locatario ?? undefined}>{l.locatario ?? <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap font-mono">{l.contrato?.numero ?? <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{l.receitaProjMes > 0 ? formatCurrency(l.receitaProjMes) : <span className="text-muted-foreground">—</span>}</TableCell>
