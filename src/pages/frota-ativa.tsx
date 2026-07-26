@@ -262,7 +262,7 @@ export default function FrotaAtivaPage() {
 
               <TabsContent value="veiculos" className="m-0">
                 <div className="overflow-x-auto">
-                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
+                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1 [&_th]:text-[11px] [&_td]:px-1 [&_td]:py-2">
                     <TableHeader>
                       <TableRow>
                         <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
@@ -270,10 +270,10 @@ export default function FrotaAtivaPage() {
                         <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                         <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                         <SortableHead sortKey="contrato" activeKey={sortKey} dir={sortDir} onSort={toggle}>Contrato</SortableHead>
-                        <SortableHead sortKey="proj" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Receita proj.</SortableHead>
-                        <SortableHead sortKey="real" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Receita real.</SortableHead>
-                        <SortableHead sortKey="custo" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Custo mês</SortableHead>
-                        <SortableHead sortKey="km" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM mês</SortableHead>
+                        <SortableHead sortKey="proj" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Rec. proj.</SortableHead>
+                        <SortableHead sortKey="real" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Rec. real.</SortableHead>
+                        <SortableHead sortKey="custo" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Custo</SortableHead>
+                        <SortableHead sortKey="km" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM</SortableHead>
                         <SortableHead sortKey="pend" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pend.</SortableHead>
                         <SortableHead sortKey="rastr" activeKey={sortKey} dir={sortDir} onSort={toggle}>Rastr.</SortableHead>
                         <SortableHead sortKey="ocorr" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Ocorr.</SortableHead>
@@ -283,9 +283,9 @@ export default function FrotaAtivaPage() {
                       {sorted.map((l) => (
                         <TableRow key={l.vehicle.id} className="cursor-pointer" onClick={() => navigate(`/frota-ativa/${l.vehicle.id}`)}>
                           <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(l.vehicle.placa)}</TableCell>
-                          <TableCell className="max-w-[130px] truncate" title={`${l.vehicle.marca} ${l.vehicle.modelo}`}>{l.vehicle.marca} {l.vehicle.modelo}</TableCell>
+                          <TableCell className="max-w-[104px] truncate" title={`${l.vehicle.marca} ${l.vehicle.modelo}`}>{l.vehicle.marca} {l.vehicle.modelo}</TableCell>
                           <TableCell><StatusBadge label={l.statusLabel} cor={l.statusCor} /></TableCell>
-                          <TableCell className="max-w-[120px] truncate" title={l.locatario ?? undefined}>{l.locatario ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell className="max-w-[96px] truncate" title={l.locatario ?? undefined}>{l.locatario ?? <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap font-mono">{l.contrato?.numero ?? <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{l.receitaProjMes > 0 ? formatCurrency(l.receitaProjMes) : <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{l.receitaRealMes > 0 ? formatCurrency(l.receitaRealMes) : <span className="text-muted-foreground">—</span>}</TableCell>
