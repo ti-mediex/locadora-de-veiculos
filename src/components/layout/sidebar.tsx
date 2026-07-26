@@ -17,6 +17,7 @@ import {
   Settings,
   AlertOctagon,
   Wrench,
+  CarFront,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ const NAV: {
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, roles: ALL },
   { to: "/receitas", label: "Receitas", icon: TrendingUp, roles: ["admin", "financeiro"] },
   { to: "/despesas", label: "Despesas", icon: TrendingDown, roles: ["admin", "financeiro"] },
+  { to: "/frota-ativa", label: "Frota Ativa", icon: CarFront, roles: ["admin", "financeiro", "operador"] },
   { to: "/pendencias", label: "Pendências", icon: AlertTriangle, roles: ALL },
   { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "financeiro", "operador"] },
   { to: "/ordens-servico", label: "Ordens de Serviço", icon: Wrench, roles: ["admin", "financeiro", "operador"] },
