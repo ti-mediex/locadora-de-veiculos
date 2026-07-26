@@ -307,42 +307,42 @@ export default function VistoriasPage() {
           ) : filtered.length === 0 ? (
             <EmptyState message="Nenhuma vistoria registrada" icon={<ClipboardCheck className="h-6 w-6" />} />
           ) : (
-            <Table>
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   <SortableHead sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={toggle} className="whitespace-nowrap">Data/Hora</SortableHead>
                   <SortableHead sortKey="tipo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tipo</SortableHead>
                   <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
-                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veículo</SortableHead>
+                  <SortableHead sortKey="statusv" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status veíc.</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="modelo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Modelo</SortableHead>
                   <SortableHead sortKey="vistoriador" activeKey={sortKey} dir={sortDir} onSort={toggle}>Vistoriador</SortableHead>
                   <SortableHead sortKey="km" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM</SortableHead>
-                  <SortableHead sortKey="fotos" activeKey={sortKey} dir={sortDir} onSort={toggle}>Fotos</SortableHead>
+                  <SortableHead sortKey="fotos" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Fotos</SortableHead>
                   <SortableHead sortKey="laudo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Laudo</SortableHead>
-                  <TableHead className="w-20"></TableHead>
+                  <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sorted.map((r) => (
                   <TableRow key={r.id} className="cursor-pointer" onClick={() => setViewId(r.id)}>
-                    <TableCell className="whitespace-nowrap text-xs">{new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</TableCell>
-                    <TableCell><Badge variant={tipoBadge[r.tipo]}>{tipoLabel(r.tipo)}</Badge></TableCell>
-                    <TableCell className="font-mono font-medium">{r.vehicles?.placa ?? r.placa ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">{new Date(r.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</TableCell>
+                    <TableCell><Badge variant={tipoBadge[r.tipo]} className="px-1.5 py-0 text-[10px]">{tipoLabel(r.tipo)}</Badge></TableCell>
+                    <TableCell className="whitespace-nowrap font-mono font-medium">{r.vehicles?.placa ?? r.placa ?? "—"}</TableCell>
                     <TableCell><VehicleStatusBadge status={vehicles.find((v) => v.id === r.vehicle_id)?.status} /></TableCell>
-                    <TableCell>{r.locatario_nome ?? "—"}</TableCell>
-                    <TableCell className="max-w-40 truncate text-xs text-muted-foreground">{r.vehicles?.modelo ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{r.vistoriador ?? "—"}</TableCell>
-                    <TableCell className="text-right">{r.km ?? "—"}</TableCell>
-                    <TableCell className="text-center">{r.fotos?.[0]?.count ?? 0}</TableCell>
+                    <TableCell className="max-w-[120px] truncate" title={r.locatario_nome ?? undefined}>{r.locatario_nome ?? "—"}</TableCell>
+                    <TableCell className="max-w-[120px] truncate text-muted-foreground" title={r.vehicles?.modelo ?? undefined}>{r.vehicles?.modelo ?? "—"}</TableCell>
+                    <TableCell className="max-w-[100px] truncate" title={r.vistoriador ?? undefined}>{r.vistoriador ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{r.km ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{r.fotos?.[0]?.count ?? 0}</TableCell>
                     <TableCell className="text-center">
-                      {r.laudo_externo_path ? <Badge variant="secondary">Vex</Badge> : <FileText className="mx-auto h-4 w-4 text-muted-foreground" />}
+                      {r.laudo_externo_path ? <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">Vex</Badge> : <FileText className="mx-auto h-4 w-4 text-muted-foreground" />}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" title="Ver vistoria" aria-label="Ver vistoria" onClick={() => setViewId(r.id)}><Eye className="h-4 w-4" /></Button>
+                      <div className="flex justify-end gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver vistoria" aria-label="Ver vistoria" onClick={() => setViewId(r.id)}><Eye className="h-4 w-4" /></Button>
                         {canWrite && (
-                          <Button variant="ghost" size="icon" title="Remover vistoria" aria-label="Remover vistoria" onClick={() => confirm("Remover vistoria?") && remove.mutate(r.id)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Remover vistoria" aria-label="Remover vistoria" onClick={() => confirm("Remover vistoria?") && remove.mutate(r.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
