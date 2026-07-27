@@ -120,7 +120,7 @@ export function useUploadArquivoFinanceiro() {
       if (error) throw error;
       return path;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance_entries"] }); toast.success("Arquivo enviado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance_entries"] }); qc.invalidateQueries({ queryKey: ["finance"] }); toast.success("Arquivo enviado"); },
     onError: (e: Error) => toast.error("Erro ao enviar arquivo: " + e.message),
   });
 }

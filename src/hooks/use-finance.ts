@@ -68,6 +68,9 @@ export interface FinanceEntryRow {
   valor: number;
   placa: string | null;
   recebido: boolean;
+  recebido_em: string | null;
+  comprovante_path: string | null;
+  contrato_id: string | null;
 }
 
 /** Lançamentos financeiros detalhados (para relatórios), com placa do veículo. */
@@ -77,7 +80,7 @@ export function useFinanceEntries(inicio?: string, fim?: string) {
     queryFn: async () => {
       let q = supabase
         .from("finance_entries")
-        .select("id, tipo, data, vehicle_id, categoria, descricao, valor, recebido, vehicles(placa)")
+        .select("id, tipo, data, vehicle_id, categoria, descricao, valor, recebido, recebido_em, comprovante_path, contrato_id, vehicles(placa)")
         .order("data", { ascending: false })
         .limit(5000);
       if (inicio) q = q.gte("data", inicio);
@@ -88,6 +91,7 @@ export function useFinanceEntries(inicio?: string, fim?: string) {
         id: r.id, tipo: r.tipo, data: r.data, vehicle_id: r.vehicle_id,
         categoria: r.categoria, descricao: r.descricao, valor: Number(r.valor),
         placa: r.vehicles?.placa ?? null, recebido: !!r.recebido,
+        recebido_em: r.recebido_em ?? null, comprovante_path: r.comprovante_path ?? null, contrato_id: r.contrato_id ?? null,
       }));
     },
   });

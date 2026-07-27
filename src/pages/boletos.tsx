@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Receipt, ChevronLeft, ChevronRight, CalendarClock, TrendingDown, CheckCircle2, XCircle } from "lucide-react";
+import { Receipt, ChevronLeft, ChevronRight, CalendarClock, TrendingDown, CheckCircle2, XCircle, Paperclip, Upload } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -9,11 +9,13 @@ import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSort } from "@/hooks/use-sort";
 import { useList } from "@/hooks/use-crud";
+import { useCanWrite } from "@/hooks/use-can-write";
 import { useContratos } from "@/hooks/use-contratos";
 import { useFinanceEntries } from "@/hooks/use-finance";
+import { useMarcarRecebido, useUploadArquivoFinanceiro, abrirArquivoFinanceiro } from "@/hooks/use-recebimentos";
 import { useParalisacoes } from "@/hooks/use-paralisacoes";
 import { OCORRENCIA_TIPO } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
@@ -32,6 +34,7 @@ interface Boleto {
   contratoId: string; vehicle_id: string; placa: string; modelo: string; categoria: string;
   locatario: string; numero: string; original: number; desconto: number; liquido: number;
   motivos: string[]; pago: boolean;
+  entryId: string | null; recebidoEm: string | null; comprovantePath: string | null;
 }
 
 export default function BoletosPage() {
@@ -40,6 +43,9 @@ export default function BoletosPage() {
   const { linhas, descontosSemana } = useParalisacoes();
   const { data: contratos = [] } = useContratos();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
+  const canWrite = useCanWrite("finance");
+  const marcarRecebido = useMarcarRecebido();
+  const uploadArquivo = useUploadArquivoFinanceiro();
 
   // Boleto da sexta F cobre o período [F, F+7) (pagamento antecipado).
   const sexta = useMemo(() => { const s = sextaDaSemana(new Date()); s.setDate(s.getDate() + offset * 7); return s; }, [offset]);
@@ -52,8 +58,11 @@ export default function BoletosPage() {
   const vMap = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
 
   const boletos = useMemo<Boleto[]>(() => {
-    const pagos = new Set<string>();
-    for (const e of entriesSemana) if (e.vehicle_id && e.tipo === "receita" && e.recebido && /alug|loca[çc]/i.test(e.categoria ?? "")) pagos.add(e.vehicle_id);
+    // Lançamento (receita de aluguel) da sexta de vencimento, por veículo.
+    const entryPorVeic = new Map<string, { id: string; recebido: boolean; recebidoEm: string | null; comprovante: string | null }>();
+    for (const e of entriesSemana) if (e.vehicle_id && e.tipo === "receita" && e.data === isoSex && /alug|loca[çc]/i.test(e.categoria ?? "")) {
+      entryPorVeic.set(e.vehicle_id, { id: e.id, recebido: e.recebido, recebidoEm: e.recebido_em, comprovante: e.comprovante_path });
+    }
     const descPorVeic = new Map<string, { desconto: number }>();
     for (const d of descontosSemana) if (d.semanaIni === isoSex) descPorVeic.set(d.vehicle_id, { desconto: d.desconto });
 
@@ -65,11 +74,13 @@ export default function BoletosPage() {
       const motivos = linhas
         .filter((l) => l.vehicle_id === vid && l.semanaIni === isoSex && l.horasDesc > 0)
         .map((l) => `${tipoLabel(l.tipo)} em ${formatDate(l.inicio.slice(0, 10))} — ${h1(l.horas)} (${h1(l.horasDesc)} desc.) = ${formatCurrency(l.desconto)}`);
+      const ent = entryPorVeic.get(vid);
       return {
         contratoId: c.id, vehicle_id: vid, placa: c.vehicles?.placa ?? v?.placa ?? c.placa ?? "—",
         modelo: c.vehicles?.modelo ?? v?.modelo ?? "", categoria: v?.categoria ?? "—",
         locatario: c.cliente_nome ?? "", numero: c.numero,
-        original, desconto, liquido: Math.max(0, original - desconto), motivos, pago: pagos.has(vid),
+        original, desconto, liquido: Math.max(0, original - desconto), motivos, pago: !!ent?.recebido,
+        entryId: ent?.id ?? null, recebidoEm: ent?.recebidoEm ?? null, comprovantePath: ent?.comprovante ?? null,
       };
     });
   }, [contratos, vMap, linhas, descontosSemana, entriesSemana, isoSex]);
@@ -147,7 +158,8 @@ export default function BoletosPage() {
                     <SortableHead sortKey="original" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Valor original</SortableHead>
                     <SortableHead sortKey="desconto" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Desconto</SortableHead>
                     <SortableHead sortKey="liquido" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">A emitir</SortableHead>
-                    <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
+                    <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Recebimento</SortableHead>
+                    {canWrite && <TableHead className="w-16"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -163,10 +175,29 @@ export default function BoletosPage() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatCurrency(b.liquido)}</TableCell>
                       <TableCell>
-                        {b.pago
-                          ? <Badge variant="success" className="gap-1 px-1.5 py-0 text-[10px]"><CheckCircle2 className="h-3 w-3" /> Pago</Badge>
-                          : <Badge variant="destructive" className="gap-1 px-1.5 py-0 text-[10px]"><XCircle className="h-3 w-3" /> Não pago</Badge>}
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          {b.pago
+                            ? <Badge variant="success" className="gap-1 whitespace-nowrap px-1.5 py-0 text-[10px]"><CheckCircle2 className="h-3 w-3" /> {b.recebidoEm ? formatDate(b.recebidoEm) : "Pago"}</Badge>
+                            : <Badge variant="destructive" className="gap-1 px-1.5 py-0 text-[10px]"><XCircle className="h-3 w-3" /> Não pago</Badge>}
+                          {b.comprovantePath && <button type="button" title="Ver comprovante" onClick={() => abrirArquivoFinanceiro(b.comprovantePath!)}><Paperclip className="h-3.5 w-3.5 text-primary" /></button>}
+                        </div>
                       </TableCell>
+                      {canWrite && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-0.5">
+                            {b.entryId && !b.pago && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar como recebido" aria-label="Marcar recebido"
+                                onClick={() => marcarRecebido.mutate({ id: b.entryId!, recebido: true, forma: "boleto" })}><CheckCircle2 className="h-4 w-4 text-success" /></Button>
+                            )}
+                            {b.entryId && (
+                              <label className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md hover:bg-accent" title="Anexar comprovante">
+                                <Upload className="h-4 w-4" />
+                                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && b.entryId) uploadArquivo.mutate({ entryId: b.entryId, file: f, campo: "comprovante_path" }); }} />
+                              </label>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
