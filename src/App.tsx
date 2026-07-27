@@ -26,6 +26,7 @@ const ImportacoesPage = lazy(() => import("@/pages/importacoes"));
 const VehiclesPage = lazy(() => import("@/pages/vehicles"));
 const FrotaAtivaPage = lazy(() => import("@/pages/frota-ativa"));
 const FrotaVeiculoPage = lazy(() => import("@/pages/frota-veiculo"));
+const LinhaDoTempoPage = lazy(() => import("@/pages/linha-do-tempo"));
 const ImportPage = lazy(() => import("@/pages/import"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="/veiculos" element={<VehiclesPage />} />
               <Route path="/frota-ativa" element={<FrotaAtivaPage />} />
               <Route path="/frota-ativa/:vehicleId" element={<FrotaVeiculoPage />} />
+              <Route path="/linha-do-tempo" element={<LinhaDoTempoPage />} />
               <Route path="/vistorias" element={<VistoriasPage />} />
               <Route path="/locatarios" element={<LocatariosPage />} />
               <Route path="/resumo-locatarios" element={<ResumoLocatariosPage />} />

@@ -15,6 +15,8 @@ export const CONFIG_DEFAULTS: AppConfig = {
   franquia_km_mensal: "6000",
   endereco_manutencao: "General Góes Monteiro",
   km_teto_dia: "1000",
+  // Gestão de paralisações: horas de tolerância antes de gerar desconto (regra: ≤4h sem desconto).
+  paralisacao_franquia_horas: "4",
 };
 
 /** Lê todas as configurações (com fallback para os padrões). */
