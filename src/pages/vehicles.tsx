@@ -518,10 +518,10 @@ export default function VehiclesPage() {
                     <TableCell className="max-w-[116px]">
                       <div className="truncate font-medium" title={`${v.marca} ${v.modelo}`}>{v.marca} {v.modelo}</div>
                       <div className="truncate text-[10px] text-muted-foreground">{v.cor} · {v.categoria}</div>
-                      <div className="mt-0.5 flex flex-wrap gap-1">
-                        {v.busca_apreensao && <Badge variant="destructive" className="px-1.5 py-0 text-[10px]" title="Busca e apreensão">B&amp;A</Badge>}
-                        {v.bloqueio_judicial && <Badge variant="destructive" className="px-1.5 py-0 text-[10px]" title="Bloqueio judicial">Bloqueio</Badge>}
-                        {v.alienacao_fiduciaria && <Badge variant="warning" className="px-1.5 py-0 text-[10px]" title={v.alienante ? `Alienado: ${v.alienante}` : "Alienado"}>Alienado</Badge>}
+                      <div className="mt-0.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+                        {v.busca_apreensao && <button type="button" onClick={() => navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}&restr=judicial`)}><Badge variant="destructive" className="cursor-pointer px-1.5 py-0 text-[10px]" title="Busca e apreensão — ver restrições">B&amp;A</Badge></button>}
+                        {v.bloqueio_judicial && <button type="button" onClick={() => navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}&restr=judicial`)}><Badge variant="destructive" className="cursor-pointer px-1.5 py-0 text-[10px]" title="Bloqueio judicial — ver restrições">Bloqueio</Badge></button>}
+                        {v.alienacao_fiduciaria && <button type="button" onClick={() => navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}&restr=alienacao`)}><Badge variant="warning" className="cursor-pointer px-1.5 py-0 text-[10px]" title={v.alienante ? `Alienado: ${v.alienante} — ver restrições` : "Alienado — ver restrições"}>Alienado</Badge></button>}
                         {v.quitado && <Badge variant="success" className="px-1.5 py-0 text-[10px]">Quitado</Badge>}
                       </div>
                     </TableCell>
