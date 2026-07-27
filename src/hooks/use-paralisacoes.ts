@@ -13,7 +13,7 @@ export const TIPOS_PARALISA = new Set(["manutencao", "sinistro", "avaria", "pane
 
 const HORAS_SEMANA = 168; // 7 × 24
 
-export interface ContratoAlvo { id: string; numero: string; valor_locacao: number; cliente_nome: string }
+export interface ContratoAlvo { id: string; numero: string; valor_locacao: number; valorHora: number; cliente_nome: string }
 
 export interface ParalisacaoLinha {
   ocorrencia: OcorrenciaRow;
@@ -99,7 +99,10 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
     const contratoPorId = new Map<string, ContratoAlvo>();
     const ultimoValorSemanal = new Map<string, number>(); // referência p/ ocioso
     for (const c of contratos) {
-      const alvo: ContratoAlvo = { id: c.id, numero: c.numero, valor_locacao: Number(c.valor_locacao ?? 0), cliente_nome: c.cliente_nome ?? "" };
+      const vl = Number(c.valor_locacao ?? 0);
+      // Usa o desconto/hora persistido no contrato (semanal ÷ 168); fallback ao cálculo.
+      const vh = c.valor_desconto_hora != null ? Number(c.valor_desconto_hora) : vl / HORAS_SEMANA;
+      const alvo: ContratoAlvo = { id: c.id, numero: c.numero, valor_locacao: vl, valorHora: vh, cliente_nome: c.cliente_nome ?? "" };
       contratoPorId.set(c.id, alvo);
       if (c.vehicle_id) {
         if (c.status === "ativo" && !contratoAtivo.has(c.vehicle_id)) contratoAtivo.set(c.vehicle_id, alvo);
@@ -122,7 +125,7 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
       const horas = Math.max(0, (fimT - iniT) / 3.6e6);
       const horasDesc = Math.max(0, horas - franquiaH);
       const alvo = (o.contrato_id && contratoPorId.get(o.contrato_id)) || contratoAtivo.get(o.vehicle_id) || null;
-      const valorHora = alvo ? alvo.valor_locacao / HORAS_SEMANA : 0;
+      const valorHora = alvo ? alvo.valorHora : 0;
       const sem = inicioSemana(new Date(o.inicio));
       const semFim = new Date(sem); semFim.setDate(semFim.getDate() + 6);
       const v = vMap.get(o.vehicle_id);

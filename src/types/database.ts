@@ -392,6 +392,7 @@ export interface Contrato {
   grupo: string | null;
   km_entrega: number | null;
   valor_locacao: number | null;
+  valor_desconto_hora: number | null;
   semanas: number | null;
   valor_total: number | null;
   pre_autorizacao: number | null;

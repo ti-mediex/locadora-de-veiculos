@@ -106,11 +106,9 @@ export default function ContratosPage() {
     }));
   }
 
-  const totalCalc = (() => {
-    const vl = parseFloat((form.valor_locacao ?? "").replace(",", ".")) || 0;
-    const sem = parseInt(form.semanas ?? "0", 10) || 0;
-    return vl * sem;
-  })();
+  const valorSemanal = parseFloat((form.valor_locacao ?? "").replace(",", ".")) || 0;
+  const totalCalc = valorSemanal * (parseInt(form.semanas ?? "0", 10) || 0);
+  const descontoHora = valorSemanal / 168; // semanal ÷ 7 dias ÷ 24h
 
   async function salvar() {
     const num = (s?: string) => (s && s !== "" ? Number(s.replace(",", ".")) : null);
@@ -365,6 +363,7 @@ export default function ContratosPage() {
                 <Field label="Valor da locação (semanal)"><Input value={form.valor_locacao ?? ""} onChange={(e) => set("valor_locacao", e.target.value)} placeholder="699,84" /></Field>
                 <Field label="Semanas"><Input type="number" value={form.semanas ?? ""} onChange={(e) => set("semanas", e.target.value)} /></Field>
                 <Field label="Total (calculado)"><Input readOnly value={formatCurrency(totalCalc)} className="bg-muted" /></Field>
+                <Field label="Desconto por hora (paralisação)"><Input readOnly value={formatCurrency(descontoHora)} className="bg-muted" title="Valor semanal ÷ 7 dias ÷ 24h — usado nos descontos por paralisação (atualiza sozinho)" /></Field>
                 <Field label="Pré-autorização"><Input value={form.pre_autorizacao ?? ""} onChange={(e) => set("pre_autorizacao", e.target.value)} placeholder="1.649,00" /></Field>
               </div>
             </section>
