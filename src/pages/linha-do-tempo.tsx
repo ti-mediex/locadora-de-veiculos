@@ -58,6 +58,9 @@ export default function LinhaDoTempoPage() {
   const porVeicOrdenado = useSorted(porVeiculo, (p, k) => {
     switch (k) {
       case "placa": return p.placa;
+      case "tipo": return p.modelo || p.categoria;
+      case "locatario": return p.locatario;
+      case "contrato": return p.contratoNumero;
       case "status": return p.statusLabel;
       case "ocorr": return p.nOcorr;
       case "horas": return p.horas;
@@ -136,10 +139,13 @@ export default function LinhaDoTempoPage() {
                 <EmptyState message="Sem dados de paralisação ainda" icon={<CalendarClock className="h-6 w-6" />} />
               ) : (
                 <div className="overflow-x-auto">
-                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
+                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-1 [&_th]:text-[11px] [&_td]:px-1 [&_td]:py-2">
                     <TableHeader>
                       <TableRow>
                         <SortableHead sortKey="placa" activeKey={sortKey} dir={sortDir} onSort={toggle}>Placa</SortableHead>
+                        <SortableHead sortKey="tipo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Tipo</SortableHead>
+                        <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
+                        <SortableHead sortKey="contrato" activeKey={sortKey} dir={sortDir} onSort={toggle}>Contrato</SortableHead>
                         <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Status</SortableHead>
                         <SortableHead sortKey="ocorr" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Ocorr.</SortableHead>
                         <SortableHead sortKey="horas" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Paralisação</SortableHead>
@@ -153,6 +159,9 @@ export default function LinhaDoTempoPage() {
                       {porVeicOrdenado.filter((p) => p.nOcorr > 0 || p.dispMes < 1).map((p) => (
                         <TableRow key={p.vehicle_id} className="cursor-pointer" onClick={() => abrirVeiculo(p.vehicle_id)}>
                           <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(p.placa)}</TableCell>
+                          <TableCell className="max-w-[110px] truncate" title={`${p.modelo}${p.categoria && p.categoria !== "—" ? ` · ${p.categoria}` : ""}`}>{p.modelo || p.categoria}</TableCell>
+                          <TableCell className="max-w-[120px] truncate" title={p.locatario || undefined}>{p.locatario || <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell className="whitespace-nowrap font-mono">{p.contratoNumero || <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell><VehicleStatusBadge status={p.status} /></TableCell>
                           <TableCell className="text-right tabular-nums">{p.nOcorr || <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{p.horas > 0 ? h1(p.horas) : <span className="text-muted-foreground">—</span>}</TableCell>

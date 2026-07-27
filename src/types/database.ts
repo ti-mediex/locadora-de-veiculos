@@ -349,6 +349,7 @@ export interface LocatarioDebito {
   competencia: string | null;
   pago: boolean;
   pago_em: string | null;
+  documento: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -360,6 +360,38 @@ export async function aplicarDetran(vehicleId: string, parsed: DetranParsed, opc
           const { error: mErr } = await supabase.from("vehicle_pendencias").insert(rows as never);
           if (mErr) throw mErr;
           res.multas = novas.length;
+
+          // Vincula cada multa ao contrato/locatário vigente na DATA DA INFRAÇÃO e
+          // cadastra como débito do locatário (idempotente pelo nº do auto).
+          const comData = novas.filter((m) => m.data_ocorrencia);
+          if (comData.length) {
+            const { data: cts } = await supabase
+              .from("contratos")
+              .select("id, locatario_id, placa, data_entrega, data_encerramento, devolucao_prevista, status")
+              .eq("vehicle_id", vehicleId);
+            const ctrs = (cts ?? []) as { id: string; locatario_id: string | null; placa: string | null; data_entrega: string | null; data_encerramento: string | null; devolucao_prevista: string | null; status: string }[];
+            const hoje = new Date().toISOString().slice(0, 10);
+            const vigenteEm = (data: string) => ctrs
+              .filter((c) => c.locatario_id && c.data_entrega && c.data_entrega <= data && (c.data_encerramento ?? (c.status === "ativo" ? hoje : c.devolucao_prevista) ?? hoje) >= data)
+              .sort((a, b) => (b.data_entrega ?? "").localeCompare(a.data_entrega ?? ""))[0];
+            const { data: jaDeb } = await supabase.from("locatario_debitos").select("documento").eq("vehicle_id", vehicleId).not("documento", "is", null);
+            const debDocs = new Set(((jaDeb ?? []) as { documento: string | null }[]).map((d) => d.documento));
+            const debRows: Record<string, unknown>[] = [];
+            for (const m of comData) {
+              if (debDocs.has(m.documento)) continue;
+              const ct = vigenteEm(m.data_ocorrencia);
+              if (!ct || !ct.locatario_id) continue;
+              debRows.push({
+                locatario_id: ct.locatario_id, contrato_id: ct.id, vehicle_id: vehicleId, placa: ct.placa,
+                categoria: "multa", descricao: `Multa ${m.documento} — ${m.infracao || "infração"}`,
+                valor: m.valor || 0, competencia: m.data_ocorrencia, pago: false, documento: m.documento,
+              });
+            }
+            if (debRows.length) {
+              const { error: dErr } = await supabase.from("locatario_debitos").insert(debRows as never);
+              if (dErr) console.warn("Falha ao cadastrar débito de multa do locatário:", dErr.message);
+            }
+          }
         }
       }
 

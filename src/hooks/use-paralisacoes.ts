@@ -35,7 +35,8 @@ export interface ParalisacaoLinha {
 }
 
 export interface ParalVeiculo {
-  vehicle_id: string; placa: string; modelo: string; status: string; statusLabel: string;
+  vehicle_id: string; placa: string; modelo: string; categoria: string; status: string; statusLabel: string;
+  locatario: string; contratoNumero: string;
   nOcorr: number; horas: number; horasDesc: number; desconto: number; custo: number;
   porTipo: Record<string, { horas: number; custo: number; n: number }>;
   dispMes: number;       // disponibilidade no mês de referência (0..1)
@@ -143,9 +144,11 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
       let x = porVeicMap.get(id);
       if (!x) {
         const v = vMap.get(id);
+        const ct = contratoAtivo.get(id) ?? null;
         x = {
-          vehicle_id: id, placa: v?.placa ?? "—", modelo: v?.modelo ?? "", status: v?.status ?? "",
+          vehicle_id: id, placa: v?.placa ?? "—", modelo: v?.modelo ?? "", categoria: v?.categoria ?? "—", status: v?.status ?? "",
           statusLabel: statusMap.get(v?.status ?? "")?.label ?? v?.status ?? "—",
+          locatario: ct?.cliente_nome ?? "", contratoNumero: ct?.numero ?? "",
           nOcorr: 0, horas: 0, horasDesc: 0, desconto: 0, custo: 0, porTipo: {},
           dispMes: 1, horasParadasMes: 0, receitaProjMes: 0, receitaRealMes: recMes.get(id) ?? 0, perdaMes: 0,
           contrato: contratoAtivo.get(id) ?? null,

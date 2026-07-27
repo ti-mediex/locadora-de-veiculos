@@ -19,6 +19,7 @@ import {
   Wrench,
   CarFront,
   CalendarClock,
+  Receipt,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ const NAV: {
   { to: "/despesas", label: "Despesas", icon: TrendingDown, roles: ["admin", "financeiro"] },
   { to: "/frota-ativa", label: "Frota Ativa", icon: CarFront, roles: ["admin", "financeiro", "operador"] },
   { to: "/linha-do-tempo", label: "Linha do Tempo", icon: CalendarClock, roles: ["admin", "financeiro", "operador"] },
+  { to: "/boletos", label: "Boletos Semanais", icon: Receipt, roles: ["admin", "financeiro"] },
   { to: "/pendencias", label: "Pendências", icon: AlertTriangle, roles: ALL },
   { to: "/ocorrencias", label: "Ocorrências", icon: AlertOctagon, roles: ["admin", "financeiro", "operador"] },
   { to: "/ordens-servico", label: "Ordens de Serviço", icon: Wrench, roles: ["admin", "financeiro", "operador"] },
