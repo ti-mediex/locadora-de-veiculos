@@ -266,10 +266,10 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Abertas" value={kpi.abertas} tone="warning" icon={<AlertOctagon className="h-5 w-5" />} />
-        <StatCard title="Em andamento" value={kpi.andamento} icon={<Wrench className="h-5 w-5" />} />
-        <StatCard title="Carros reserva ativos" value={kpi.reserva} icon={<CarFront className="h-5 w-5" />} />
-        <StatCard title="Custo registrado" value={formatCurrency(kpi.custo)} hint="soma dos custos das ocorrências" tone="destructive" icon={<ListTodo className="h-5 w-5" />} />
+        <StatCard title="Abertas" value={kpi.abertas} tone="warning" icon={<AlertOctagon className="h-5 w-5" />} onClick={() => { setFTipo("todos"); setFStatus("aberta"); }} />
+        <StatCard title="Em andamento" value={kpi.andamento} icon={<Wrench className="h-5 w-5" />} onClick={() => { setFTipo("todos"); setFStatus("em_andamento"); }} />
+        <StatCard title="Carros reserva ativos" value={kpi.reserva} icon={<CarFront className="h-5 w-5" />} onClick={() => { setFTipo("carro_reserva"); setFStatus("ativas"); }} />
+        <StatCard title="Custo registrado" value={formatCurrency(kpi.custo)} hint="soma dos custos das ocorrências" tone="destructive" icon={<ListTodo className="h-5 w-5" />} onClick={() => { setFTipo("todos"); setFStatus("todas"); }} />
       </div>
 
       <Card>

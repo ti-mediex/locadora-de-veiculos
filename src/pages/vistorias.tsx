@@ -267,9 +267,9 @@ export default function VistoriasPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Total de vistorias" value={rows.length} icon={<ClipboardCheck className="h-5 w-5" />} />
-        <StatCard title="No mês" value={noMes} icon={<Camera className="h-5 w-5" />} />
-        <StatCard title="Sinistros registrados" value={rows.filter((r) => r.tipo === "sinistro").length} tone="destructive" icon={<AlertTriangle className="h-5 w-5" />} />
+        <StatCard title="Total de vistorias" value={rows.length} icon={<ClipboardCheck className="h-5 w-5" />} onClick={() => setFTipo("todos")} />
+        <StatCard title="No mês" value={noMes} icon={<Camera className="h-5 w-5" />} onClick={() => setFTipo("todos")} />
+        <StatCard title="Sinistros registrados" value={rows.filter((r) => r.tipo === "sinistro").length} tone="destructive" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => setFTipo("sinistro")} />
       </div>
 
       <Card>

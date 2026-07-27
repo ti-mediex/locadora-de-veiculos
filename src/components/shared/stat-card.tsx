@@ -8,6 +8,8 @@ interface StatCardProps {
   icon?: ReactNode;
   hint?: string;
   tone?: "default" | "success" | "warning" | "destructive";
+  /** Se informado, o card fica clicável e leva ao detalhamento do dado. */
+  onClick?: () => void;
 }
 
 const TONE: Record<string, string> = {
@@ -17,9 +19,17 @@ const TONE: Record<string, string> = {
   destructive: "text-destructive bg-destructive/10",
 };
 
-export function StatCard({ title, value, icon, hint, tone = "default" }: StatCardProps) {
+export function StatCard({ title, value, icon, hint, tone = "default", onClick }: StatCardProps) {
+  const clickable = !!onClick;
   return (
-    <Card>
+    <Card
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick!(); } } : undefined}
+      className={cn(clickable && "cursor-pointer transition-colors hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+      title={clickable ? `Ver detalhes: ${title}` : undefined}
+    >
       <CardContent className="flex items-start justify-between gap-3 p-4 sm:p-5">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-medium text-muted-foreground sm:text-sm">{title}</p>

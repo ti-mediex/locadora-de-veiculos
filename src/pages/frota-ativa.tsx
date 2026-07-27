@@ -70,6 +70,7 @@ export default function FrotaAtivaPage() {
 
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState(TODOS);
+  const [fGrupo, setFGrupo] = useState<string>(TODOS);
   const [fProprietario, setFProprietario] = useState(TODOS);
   const [fLocatario, setFLocatario] = useState(TODOS);
   const { sortKey, sortDir, toggle, useSorted } = useSort<FrotaVeiculo>("placa", "asc");
@@ -104,11 +105,12 @@ export default function FrotaAtivaPage() {
         v.marca.toLowerCase().includes(q) || prop.toLowerCase().includes(q) || loc.toLowerCase().includes(q) ||
         (qa !== "" && soAlfa(v.placa).includes(qa));
       const mStatus = fStatus === TODOS || l.status === fStatus;
+      const mGrupo = fGrupo === TODOS || l.grupo === fGrupo;
       const mProp = fProprietario === TODOS || prop === fProprietario;
       const mLoc = fLocatario === TODOS || loc === fLocatario;
-      return mSearch && mStatus && mProp && mLoc;
+      return mSearch && mStatus && mGrupo && mProp && mLoc;
     });
-  }, [linhas, search, fStatus, fProprietario, fLocatario]);
+  }, [linhas, search, fStatus, fGrupo, fProprietario, fLocatario]);
 
   const sorted = useSorted(filtered, (l, k) => {
     switch (k) {
@@ -128,8 +130,9 @@ export default function FrotaAtivaPage() {
     }
   });
 
-  const filtrosAtivos = fStatus !== TODOS || fProprietario !== TODOS || fLocatario !== TODOS || !!search;
-  function limpar() { setSearch(""); setFStatus(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); }
+  const filtrosAtivos = fStatus !== TODOS || fGrupo !== TODOS || fProprietario !== TODOS || fLocatario !== TODOS || !!search;
+  function limpar() { setSearch(""); setFStatus(TODOS); setFGrupo(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); }
+  const toggleGrupo = (g: string) => setFGrupo((cur) => (cur === g ? TODOS : g));
 
   // Agrupamento por locatário (aba).
   const porLocatario = useMemo(() => {
@@ -201,26 +204,22 @@ export default function FrotaAtivaPage() {
 
       {/* KPIs principais */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Frota ativa" value={totais.veiculos} hint={`${totais.porGrupo.locado} locados · ${totais.porGrupo.disponivel} disponíveis`} icon={<Car className="h-5 w-5" />} />
-        <StatCard title={`Receita projetada · ${mesLabel}`} value={formatCurrency(totais.receitaProjMes)} hint="Contratos ativos (semanal × mês)" tone="default" icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard title={`Receita realizada · ${mesLabel}`} value={formatCurrency(totais.receitaRealMes)} hint={`Realização ${pct(totais.realizacaoPct)}`} tone={totais.realizacaoPct >= 0.9 ? "success" : "warning"} icon={<Wallet className="h-5 w-5" />} />
-        <StatCard title={`Custos de manutenção · ${mesLabel}`} value={formatCurrency(totais.custoManutMes)} hint={`${totais.emManutencao} em manutenção`} tone="destructive" icon={<Wrench className="h-5 w-5" />} />
+        <StatCard title="Frota ativa" value={totais.veiculos} hint={`${totais.porGrupo.locado} locados · ${totais.porGrupo.disponivel} disponíveis`} icon={<Car className="h-5 w-5" />} onClick={() => navigate("/veiculos")} />
+        <StatCard title={`Receita projetada · ${mesLabel}`} value={formatCurrency(totais.receitaProjMes)} hint="Contratos ativos (semanal × mês)" tone="default" icon={<TrendingUp className="h-5 w-5" />} onClick={() => navigate("/contratos")} />
+        <StatCard title={`Receita realizada · ${mesLabel}`} value={formatCurrency(totais.receitaRealMes)} hint={`Realização ${pct(totais.realizacaoPct)}`} tone={totais.realizacaoPct >= 0.9 ? "success" : "warning"} icon={<Wallet className="h-5 w-5" />} onClick={() => navigate("/receitas")} />
+        <StatCard title={`Custos de manutenção · ${mesLabel}`} value={formatCurrency(totais.custoManutMes)} hint={`${totais.emManutencao} em manutenção`} tone="destructive" icon={<Wrench className="h-5 w-5" />} onClick={() => navigate("/despesas")} />
       </div>
 
       {/* Distribuição por status */}
-      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {(Object.keys(GRUPO_LABEL) as (keyof typeof GRUPO_LABEL)[]).map((g) => (
-          <button key={g} type="button" onClick={() => setFStatus(TODOS)} className="text-left">
-            <Card><CardContent className="p-3">
+          <button key={g} type="button" onClick={() => toggleGrupo(g)} className="text-left">
+            <Card className={`transition-colors hover:border-primary/40 hover:bg-accent/40 ${fGrupo === g ? "border-primary" : ""}`}><CardContent className="p-3">
               <p className="text-xs text-muted-foreground">{GRUPO_LABEL[g]}</p>
               <p className="text-lg font-bold">{totais.porGrupo[g]}</p>
             </CardContent></Card>
           </button>
         ))}
-        <Card><CardContent className="p-3">
-          <p className="text-xs text-muted-foreground">Carro reserva</p>
-          <p className="text-lg font-bold">{totais.porGrupo.carro_reserva}</p>
-        </CardContent></Card>
       </div>
 
       {/* Faixa de alertas (clicável) */}

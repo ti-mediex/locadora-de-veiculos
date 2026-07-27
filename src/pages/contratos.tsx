@@ -224,9 +224,9 @@ export default function ContratosPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Total de contratos" value={rows.length} icon={<FileSignature className="h-5 w-5" />} />
-        <StatCard title="Contratos ativos" value={ativos} tone="success" icon={<FileText className="h-5 w-5" />} />
-        <StatCard title="Locação semanal (ativos)" value={formatCurrency(receitaAtiva)} icon={<FileText className="h-5 w-5" />} />
+        <StatCard title="Total de contratos" value={rows.length} icon={<FileSignature className="h-5 w-5" />} onClick={() => setFStatus("todos")} />
+        <StatCard title="Contratos ativos" value={ativos} tone="success" icon={<FileText className="h-5 w-5" />} onClick={() => setFStatus("ativo")} />
+        <StatCard title="Locação semanal (ativos)" value={formatCurrency(receitaAtiva)} icon={<FileText className="h-5 w-5" />} onClick={() => setFStatus("ativo")} />
       </div>
 
       <Card>

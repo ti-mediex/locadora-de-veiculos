@@ -119,10 +119,10 @@ export default function FrotaVeiculoPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title={`Receita proj. × real. · ${mesLabel}`} value={formatCurrency(fin.recMes)} hint={`Projetada ${formatCurrency(receitaProjMes)}`} tone={receitaProjMes > 0 && fin.recMes >= receitaProjMes * 0.9 ? "success" : "warning"} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard title={`Despesas · ${mesLabel}`} value={formatCurrency(fin.despMes)} hint={`Manutenção ${formatCurrency(fin.manutMes)} · total ${formatCurrency(fin.despTot)}`} tone="destructive" icon={<Wrench className="h-5 w-5" />} />
-        <StatCard title={`KM · ${mesLabel}`} value={`${formatNumber(Math.round(kmMes))} km`} hint={`KM atual ${formatNumber(v.km_atual)}`} icon={<Gauge className="h-5 w-5" />} />
-        <StatCard title="Pendências" value={pendAbertas.length} hint={pendVencidas.length > 0 ? `${pendVencidas.length} vencida(s)` : "nenhuma vencida"} tone={pendVencidas.length > 0 ? "destructive" : "default"} icon={<AlertTriangle className="h-5 w-5" />} />
+        <StatCard title={`Receita proj. × real. · ${mesLabel}`} value={formatCurrency(fin.recMes)} hint={`Projetada ${formatCurrency(receitaProjMes)}`} tone={receitaProjMes > 0 && fin.recMes >= receitaProjMes * 0.9 ? "success" : "warning"} icon={<TrendingUp className="h-5 w-5" />} onClick={() => navigate("/receitas")} />
+        <StatCard title={`Despesas · ${mesLabel}`} value={formatCurrency(fin.despMes)} hint={`Manutenção ${formatCurrency(fin.manutMes)} · total ${formatCurrency(fin.despTot)}`} tone="destructive" icon={<Wrench className="h-5 w-5" />} onClick={() => navigate("/despesas")} />
+        <StatCard title={`KM · ${mesLabel}`} value={`${formatNumber(Math.round(kmMes))} km`} hint={`KM atual ${formatNumber(v.km_atual)}`} icon={<Gauge className="h-5 w-5" />} onClick={() => navigate("/apuracao-km")} />
+        <StatCard title="Pendências" value={pendAbertas.length} hint={pendVencidas.length > 0 ? `${pendVencidas.length} vencida(s)` : "nenhuma vencida"} tone={pendVencidas.length > 0 ? "destructive" : "default"} icon={<AlertTriangle className="h-5 w-5" />} onClick={() => navigate(`/pendencias?veiculo=${placaEnc}`)} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -191,7 +191,7 @@ export default function FrotaVeiculoPage() {
                 <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Tipo</TableHead><TableHead>Categoria</TableHead><TableHead>Descrição</TableHead><TableHead className="text-right">Valor</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {fin.lancamentos.map((e) => (
-                    <TableRow key={e.id}>
+                    <TableRow key={e.id} className="cursor-pointer" onClick={() => navigate(e.tipo === "receita" ? "/receitas" : "/despesas")}>
                       <TableCell className="whitespace-nowrap">{formatDate(e.data)}</TableCell>
                       <TableCell><Badge variant={e.tipo === "receita" ? "success" : "destructive"} className="px-1.5 py-0 text-[10px]">{e.tipo === "receita" ? "Receita" : "Despesa"}</Badge></TableCell>
                       <TableCell className="whitespace-nowrap">{e.categoria ?? "—"}</TableCell>
@@ -220,7 +220,7 @@ export default function FrotaVeiculoPage() {
                   <TableHeader><TableRow><TableHead>Início</TableHead><TableHead>Tipo</TableHead><TableHead>Título</TableHead><TableHead className="text-right">Custo</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {ocorrVeic.slice(0, 15).map((o) => (
-                      <TableRow key={o.id}>
+                      <TableRow key={o.id} className="cursor-pointer" onClick={() => navigate(`/ocorrencias?veiculo=${placaEnc}`)}>
                         <TableCell className="whitespace-nowrap">{formatDate(o.inicio)}</TableCell>
                         <TableCell><Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: tipoCor(o.tipo) }} />{tipoLabel(o.tipo)}</Badge></TableCell>
                         <TableCell className="max-w-[160px] truncate" title={o.titulo ?? undefined}>{o.titulo ?? "—"}</TableCell>
@@ -246,7 +246,7 @@ export default function FrotaVeiculoPage() {
                   <TableHeader><TableRow><TableHead>Nº</TableHead><TableHead>Abertura</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {ordensVeic.slice(0, 15).map((o) => (
-                      <TableRow key={o.id}>
+                      <TableRow key={o.id} className="cursor-pointer" onClick={() => navigate("/ordens-servico")}>
                         <TableCell className="whitespace-nowrap font-mono">{o.numero}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(o.data_abertura)}</TableCell>
                         <TableCell><Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{osLabel(o.status)}</Badge></TableCell>
@@ -275,7 +275,7 @@ export default function FrotaVeiculoPage() {
                   <TableHeader><TableRow><TableHead>Mês</TableHead><TableHead className="text-right">KM rodado</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {kmPorMes.map(([mes, km]) => (
-                      <TableRow key={mes}><TableCell className="whitespace-nowrap">{mes}</TableCell><TableCell className="text-right tabular-nums">{formatNumber(Math.round(km))} km</TableCell></TableRow>
+                      <TableRow key={mes} className="cursor-pointer" onClick={() => navigate("/apuracao-km")}><TableCell className="whitespace-nowrap">{mes}</TableCell><TableCell className="text-right tabular-nums">{formatNumber(Math.round(km))} km</TableCell></TableRow>
                     ))}
                   </TableBody>
                 </Table>
@@ -298,7 +298,7 @@ export default function FrotaVeiculoPage() {
                     {pendVeic.slice(0, 15).map((p) => {
                       const vb = VENC_BADGE[vencimentoStatus(p.vencimento, p.status)];
                       return (
-                        <TableRow key={p.id}>
+                        <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/pendencias?veiculo=${placaEnc}`)}>
                           <TableCell><Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{p.categoria}</Badge></TableCell>
                           <TableCell className="max-w-[150px] truncate" title={p.titulo}>{p.titulo}</TableCell>
                           <TableCell className="whitespace-nowrap">{p.vencimento ? <Badge variant={vb.variant} className="px-1.5 py-0 text-[10px]">{formatDate(p.vencimento)}</Badge> : "—"}</TableCell>

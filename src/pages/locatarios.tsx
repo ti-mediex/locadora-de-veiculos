@@ -130,9 +130,9 @@ export default function LocatariosPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Total de locatários" value={rows.length} icon={<Users className="h-5 w-5" />} />
-        <StatCard title="Ativos" value={ativos} tone="success" icon={<UserCheck className="h-5 w-5" />} />
-        <StatCard title="Com veículo (contrato ativo)" value={comVeiculo} icon={<Car className="h-5 w-5" />} />
+        <StatCard title="Total de locatários" value={rows.length} icon={<Users className="h-5 w-5" />} onClick={() => setFStatus("todos")} />
+        <StatCard title="Ativos" value={ativos} tone="success" icon={<UserCheck className="h-5 w-5" />} onClick={() => setFStatus("ativo")} />
+        <StatCard title="Com veículo (contrato ativo)" value={comVeiculo} icon={<Car className="h-5 w-5" />} onClick={() => setFStatus("ativo")} />
       </div>
 
       <Card>

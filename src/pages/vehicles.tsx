@@ -617,16 +617,22 @@ export default function VehiclesPage() {
                         return <span className="text-muted-foreground">—</span>;
                       })()}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const rs = rastMap.get(v.id);
                         if (!rs) return <span className="text-muted-foreground" title="Sem rastreador cadastrado">—</span>;
                         return (
-                          <span className="inline-flex" title={rs.comunicando ? "Rastreador comunicando" : "Rastreador sem comunicação"} aria-label={rs.comunicando ? "Comunicando" : "Sem comunicação"}>
+                          <button
+                            type="button"
+                            className="inline-flex"
+                            title={rs.comunicando ? "Rastreador comunicando — ver rastreamento" : "Rastreador sem comunicação — ver rastreamento"}
+                            aria-label={rs.comunicando ? "Comunicando" : "Sem comunicação"}
+                            onClick={() => navigate(`/rastreamento?veiculo=${encodeURIComponent(v.placa)}`)}
+                          >
                             {rs.comunicando
                               ? <Wifi className="h-4 w-4 text-success" />
                               : <WifiOff className="h-4 w-4 text-destructive" />}
-                          </span>
+                          </button>
                         );
                       })()}
                     </TableCell>

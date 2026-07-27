@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Satellite, Wifi, WifiOff, AlertTriangle, Upload, FileText, BadgeCheck, ShoppingCart, Bell, MapPin, ShieldAlert, ChevronRight,
 } from "lucide-react";
@@ -55,6 +55,12 @@ export default function RastreamentoPage() {
 
   const [showImport, setShowImport] = useState(false);
   const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const v = searchParams.get("veiculo");
+    if (v) { setSearch(v); searchParams.delete("veiculo"); setSearchParams(searchParams, { replace: true }); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [fStatus, setFStatus] = useState("todos");
   const [fGrupo, setFGrupo] = useState("todos");
 

@@ -140,8 +140,21 @@ export default function PendenciasPage() {
   const editandoMulta = open && editing?.categoria === "Multa";
   const { data: itensCarregados } = usePendenciaMultasItens(editandoMulta ? editing?.id : undefined);
   useEffect(() => {
-    if (editandoMulta && itensCarregados) {
-      setItensMulta(itensCarregados.length ? itensCarregados : [emptyMulta()]);
+    if (!editandoMulta || itensCarregados === undefined) return;
+    if (itensCarregados.length) { setItensMulta(itensCarregados); return; }
+    // Sem itens-filhos: semeia a partir dos campos da própria pendência (caso das
+    // multas importadas do Detran, que gravam auto/data/local/valor na linha).
+    if (editing && (editing.documento || editing.data_ocorrencia || editing.local || editing.valor != null || editing.titulo)) {
+      setItensMulta([{
+        documento: editing.documento ?? "",
+        infracao: editing.titulo ?? "",
+        data_ocorrencia: editing.data_ocorrencia ?? "",
+        vencimento: editing.vencimento ?? "",
+        valor: editing.valor != null ? String(editing.valor) : "",
+        local: editing.local ?? "",
+      }]);
+    } else {
+      setItensMulta([emptyMulta()]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editandoMulta, itensCarregados]);
@@ -378,11 +391,11 @@ export default function PendenciasPage() {
 
       {/* Painel de alertas */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Vencidas" value={summary?.vencidas ?? 0} tone="destructive" icon={<AlertTriangle className="h-5 w-5" />} />
-        <StatCard title="Vence em 7 dias" value={summary?.a_vencer_7 ?? 0} tone="warning" icon={<Clock className="h-5 w-5" />} />
-        <StatCard title="Vence em 30 dias" value={summary?.a_vencer_30 ?? 0} tone="warning" icon={<Clock className="h-5 w-5" />} />
-        <StatCard title="Abertas críticas" value={summary?.criticas ?? 0} tone="destructive" icon={<ListTodo className="h-5 w-5" />} />
-        <StatCard title="Ituran inativos" value={summary?.ituran_inativos ?? 0} tone="warning" icon={<Radio className="h-5 w-5" />} />
+        <StatCard title="Vencidas" value={summary?.vencidas ?? 0} tone="destructive" icon={<AlertTriangle className="h-5 w-5" />} onClick={() => { setFCategoria("todas"); setFRestricao("off"); setFStatus("atrasadas"); }} />
+        <StatCard title="Vence em 7 dias" value={summary?.a_vencer_7 ?? 0} tone="warning" icon={<Clock className="h-5 w-5" />} onClick={() => { setFCategoria("todas"); setFRestricao("off"); setFStatus("ativas"); }} />
+        <StatCard title="Vence em 30 dias" value={summary?.a_vencer_30 ?? 0} tone="warning" icon={<Clock className="h-5 w-5" />} onClick={() => { setFCategoria("todas"); setFRestricao("off"); setFStatus("ativas"); }} />
+        <StatCard title="Abertas críticas" value={summary?.criticas ?? 0} tone="destructive" icon={<ListTodo className="h-5 w-5" />} onClick={() => { setFCategoria("todas"); setFRestricao("off"); setFStatus("ativas"); }} />
+        <StatCard title="Ituran inativos" value={summary?.ituran_inativos ?? 0} tone="warning" icon={<Radio className="h-5 w-5" />} onClick={() => { setFCategoria("Rastreador Ituran"); setFStatus("ativas"); }} />
       </div>
 
       {/* Total de multas (soma automática) */}
@@ -393,6 +406,7 @@ export default function PendenciasPage() {
           hint="Todas as multas cadastradas (exceto canceladas)"
           tone="warning"
           icon={<ReceiptText className="h-5 w-5" />}
+          onClick={() => { setFCategoria("Multa"); setFRestricao("off"); setFStatus("todas"); }}
         />
         <StatCard
           title="Multas em aberto"
@@ -400,6 +414,7 @@ export default function PendenciasPage() {
           hint="Multas ainda não resolvidas"
           tone="destructive"
           icon={<ReceiptText className="h-5 w-5" />}
+          onClick={() => { setFCategoria("Multa"); setFRestricao("off"); setFStatus("ativas"); }}
         />
       </div>
 

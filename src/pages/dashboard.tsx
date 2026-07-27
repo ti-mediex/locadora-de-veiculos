@@ -280,17 +280,17 @@ export default function DashboardPage() {
 
       {/* KPIs do mês */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Receita (mês)" value={formatCurrency(fin.recMes)} tone="success" icon={<TrendingUp className="h-5 w-5" />} />
-        <StatCard title="Despesa (mês)" value={formatCurrency(fin.despMes)} tone="destructive" icon={<TrendingDown className="h-5 w-5" />} />
-        <StatCard title="Lucro (mês)" value={formatCurrency(fin.lucroMes)} hint={`Margem: ${formatPercent(fin.margemMes)}`} tone={fin.lucroMes >= 0 ? "success" : "destructive"} icon={<PiggyBank className="h-5 w-5" />} />
-        <StatCard title="Veículos no escopo" value={veiculos.length} icon={<Car className="h-5 w-5" />} />
+        <StatCard title="Receita (mês)" value={formatCurrency(fin.recMes)} tone="success" icon={<TrendingUp className="h-5 w-5" />} onClick={() => navigate("/receitas")} />
+        <StatCard title="Despesa (mês)" value={formatCurrency(fin.despMes)} tone="destructive" icon={<TrendingDown className="h-5 w-5" />} onClick={() => navigate("/despesas")} />
+        <StatCard title="Lucro (mês)" value={formatCurrency(fin.lucroMes)} hint={`Margem: ${formatPercent(fin.margemMes)}`} tone={fin.lucroMes >= 0 ? "success" : "destructive"} icon={<PiggyBank className="h-5 w-5" />} onClick={() => navigate("/relatorios")} />
+        <StatCard title="Veículos no escopo" value={veiculos.length} icon={<Car className="h-5 w-5" />} onClick={() => navigate("/frota-ativa")} />
       </div>
 
       {/* Acumulado */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Receita acumulada" value={formatCurrency(fin.recTot)} icon={<Wallet className="h-5 w-5" />} />
-        <StatCard title="Despesa acumulada" value={formatCurrency(fin.despTot)} tone="warning" icon={<Wallet className="h-5 w-5" />} />
-        <StatCard title="Resultado acumulado" value={formatCurrency(fin.lucroTot)} tone={fin.lucroTot >= 0 ? "success" : "destructive"} icon={<Percent className="h-5 w-5" />} />
+        <StatCard title="Receita acumulada" value={formatCurrency(fin.recTot)} icon={<Wallet className="h-5 w-5" />} onClick={() => navigate("/receitas")} />
+        <StatCard title="Despesa acumulada" value={formatCurrency(fin.despTot)} tone="warning" icon={<Wallet className="h-5 w-5" />} onClick={() => navigate("/despesas")} />
+        <StatCard title="Resultado acumulado" value={formatCurrency(fin.lucroTot)} tone={fin.lucroTot >= 0 ? "success" : "destructive"} icon={<Percent className="h-5 w-5" />} onClick={() => navigate("/relatorios")} />
       </div>
 
       {/* Gestão de pendências e riscos */}
@@ -346,11 +346,11 @@ export default function DashboardPage() {
 
       {/* Indicadores da frota */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Valor da frota (FIPE)" value={formatCurrency(valorFrota)} hint={`${ativos.length} veículo(s) ativo(s)`} icon={<Wallet className="h-5 w-5" />} />
-        <StatCard title="Idade média da frota" value={idadeMedia != null ? `${idadeMedia.toFixed(1)} anos` : "—"} icon={<Clock className="h-5 w-5" />} />
-        <StatCard title="Frota disponível" value={`${disponiveis}/${veiculos.length}`} hint="disponíveis / no escopo" icon={<Car className="h-5 w-5" />} />
-        <StatCard title="Multas (valor total)" value={formatCurrency(totalMultasFrota)} hint={`${multasRank.length} veículo(s) com multa`} tone={totalMultasFrota > 0 ? "warning" : undefined} icon={<Receipt className="h-5 w-5" />} />
-        <StatCard title="Custo de manutenção" value={formatCurrency(totalManutencao)} hint={`${manutencaoRank.length} veículo(s) — ocorrências/OS`} tone={totalManutencao > 0 ? "warning" : undefined} icon={<Wrench className="h-5 w-5" />} />
+        <StatCard title="Valor da frota (FIPE)" value={formatCurrency(valorFrota)} hint={`${ativos.length} veículo(s) ativo(s)`} icon={<Wallet className="h-5 w-5" />} onClick={() => navigate("/veiculos")} />
+        <StatCard title="Idade média da frota" value={idadeMedia != null ? `${idadeMedia.toFixed(1)} anos` : "—"} icon={<Clock className="h-5 w-5" />} onClick={() => navigate("/veiculos")} />
+        <StatCard title="Frota disponível" value={`${disponiveis}/${veiculos.length}`} hint="disponíveis / no escopo" icon={<Car className="h-5 w-5" />} onClick={() => navigate("/frota-ativa")} />
+        <StatCard title="Multas (valor total)" value={formatCurrency(totalMultasFrota)} hint={`${multasRank.length} veículo(s) com multa`} tone={totalMultasFrota > 0 ? "warning" : undefined} icon={<Receipt className="h-5 w-5" />} onClick={() => navigate("/pendencias")} />
+        <StatCard title="Custo de manutenção" value={formatCurrency(totalManutencao)} hint={`${manutencaoRank.length} veículo(s) — ocorrências/OS`} tone={totalManutencao > 0 ? "warning" : undefined} icon={<Wrench className="h-5 w-5" />} onClick={() => navigate("/ordens-servico")} />
       </div>
 
       {/* Ranking: veículos com mais multas */}

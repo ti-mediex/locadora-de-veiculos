@@ -177,10 +177,10 @@ export default function OrdensServicoPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="OS abertas" value={kpi.abertas} tone="warning" icon={<ClipboardList className="h-5 w-5" />} />
-        <StatCard title="Em andamento" value={kpi.andamento} icon={<Wrench className="h-5 w-5" />} />
-        <StatCard title="Concluídas (mês)" value={kpi.concluidasMes} tone="success" icon={<CheckCircle2 className="h-5 w-5" />} />
-        <StatCard title="Custo concluído (mês)" value={formatCurrency(kpi.custoMes)} tone="destructive" icon={<Clock className="h-5 w-5" />} />
+        <StatCard title="OS abertas" value={kpi.abertas} tone="warning" icon={<ClipboardList className="h-5 w-5" />} onClick={() => setFStatus("ativas")} />
+        <StatCard title="Em andamento" value={kpi.andamento} icon={<Wrench className="h-5 w-5" />} onClick={() => setFStatus("em_andamento")} />
+        <StatCard title="Concluídas (mês)" value={kpi.concluidasMes} tone="success" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setFStatus("concluida")} />
+        <StatCard title="Custo concluído (mês)" value={formatCurrency(kpi.custoMes)} tone="destructive" icon={<Clock className="h-5 w-5" />} onClick={() => setFStatus("concluida")} />
       </div>
 
       <Card>

@@ -183,12 +183,12 @@ export default function ResumoLocatariosPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard title="Débito em aberto (total)" value={formatCurrency(kpi.debTot)} hint={`${kpi.comDebito} locatário(s) com débito`} tone={kpi.debTot > 0 ? "warning" : "default"} icon={<TrendingDown className="h-5 w-5" />} />
-        <StatCard title="Caução em custódia" value={formatCurrency(kpi.caucaoTot)} icon={<Wallet className="h-5 w-5" />} />
-        <StatCard title="Saldo líquido de caução" value={formatCurrency(kpi.saldoTot)} tone={kpi.saldoTot >= 0 ? "success" : "destructive"} icon={<ShieldCheck className="h-5 w-5" />} />
-        <StatCard title="Risco crítico (≥50%)" value={kpi.criticos} hint="caução comprometido por débitos" tone={kpi.criticos > 0 ? "destructive" : "default"} icon={<AlertTriangle className="h-5 w-5" />} />
-        <StatCard title="Locatários" value={locatarios.length} icon={<Users className="h-5 w-5" />} />
-        <StatCard title="Devoluções pendentes" value={devolucoes.length} hint={`caução a devolver após ${prazoDev} dias`} icon={<Undo2 className="h-5 w-5" />} />
+        <StatCard title="Débito em aberto (total)" value={formatCurrency(kpi.debTot)} hint={`${kpi.comDebito} locatário(s) com débito`} tone={kpi.debTot > 0 ? "warning" : "default"} icon={<TrendingDown className="h-5 w-5" />} onClick={() => { setTab("resumo"); setFRisco("comdebito"); }} />
+        <StatCard title="Caução em custódia" value={formatCurrency(kpi.caucaoTot)} icon={<Wallet className="h-5 w-5" />} onClick={() => { setTab("resumo"); setFRisco("todos"); }} />
+        <StatCard title="Saldo líquido de caução" value={formatCurrency(kpi.saldoTot)} tone={kpi.saldoTot >= 0 ? "success" : "destructive"} icon={<ShieldCheck className="h-5 w-5" />} onClick={() => setTab("resumo")} />
+        <StatCard title="Risco crítico (≥50%)" value={kpi.criticos} hint="caução comprometido por débitos" tone={kpi.criticos > 0 ? "destructive" : "default"} icon={<AlertTriangle className="h-5 w-5" />} onClick={() => { setTab("resumo"); setFRisco("critico"); }} />
+        <StatCard title="Locatários" value={locatarios.length} icon={<Users className="h-5 w-5" />} onClick={() => { setTab("resumo"); setFEscopo("todos"); }} />
+        <StatCard title="Devoluções pendentes" value={devolucoes.length} hint={`caução a devolver após ${prazoDev} dias`} icon={<Undo2 className="h-5 w-5" />} onClick={() => setTab("devolucao")} />
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
