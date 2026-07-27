@@ -205,6 +205,12 @@ export interface FinanceEntry {
   ocorrencia_id: string | null;
   ordem_servico_id: string | null;
   contrato_id: string | null;
+  recebido: boolean;
+  recebido_em: string | null;
+  forma_recebimento: string | null;
+  comprovante_path: string | null;
+  boleto_path: string | null;
+  nosso_numero: string | null;
   created_at: string;
   updated_at: string;
 }

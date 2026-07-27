@@ -67,6 +67,7 @@ export interface FinanceEntryRow {
   descricao: string;
   valor: number;
   placa: string | null;
+  recebido: boolean;
 }
 
 /** Lançamentos financeiros detalhados (para relatórios), com placa do veículo. */
@@ -76,17 +77,17 @@ export function useFinanceEntries(inicio?: string, fim?: string) {
     queryFn: async () => {
       let q = supabase
         .from("finance_entries")
-        .select("id, tipo, data, vehicle_id, categoria, descricao, valor, vehicles(placa)")
+        .select("id, tipo, data, vehicle_id, categoria, descricao, valor, recebido, vehicles(placa)")
         .order("data", { ascending: false })
         .limit(5000);
       if (inicio) q = q.gte("data", inicio);
       if (fim) q = q.lte("data", fim);
       const { data, error } = await q;
       if (error) throw error;
-      return ((data ?? []) as unknown as (Omit<FinanceEntryRow, "placa" | "valor"> & { valor: number | string; vehicles: { placa: string } | null })[]).map((r) => ({
+      return ((data ?? []) as unknown as (Omit<FinanceEntryRow, "placa" | "valor" | "recebido"> & { valor: number | string; recebido: boolean | null; vehicles: { placa: string } | null })[]).map((r) => ({
         id: r.id, tipo: r.tipo, data: r.data, vehicle_id: r.vehicle_id,
         categoria: r.categoria, descricao: r.descricao, valor: Number(r.valor),
-        placa: r.vehicles?.placa ?? null,
+        placa: r.vehicles?.placa ?? null, recebido: !!r.recebido,
       }));
     },
   });

@@ -53,7 +53,7 @@ export default function BoletosPage() {
 
   const boletos = useMemo<Boleto[]>(() => {
     const pagos = new Set<string>();
-    for (const e of entriesSemana) if (e.vehicle_id && e.tipo === "receita" && /alug|loca[çc]/i.test(e.categoria ?? "")) pagos.add(e.vehicle_id);
+    for (const e of entriesSemana) if (e.vehicle_id && e.tipo === "receita" && e.recebido && /alug|loca[çc]/i.test(e.categoria ?? "")) pagos.add(e.vehicle_id);
     const descPorVeic = new Map<string, { desconto: number }>();
     for (const d of descontosSemana) if (d.semanaIni === isoSex) descPorVeic.set(d.vehicle_id, { desconto: d.desconto });
 
