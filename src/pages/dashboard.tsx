@@ -319,7 +319,7 @@ export default function DashboardPage() {
             <EmptyState message="Nenhuma pendência financeira em aberto" />
           ) : (
             <div className="max-h-[60vh] overflow-auto">
-              <Table>
+              <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Veículo</TableHead>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-80 overflow-auto">
-              <Table>
+              <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Veículo</TableHead>
@@ -394,7 +394,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-80 overflow-auto">
-              <Table>
+              <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Veículo</TableHead>
@@ -478,7 +478,7 @@ export default function DashboardPage() {
               <EmptyState message="Sem dados" />
             ) : (
               <div className="max-h-80 overflow-auto">
-                <Table>
+                <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Placa</TableHead>

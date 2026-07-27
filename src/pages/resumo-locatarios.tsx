@@ -224,7 +224,7 @@ export default function ResumoLocatariosPage() {
                 <span className="whitespace-nowrap text-xs text-muted-foreground sm:self-center">{ordenadas.length} locatário(s)</span>
               </div>
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                   <TableHeader>
                     <TableRow>
                       <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
@@ -259,7 +259,7 @@ export default function ResumoLocatariosPage() {
             <CardContent className="p-0">
               {devolucoes.length === 0 ? <EmptyState message="Nenhuma devolução de caução pendente" icon={<Undo2 className="h-6 w-6" />} /> : (
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Locatário</TableHead>
@@ -315,7 +315,7 @@ export default function ResumoLocatariosPage() {
               <section>
                 <h4 className="mb-2 text-sm font-semibold">Histórico de contratos e veículos ({detalhe.contratos.length})</h4>
                 <div className="max-h-52 overflow-auto rounded-lg border">
-                  <Table>
+                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                     <TableHeader><TableRow><TableHead>Contrato</TableHead><TableHead>Veículo</TableHead><TableHead>Início</TableHead><TableHead>Término</TableHead><TableHead>Situação</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {detalhe.contratos.map((c) => (
@@ -346,7 +346,7 @@ export default function ResumoLocatariosPage() {
                   </div>
                 )}
                 <div className="max-h-52 overflow-auto rounded-lg border">
-                  <Table>
+                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                     <TableHeader><TableRow><TableHead>Categoria</TableHead><TableHead>Descrição</TableHead><TableHead className="text-right">Valor</TableHead><TableHead>Pago</TableHead>{canWrite && <TableHead></TableHead>}</TableRow></TableHeader>
                     <TableBody>
                       {debSel.map((d) => (
@@ -378,7 +378,7 @@ export default function ResumoLocatariosPage() {
                   </div>
                 )}
                 <div className="max-h-40 overflow-auto rounded-lg border">
-                  <Table>
+                  <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                     <TableHeader><TableRow><TableHead className="text-right">Valor</TableHead><TableHead>Data</TableHead><TableHead>Método</TableHead><TableHead>Devolvido</TableHead>{canWrite && <TableHead></TableHead>}</TableRow></TableHeader>
                     <TableBody>
                       {cauSel.map((c) => (

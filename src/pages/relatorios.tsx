@@ -59,7 +59,7 @@ function ReportTable<T extends object>({
           <EmptyState message="Sem dados no período" />
         ) : (
           <div className="max-h-[28rem] overflow-auto">
-            <Table>
+            <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
                   {columns.map((c) => (

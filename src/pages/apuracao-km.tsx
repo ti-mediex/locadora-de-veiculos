@@ -412,7 +412,7 @@ export default function ApuracaoKmPage() {
                     <span className="ml-auto text-xs text-muted-foreground">{porVeiculoFiltrado.length} veículo(s)</span>
                   </div>
                   <div className="max-h-[28rem] overflow-auto">
-                    <Table>
+                    <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Veículo</TableHead>
@@ -459,7 +459,7 @@ export default function ApuracaoKmPage() {
                 <CardContent className="p-0">
                   {pivotFiltrado.length === 0 ? <EmptyState message={filtroPlaca ? "Nenhuma placa encontrada" : "Sem dados"} /> : (
                     <div className="max-h-[32rem] overflow-auto">
-                      <Table>
+                      <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="sticky left-0 bg-card">Veículo</TableHead>
@@ -507,7 +507,7 @@ export default function ApuracaoKmPage() {
                 <CardContent className="p-0">
                   {franquiaRows.length === 0 ? <EmptyState message="Sem dados" /> : (
                     <div className="max-h-[28rem] overflow-auto">
-                      <Table>
+                      <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Veículo</TableHead>
@@ -547,7 +547,7 @@ export default function ApuracaoKmPage() {
                 <CardContent className="p-0">
                   {manutRows.length === 0 ? <EmptyState message="Nenhuma parada de manutenção no período" icon={<Wrench className="h-6 w-6" />} /> : (
                     <div className="max-h-[28rem] overflow-auto">
-                      <Table>
+                      <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Veículo</TableHead>
@@ -585,7 +585,7 @@ export default function ApuracaoKmPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="max-h-[32rem] overflow-auto">
-                    <Table>
+                    <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Dia</TableHead>

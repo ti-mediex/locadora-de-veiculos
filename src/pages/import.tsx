@@ -611,7 +611,7 @@ export default function ImportPage() {
             <div className="mt-6">
               <p className="mb-2 text-sm font-medium">Prévia ({rows.length} linha(s))</p>
               <div className="rounded-lg border">
-                <Table>
+                <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                   <TableHeader>
                     <TableRow>
                       {entity.fields.filter((f) => f.constant === undefined).map((f) => (
