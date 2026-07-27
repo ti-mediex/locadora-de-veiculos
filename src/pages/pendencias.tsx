@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, ReceiptText, X, FileUp,
+  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, ReceiptText, X, FileUp, CarFront,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { SelectVeiculo } from "@/components/shared/select-veiculo";
@@ -26,6 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-dialog";
 import {
@@ -120,6 +121,10 @@ export default function PendenciasPage() {
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
   // Atalho de restrições: "off" (sem recorte) ou um dos tipos em RESTR_ATALHOS.
   const [fRestricao, setFRestricao] = useState<RestrKey>("off");
+  const [fFrota, setFFrota] = useState(false); // só pendências de veículos da frota ativa
+
+  // Veículos que estão na frota ativa (status operacional).
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
 
   const [importOpen, setImportOpen] = useState(false);
   const [sugAberta, setSugAberta] = useState(false);
@@ -198,9 +203,10 @@ export default function PendenciasPage() {
         fStatus === "ativas" ? (r.status === "aberta" || r.status === "em_andamento") :
         fStatus === "atrasadas" ? vencimentoStatus(r.vencimento, r.status) === "vencida" :
         r.status === fStatus;
-      return matchSearch && matchCat && matchRestr && matchStatus;
+      const matchFrota = !fFrota || frotaVeicIds.has(r.vehicle_id);
+      return matchSearch && matchCat && matchRestr && matchStatus && matchFrota;
     });
-  }, [rows, search, fCategoria, fRestricao, fStatus, vehicles]);
+  }, [rows, search, fCategoria, fRestricao, fStatus, fFrota, frotaVeicIds, vehicles]);
 
   // Nº de veículos afetados por cada atalho de restrição (badge dos botões).
   const restrCount = useMemo(() => {
@@ -246,29 +252,48 @@ export default function PendenciasPage() {
     const catLabel = fCategoria === "todas" ? "Todas" : (PENDENCIA_CATEGORIA.find((c) => c.value === fCategoria)?.label ?? fCategoria);
     const statusLabel = fStatus === "todas" ? "Todas" : fStatus === "ativas" ? "Ativas (abertas)" : fStatus === "atrasadas" ? "Atrasadas" : (PENDENCIA_STATUS.find((s) => s.value === fStatus)?.label ?? fStatus);
     const colunas: RelColuna[] = [
-      { label: "Veículo" }, { label: "Status veículo" }, { label: "Locatário" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
+      { label: "Veículo / Pendência" }, { label: "Status veíc." }, { label: "Locatário" }, { label: "Categoria" }, { label: "Título" }, { label: "Responsável" },
       { label: "Vencimento" }, { label: "Prioridade" }, { label: "Status" },
     ];
-    const linhas = sorted.map((r) => {
-      const ituran = r.categoria.toLowerCase().includes("ituran") ? (r.ativo ? " (Ativo)" : " (Inativo)") : "";
-      const valor = r.valor != null ? ` · ${formatCurrency(r.valor)}${r.pago ? " (pago)" : ""}` : "";
-      return [
-        r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—",
-        statusVeiculoLabel(vehicles.find((v) => v.id === r.vehicle_id)?.status),
-        locatarioMap.get(r.vehicle_id) ?? "—",
-        r.categoria, `${r.titulo}${ituran}${valor}`, r.responsavel ?? "—",
-        r.vencimento ? formatDate(r.vencimento) : "—",
-        PRIO[r.prioridade]?.label ?? r.prioridade,
-        PENDENCIA_STATUS.find((s) => s.value === r.status)?.label ?? r.status,
-      ];
-    });
-    const total = sorted.reduce((s, r) => s + (r.valor ?? 0), 0);
+    // Agrupa as pendências por veículo (uma seção por veículo, ordenadas por placa).
+    const placaDe = (r: PendenciaRow) => r.vehicles?.placa ?? vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—";
+    const modeloDe = (r: PendenciaRow) => r.vehicles?.modelo ?? vehicles.find((v) => v.id === r.vehicle_id)?.modelo ?? "";
+    const grupos = new Map<string, PendenciaRow[]>();
+    for (const r of sorted) {
+      const key = r.vehicle_id ?? "__sem__";
+      const arr = grupos.get(key); if (arr) arr.push(r); else grupos.set(key, [r]);
+    }
+    const gruposOrd = [...grupos.values()].sort((a, b) => placaDe(a[0]).localeCompare(placaDe(b[0]), "pt-BR"));
+    const linhas: (string | number)[][] = [];
+    let total = 0;
+    for (const itens of gruposOrd) {
+      const first = itens[0];
+      const placa = placaDe(first), modelo = modeloDe(first);
+      const statusV = statusVeiculoLabel(vehicles.find((v) => v.id === first.vehicle_id)?.status);
+      const loc = locatarioMap.get(first.vehicle_id) ?? "—";
+      const sub = itens.reduce((s, r) => s + (r.valor ?? 0), 0);
+      total += sub;
+      // Cabeçalho do grupo (veículo): placa/modelo, status, locatário, contagem e subtotal.
+      linhas.push([modelo ? `${placa} — ${modelo}` : placa, statusV, loc, `${itens.length} pendência(s)`, sub > 0 ? `Subtotal ${formatCurrency(sub)}` : "", "", "", "", ""]);
+      // Detalhe de cada pendência do veículo (coluna Veículo em branco = indentação).
+      for (const r of itens) {
+        const ituran = r.categoria.toLowerCase().includes("ituran") ? (r.ativo ? " (Ativo)" : " (Inativo)") : "";
+        const valor = r.valor != null ? ` · ${formatCurrency(r.valor)}${r.pago ? " (pago)" : ""}` : "";
+        linhas.push([
+          "", "", "",
+          r.categoria, `${r.titulo}${ituran}${valor}`, r.responsavel ?? "—",
+          r.vencimento ? formatDate(r.vencimento) : "—",
+          PRIO[r.prioridade]?.label ?? r.prioridade,
+          PENDENCIA_STATUS.find((s) => s.value === r.status)?.label ?? r.status,
+        ]);
+      }
+    }
     const atalhoAtivo = RESTR_ATALHOS.find((a) => a.key === fRestricao);
     const restrLabel = atalhoAtivo ? atalhoAtivo.label : "—";
     const tituloRel = atalhoAtivo ? `${atalhoAtivo.label} por veículo` : "Pendências por veículo";
     return {
-      titulo: tituloRel, subtitulo: `${sorted.length} registro(s)`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }],
+      titulo: tituloRel, subtitulo: `${gruposOrd.length} veículo(s) · ${sorted.length} pendência(s)`,
+      filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "Todos os veículos" }],
       colunas, linhas, rodape: ["", "", "", "", `Total: ${formatCurrency(total)}`, "", "", "", ""],
     };
   }
@@ -427,6 +452,16 @@ export default function PendenciasPage() {
           </div>
           {/* Atalhos rápidos por tipo de restrição */}
           <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm">
+            <Button
+              type="button"
+              variant={fFrota ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFFrota((s) => !s)}
+              title="Mostrar apenas pendências de veículos da frota ativa (locado, carro reserva, disponível, manutenção)"
+            >
+              <CarFront className="h-4 w-4" /> Frota ativa
+              <Badge variant="secondary" className="ml-1">{frotaVeicIds.size}</Badge>
+            </Button>
             <span className="text-muted-foreground">Atalhos:</span>
             {RESTR_ATALHOS.map((a) => (
               <Button
