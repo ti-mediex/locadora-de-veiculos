@@ -30,8 +30,8 @@ export interface ParalisacaoLinha {
   desconto: number;      // R$ a abater no próximo boleto
   custo: number;         // custo da ocorrência
   contrato: ContratoAlvo | null;
-  semanaIni: string;     // YYYY-MM-DD (segunda-feira)
-  semanaLabel: string;   // dd/mm a dd/mm
+  semanaIni: string;     // YYYY-MM-DD (sexta de vencimento do boleto que recebe o desconto)
+  semanaLabel: string;   // período do boleto: dd/mm a dd/mm
 }
 
 export interface ParalVeiculo {
@@ -56,7 +56,9 @@ export interface ParalTotais {
   perdaParalisacao: number; receitaOciosaSemana: number; veiculosOciosos: number;
 }
 
-const inicioSemana = (d: Date) => { const x = new Date(d); const dow = (x.getDay() + 6) % 7; x.setDate(x.getDate() - dow); x.setHours(0, 0, 0, 0); return x; };
+/** Sexta-feira que INICIA o período de locação que contém a data (sexta ≤ data).
+ *  Locações são pagas antecipadamente: o boleto da sexta F cobre [F, F+7). */
+const sextaDoPeriodo = (d: Date) => { const x = new Date(d); const diff = (x.getDay() - 5 + 7) % 7; x.setDate(x.getDate() - diff); x.setHours(0, 0, 0, 0); return x; };
 const fmtDia = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -127,14 +129,17 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
       const horasDesc = Math.max(0, horas - franquiaH);
       const alvo = (o.contrato_id && contratoPorId.get(o.contrato_id)) || contratoAtivo.get(o.vehicle_id) || null;
       const valorHora = alvo ? alvo.valorHora : 0;
-      const sem = inicioSemana(new Date(o.inicio));
-      const semFim = new Date(sem); semFim.setDate(semFim.getDate() + 6);
+      // Pagamento antecipado: o desconto entra no PRÓXIMO boleto (a sexta seguinte
+      // ao início do período em que ocorreu a paralisação).
+      const periodoIni = sextaDoPeriodo(new Date(o.inicio));
+      const boletoVenc = new Date(periodoIni); boletoVenc.setDate(boletoVenc.getDate() + 7);
+      const boletoFim = new Date(boletoVenc); boletoFim.setDate(boletoFim.getDate() + 6);
       const v = vMap.get(o.vehicle_id);
       linhas.push({
         ocorrencia: o, vehicle_id: o.vehicle_id, placa: o.vehicles?.placa ?? v?.placa ?? o.placa ?? "—",
         modelo: o.vehicles?.modelo ?? v?.modelo ?? "", tipo: o.tipo, inicio: o.inicio, fim: o.fim, emAberto: !o.fim,
         horas, horasDesc, valorHora, desconto: horasDesc * valorHora, custo: Number(o.custo ?? 0),
-        contrato: alvo, semanaIni: iso(sem), semanaLabel: `${fmtDia(sem)} a ${fmtDia(semFim)}`,
+        contrato: alvo, semanaIni: iso(boletoVenc), semanaLabel: `${fmtDia(boletoVenc)} a ${fmtDia(boletoFim)}`,
       });
     }
 

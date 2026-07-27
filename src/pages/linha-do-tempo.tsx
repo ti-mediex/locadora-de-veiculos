@@ -186,7 +186,7 @@ export default function LinhaDoTempoPage() {
                   <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Placa</TableHead><TableHead>Contrato</TableHead><TableHead>Semana</TableHead>
+                        <TableHead>Placa</TableHead><TableHead>Contrato</TableHead><TableHead>Boleto (vencimento)</TableHead><TableHead>Período do boleto</TableHead>
                         <TableHead className="text-right">Horas descontáveis</TableHead><TableHead className="text-right">Desconto no boleto</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -195,7 +195,8 @@ export default function LinhaDoTempoPage() {
                         <TableRow key={`${d.vehicle_id}-${d.semanaIni}`} className="cursor-pointer" onClick={() => abrirVeiculo(d.vehicle_id)}>
                           <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(d.placa)}</TableCell>
                           <TableCell className="whitespace-nowrap font-mono">{d.contratoNumero}</TableCell>
-                          <TableCell className="whitespace-nowrap">{d.semanaLabel}</TableCell>
+                          <TableCell className="whitespace-nowrap font-medium">{formatDate(d.semanaIni)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground">{d.semanaLabel}</TableCell>
                           <TableCell className="text-right tabular-nums">{h1(d.horasDesc)}</TableCell>
                           <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-destructive">{formatCurrency(d.desconto)}</TableCell>
                         </TableRow>

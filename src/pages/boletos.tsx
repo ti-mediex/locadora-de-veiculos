@@ -41,13 +41,13 @@ export default function BoletosPage() {
   const { data: contratos = [] } = useContratos();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
 
+  // Boleto da sexta F cobre o período [F, F+7) (pagamento antecipado).
   const sexta = useMemo(() => { const s = sextaDaSemana(new Date()); s.setDate(s.getDate() + offset * 7); return s; }, [offset]);
-  const segunda = useMemo(() => { const s = new Date(sexta); s.setDate(s.getDate() - 4); return s; }, [sexta]);
-  const domingo = useMemo(() => { const s = new Date(segunda); s.setDate(s.getDate() + 6); return s; }, [segunda]);
-  const isoSeg = isoDia(segunda), isoDom = isoDia(domingo), isoSex = isoDia(sexta);
-  const semanaLabel = `${formatDate(isoSeg)} a ${formatDate(isoDom)}`;
+  const fimPeriodo = useMemo(() => { const s = new Date(sexta); s.setDate(s.getDate() + 6); return s; }, [sexta]);
+  const isoSex = isoDia(sexta), isoFim = isoDia(fimPeriodo);
+  const semanaLabel = `${formatDate(isoSex)} a ${formatDate(isoFim)}`;
 
-  const { data: entriesSemana = [] } = useFinanceEntries(isoSeg, isoDom);
+  const { data: entriesSemana = [] } = useFinanceEntries(isoSex, isoFim);
 
   const vMap = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
 
@@ -55,7 +55,7 @@ export default function BoletosPage() {
     const pagos = new Set<string>();
     for (const e of entriesSemana) if (e.vehicle_id && e.tipo === "receita" && /alug|loca[çc]/i.test(e.categoria ?? "")) pagos.add(e.vehicle_id);
     const descPorVeic = new Map<string, { desconto: number }>();
-    for (const d of descontosSemana) if (d.semanaIni === isoSeg) descPorVeic.set(d.vehicle_id, { desconto: d.desconto });
+    for (const d of descontosSemana) if (d.semanaIni === isoSex) descPorVeic.set(d.vehicle_id, { desconto: d.desconto });
 
     return contratos.filter((c) => c.status === "ativo" && c.vehicle_id).map((c) => {
       const vid = c.vehicle_id!;
@@ -63,8 +63,8 @@ export default function BoletosPage() {
       const original = Number(c.valor_locacao ?? 0);
       const desconto = descPorVeic.get(vid)?.desconto ?? 0;
       const motivos = linhas
-        .filter((l) => l.vehicle_id === vid && l.semanaIni === isoSeg && l.horasDesc > 0)
-        .map((l) => `${tipoLabel(l.tipo)} ${h1(l.horas)} (${h1(l.horasDesc)} desc.) — ${formatCurrency(l.desconto)}`);
+        .filter((l) => l.vehicle_id === vid && l.semanaIni === isoSex && l.horasDesc > 0)
+        .map((l) => `${tipoLabel(l.tipo)} em ${formatDate(l.inicio.slice(0, 10))} — ${h1(l.horas)} (${h1(l.horasDesc)} desc.) = ${formatCurrency(l.desconto)}`);
       return {
         contratoId: c.id, vehicle_id: vid, placa: c.vehicles?.placa ?? v?.placa ?? c.placa ?? "—",
         modelo: c.vehicles?.modelo ?? v?.modelo ?? "", categoria: v?.categoria ?? "—",
@@ -72,7 +72,7 @@ export default function BoletosPage() {
         original, desconto, liquido: Math.max(0, original - desconto), motivos, pago: pagos.has(vid),
       };
     });
-  }, [contratos, vMap, linhas, descontosSemana, entriesSemana, isoSeg]);
+  }, [contratos, vMap, linhas, descontosSemana, entriesSemana, isoSex]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<Boleto>("placa", "asc");
   const sorted = useSorted(boletos, (b, k) => {
@@ -105,7 +105,7 @@ export default function BoletosPage() {
       formatCurrency(b.original), b.desconto > 0 ? formatCurrency(b.desconto) : "—", formatCurrency(b.liquido), b.pago ? "Pago" : "Não pago",
     ]);
     return {
-      titulo: "Boletos semanais", subtitulo: `Semana ${semanaLabel} · vencimento ${formatDate(isoSex)} (sexta)`,
+      titulo: "Boletos semanais", subtitulo: `Período ${semanaLabel} · vencimento ${formatDate(isoSex)} (sexta, antecipado) · descontos das paralisações do período anterior`,
       colunas, linhas: linhasRel,
       rodape: ["", "", "", "", "Total", formatCurrency(kpi.orig), formatCurrency(kpi.desc), formatCurrency(kpi.liq), `${kpi.naoPagos} não pago(s)`],
     };
@@ -115,13 +115,13 @@ export default function BoletosPage() {
     <div className="space-y-6">
       <PageHeader
         title="Boletos Semanais"
-        description={`Emissão às quintas/sextas · vencimento sexta (${formatDate(isoSex)}) · locação − descontos de paralisação`}
+        description={`Pagamento antecipado · vencimento sexta ${formatDate(isoSex)} (cobre ${semanaLabel}) · locação − descontos das paralisações do período anterior`}
         actions={<RelatorioExport build={buildRelatorio} nomeArquivo="boletos-semanais" disabled={!sorted.length} />}
       />
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setOffset((o) => o - 1)}><ChevronLeft className="h-4 w-4" /> Semana anterior</Button>
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"><CalendarClock className="h-4 w-4 text-muted-foreground" /> {semanaLabel} · vencimento <b>{formatDate(isoSex)}</b></div>
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"><CalendarClock className="h-4 w-4 text-muted-foreground" /> Período {semanaLabel} · vencimento <b>{formatDate(isoSex)}</b></div>
         <Button variant="outline" size="sm" onClick={() => setOffset((o) => o + 1)} disabled={offset >= 0}>Próxima semana <ChevronRight className="h-4 w-4" /></Button>
         {offset !== 0 && <Button variant="ghost" size="sm" onClick={() => setOffset(0)}>Semana atual</Button>}
       </div>
