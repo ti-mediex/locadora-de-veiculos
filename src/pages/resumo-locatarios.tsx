@@ -19,6 +19,9 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useLocatarios } from "@/hooks/use-locatarios";
 import { useContratos } from "@/hooks/use-contratos";
+import { useList } from "@/hooks/use-crud";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import type { Vehicle } from "@/types/database";
 import { useAppConfig } from "@/hooks/use-app-config";
 import {
   useDebitos, useCaucoes, useSaveDebito, useDeleteDebito, useSaveCaucao, useDeleteCaucao, useDevolverCaucao,
@@ -40,6 +43,7 @@ const addDias = (iso: string, dias: number) => { const d = new Date(iso + "T00:0
 export default function ResumoLocatariosPage() {
   const { data: locatarios = [] } = useLocatarios();
   const { data: contratos = [] } = useContratos();
+  const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const { data: debitos = [] } = useDebitos();
   const { data: caucoes = [] } = useCaucoes();
   const { data: config } = useAppConfig();
@@ -50,6 +54,16 @@ export default function ResumoLocatariosPage() {
   const prazoDev = Number(config?.caucao_devolucao_dias ?? 60) || 60;
   const [search, setSearch] = useState("");
   const [fRisco, setFRisco] = useState("todos");
+  const [fEscopo, setFEscopo] = useState("frota"); // frota | todos
+
+  // Locatários que constam da frota ativa: têm contrato ATIVO num veículo em
+  // status operacional (locado, carro reserva, disponível, manutenção).
+  const locFrotaAtiva = useMemo(() => {
+    const frotaVeic = new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id));
+    const s = new Set<string>();
+    for (const c of contratos) if (c.status === "ativo" && c.locatario_id && c.vehicle_id && frotaVeic.has(c.vehicle_id)) s.add(c.locatario_id);
+    return s;
+  }, [vehicles, contratos]);
   const [sel, setSel] = useState<Locatario | null>(null);
   const [tab, setTab] = useState("resumo");
   const [formDeb, setFormDeb] = useState<Record<string, string>>({});
@@ -85,9 +99,10 @@ export default function ResumoLocatariosPage() {
     return linhas.filter((r) => {
       const mQ = !q || r.l.nome.toLowerCase().includes(q) || (r.l.cpf ?? "").includes(q);
       const mR = fRisco === "todos" ? true : fRisco === "critico" ? r.risco >= 0.5 : fRisco === "comdebito" ? r.debAberto > 0 : r.debAberto === 0;
-      return mQ && mR;
+      const mE = fEscopo === "todos" || locFrotaAtiva.has(r.l.id);
+      return mQ && mR && mE;
     }).sort((a, b) => b.risco - a.risco || b.debAberto - a.debAberto);
-  }, [linhas, search, fRisco]);
+  }, [linhas, search, fRisco, fEscopo, locFrotaAtiva]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<(typeof linhas)[number]>("risco", "desc");
   const ordenadas = useSorted(filtradas, (r, k) => {
@@ -190,8 +205,15 @@ export default function ResumoLocatariosPage() {
                   <Search className="h-4 w-4 text-muted-foreground" />
                   <Input placeholder="Buscar por nome ou CPF..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
                 </div>
+                <Select value={fEscopo} onValueChange={setFEscopo}>
+                  <SelectTrigger className={`w-full sm:w-52 ${fEscopo === "frota" ? "border-primary text-primary" : ""}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="frota">Somente frota ativa</SelectItem>
+                    <SelectItem value="todos">Todos os locatários</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={fRisco} onValueChange={setFRisco}>
-                  <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="comdebito">Com débito</SelectItem>
@@ -199,6 +221,7 @@ export default function ResumoLocatariosPage() {
                     <SelectItem value="semdebito">Sem débito</SelectItem>
                   </SelectContent>
                 </Select>
+                <span className="whitespace-nowrap text-xs text-muted-foreground sm:self-center">{ordenadas.length} locatário(s)</span>
               </div>
               <div className="overflow-x-auto">
                 <Table>
