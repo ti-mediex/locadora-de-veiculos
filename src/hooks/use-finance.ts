@@ -129,6 +129,10 @@ export function useGerarReceitaAluguel() {
       if (eErr) throw eErr;
       const jaTem = new Set(((existentes ?? []) as { contrato_id: string; data: string }[]).map((e) => `${e.contrato_id}|${e.data}`));
 
+      // Sextas-feiras do mês = vencimento de todos os boletos de locação.
+      const sextas: Date[] = [];
+      { const f = new Date(monthStart); f.setDate(f.getDate() + ((5 - f.getDay()) + 7) % 7); for (; f <= monthEnd; f.setDate(f.getDate() + 7)) sextas.push(new Date(f)); }
+
       const rows: Record<string, unknown>[] = [];
       const contratosLancados = new Set<string>();
       let jaExistiam = 0;
@@ -143,8 +147,8 @@ export function useGerarReceitaAluguel() {
           const s = new Date(inicio); s.setDate(s.getDate() + Number(c.semanas) * 7 - 1);
           if (s < limite) limite = s;
         }
-        for (const d = new Date(inicio); d <= monthEnd && d <= limite; d.setDate(d.getDate() + 7)) {
-          if (d < monthStart) continue;
+        for (const d of sextas) {
+          if (d < inicio || d > limite) continue;
           const ds = fmt(d);
           const key = `${c.id}|${ds}`;
           if (jaTem.has(key)) { jaExistiam++; contratosLancados.add(c.id); continue; }
@@ -154,7 +158,7 @@ export function useGerarReceitaAluguel() {
             tipo: "receita", data: ds, vehicle_id: c.vehicle_id, categoria: "Aluguel",
             descricao: `Aluguel semanal — ${c.numero} (${c.cliente_nome ?? ""})`.trim(),
             valor: Number(c.valor_locacao), contrato_id: c.id,
-            observacoes: "Gerado automaticamente do contrato ativo",
+            observacoes: "Gerado automaticamente do contrato ativo (vencimento sexta)",
           });
         }
       }
