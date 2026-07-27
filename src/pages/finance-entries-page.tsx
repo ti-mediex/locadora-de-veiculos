@@ -35,6 +35,9 @@ import { formatCurrency, formatDate, maskPlaca } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
 import type { FinanceEntry, Vehicle } from "@/types/database";
 
+const ehAluguel = (cat?: string | null) => /alug|loca[çc]/i.test(cat ?? "");
+const addDias = (iso: string, n: number) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+
 const CONC_LABEL: Record<string, { label: string; variant: "success" | "muted" | "warning" | "destructive" }> = {
   match: { label: "Baixar", variant: "success" },
   ja_baixado: { label: "Já baixado", variant: "muted" },
@@ -189,17 +192,24 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
       remove.mutate(r.id, { onSuccess: invalidate });
   }
   function exportCsv() {
+    type Col = { key: "data" | "semana" | "veiculo" | "categoria" | "descricao" | "valor" | "recebido" | "recebido_em"; label: string };
+    const cols: Col[] = [
+      { key: "data", label: isReceita ? "Vencimento" : "Data" },
+      ...(isReceita ? [{ key: "semana", label: "Semana de locação" } as Col] : []),
+      { key: "veiculo", label: "Veículo" },
+      { key: "categoria", label: "Categoria" }, { key: "descricao", label: "Descrição" }, { key: "valor", label: "Valor" },
+      ...(isReceita ? [{ key: "recebido", label: "Recebido" } as Col, { key: "recebido_em", label: "Recebido em" } as Col] : []),
+    ];
     exportToCsv(
       isReceita ? "receitas" : "despesas",
       filtered.map((r) => ({
-        data: r.data, veiculo: vehicleLabel(r.vehicle_id), categoria: r.categoria ?? "",
+        data: r.data,
+        semana: isReceita && ehAluguel(r.categoria) && r.data ? `${r.data} a ${addDias(r.data, 6)}` : "",
+        veiculo: vehicleLabel(r.vehicle_id), categoria: r.categoria ?? "",
         descricao: r.descricao, valor: r.valor,
+        recebido: r.recebido ? "Sim" : "Não", recebido_em: r.recebido_em ?? "",
       })),
-      [
-        { key: "data", label: "Data" }, { key: "veiculo", label: "Veículo" },
-        { key: "categoria", label: "Categoria" }, { key: "descricao", label: "Descrição" },
-        { key: "valor", label: "Valor" },
-      ]
+      cols
     );
   }
 
@@ -238,7 +248,8 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
             <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
+                  <TableHead>{isReceita ? "Vencimento" : "Data"}</TableHead>
+                  {isReceita && <TableHead>Semana de locação</TableHead>}
                   <TableHead>Veículo</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Descrição</TableHead>
@@ -255,6 +266,11 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                     onClick={canWrite ? () => openEdit(r) : undefined}
                   >
                     <TableCell className="whitespace-nowrap">{formatDate(r.data)}</TableCell>
+                    {isReceita && (
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {ehAluguel(r.categoria) && r.data ? `${formatDate(r.data)} – ${formatDate(addDias(r.data, 6))}` : "—"}
+                      </TableCell>
+                    )}
                     <TableCell className="whitespace-nowrap font-mono">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.categoria ?? "—"}</TableCell>
                     <TableCell className="max-w-[300px] truncate" title={r.descricao}>{r.descricao}</TableCell>
@@ -265,7 +281,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           {r.recebido
-                            ? <Badge variant="success" className="gap-1 px-1.5 py-0 text-[10px]" title={r.recebido_em ? `Recebido em ${formatDate(r.recebido_em)}` : "Recebido"}><CheckCircle2 className="h-3 w-3" /> Recebido</Badge>
+                            ? <Badge variant="success" className="gap-1 whitespace-nowrap px-1.5 py-0 text-[10px]"><CheckCircle2 className="h-3 w-3" /> {r.recebido_em ? formatDate(r.recebido_em) : "Recebido"}</Badge>
                             : <Badge variant="warning" className="px-1.5 py-0 text-[10px]">A receber</Badge>}
                           {r.comprovante_path && <button type="button" title="Ver comprovante" onClick={() => abrirArquivoFinanceiro(r.comprovante_path!)}><Paperclip className="h-3.5 w-3.5 text-primary" /></button>}
                           {r.boleto_path && <button type="button" title="Ver boleto emitido" onClick={() => abrirArquivoFinanceiro(r.boleto_path!)}><FileText className="h-3.5 w-3.5 text-muted-foreground" /></button>}
