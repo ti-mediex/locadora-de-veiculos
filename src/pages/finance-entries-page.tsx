@@ -273,7 +273,13 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                     )}
                     <TableCell className="whitespace-nowrap font-mono">{r.vehicles?.placa ?? vehicleLabel(r.vehicle_id)}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.categoria ?? "—"}</TableCell>
-                    <TableCell className="max-w-[300px] truncate" title={r.descricao}>{r.descricao}</TableCell>
+                    <TableCell className="max-w-[300px]">
+                      <div className="flex items-center gap-1">
+                        <span className="truncate" title={r.descricao}>{r.descricao}</span>
+                        {!isReceita && r.comprovante_path && <button type="button" title="Ver comprovante" className="shrink-0" onClick={(e) => { e.stopPropagation(); abrirArquivoFinanceiro(r.comprovante_path!); }}><Paperclip className="h-3.5 w-3.5 text-primary" /></button>}
+                        {!isReceita && r.boleto_path && <button type="button" title="Ver boleto" className="shrink-0" onClick={(e) => { e.stopPropagation(); abrirArquivoFinanceiro(r.boleto_path!); }}><FileText className="h-3.5 w-3.5 text-muted-foreground" /></button>}
+                      </div>
+                    </TableCell>
                     <TableCell className={`whitespace-nowrap text-right font-medium tabular-nums ${isReceita ? "text-success" : "text-destructive"}`}>
                       {isReceita ? "+" : "−"} {formatCurrency(r.valor)}
                     </TableCell>
@@ -370,6 +376,28 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Boleto emitido</label>
+                    <div className="flex items-center gap-2">
+                      <Input type="file" accept="image/*,application/pdf" className="h-9 text-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarArquivo("boleto_path", f); }} disabled={uploadArquivo.isPending} />
+                      {editing.boleto_path && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Ver boleto" onClick={() => abrirArquivoFinanceiro(editing.boleto_path!)}><FileText className="h-4 w-4" /></Button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!isReceita && editing && (
+              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                <span className="text-sm font-medium">Anexos</span>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Comprovante de pagamento</label>
+                    <div className="flex items-center gap-2">
+                      <Input type="file" accept="image/*,application/pdf" className="h-9 text-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarArquivo("comprovante_path", f); }} disabled={uploadArquivo.isPending} />
+                      {editing.comprovante_path && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Ver comprovante" onClick={() => abrirArquivoFinanceiro(editing.comprovante_path!)}><Paperclip className="h-4 w-4 text-primary" /></Button>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Boleto</label>
                     <div className="flex items-center gap-2">
                       <Input type="file" accept="image/*,application/pdf" className="h-9 text-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarArquivo("boleto_path", f); }} disabled={uploadArquivo.isPending} />
                       {editing.boleto_path && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Ver boleto" onClick={() => abrirArquivoFinanceiro(editing.boleto_path!)}><FileText className="h-4 w-4" /></Button>}
