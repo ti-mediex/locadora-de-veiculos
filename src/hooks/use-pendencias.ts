@@ -519,19 +519,34 @@ export function useAnexarLoteDetran() {
           .eq("vehicle_id", vid).in("categoria", CATS_FIN_ANEXO).is(campo, null).select("id");
         return (d.data?.length ?? 0) + (q.data?.length ?? 0);
       };
+      // Janela de "pago recentemente" para o comprovante de lote sem placa.
+      const desde = new Date(); desde.setDate(desde.getDate() - 7);
+      const desdeStr = desde.toISOString().slice(0, 10);
+      const anexarLoteGlobal = async (path: string) => {
+        const d = await supabase.from("finance_entries").update({ [campo]: path } as never)
+          .eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null).gte("data", desdeStr).select("id");
+        const q = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
+          .eq("status", "resolvida").in("categoria", CATS_FIN_ANEXO).is(campo, null).gte("resolvido_em", desdeStr).select("id");
+        return (d.data?.length ?? 0) + (q.data?.length ?? 0);
+      };
       for (const file of files) {
         const placa = extrairPlaca(file.name);
-        const vidPlaca = placa ? [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean) : undefined;
-        // Com placa → 1 veículo; sem placa → documento de lote → veículos baixados.
-        const vids = vidPlaca ? [vidPlaca] : (vehicleIdsLote && vehicleIdsLote.length ? [...new Set(vehicleIdsLote)] : []);
-        if (!vids.length) { res.semVeiculo.push(file.name); continue; }
-        const path = `detran/${vidPlaca ?? "lote"}/${Date.now()}-${slug(file.name)}`;
+        const path = `detran/${placa ?? "lote"}/${Date.now()}-${slug(file.name)}`;
         const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
         if (up.error) { res.semVeiculo.push(`${file.name} (falha no upload)`); continue; }
         let tocou = 0;
-        for (const vid of vids) tocou += await anexarNoVeiculo(vid, path);
+        if (placa) {
+          const vid = [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean);
+          if (!vid) { res.semVeiculo.push(`${file.name} (placa ${placa} não cadastrada)`); continue; }
+          tocou = await anexarNoVeiculo(vid, path);
+        } else if (vehicleIdsLote && vehicleIdsLote.length) {
+          for (const vid of [...new Set(vehicleIdsLote)]) tocou += await anexarNoVeiculo(vid, path);
+        } else {
+          // Comprovante de lote sem placa e sem baixa nesta rodada → itens pagos recentes.
+          tocou = await anexarLoteGlobal(path);
+        }
         if (tocou > 0) res.anexados++;
-        else res.semVeiculo.push(`${file.name} (sem pendência/despesa p/ anexar)`);
+        else res.semVeiculo.push(`${file.name} (sem pendência/despesa paga recente p/ anexar)`);
       }
       return res;
     },
