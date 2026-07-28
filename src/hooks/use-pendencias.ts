@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { PENDENCIA_ITENS_PADRAO } from "@/lib/options";
 import { salvarImportacao } from "@/hooks/use-import-history";
+import { extrairPlaca, placaVariantes } from "@/lib/format";
 import type { VehiclePendencia } from "@/types/database";
 
 export type PendenciaRow = VehiclePendencia & { vehicles: { placa: string; modelo: string } | null };
@@ -396,6 +397,126 @@ export async function aplicarDetran(vehicleId: string, parsed: DetranParsed, opc
       }
 
       return res;
+}
+
+// ===== Baixa automática por consulta Detran (débito pago = desaparecido) =====
+
+/** Categoria da despesa correspondente à categoria da pendência. */
+export function despesaCategoriaDe(catPendencia: string): string {
+  const c = (catPendencia ?? "").toLowerCase();
+  if (c.includes("multa")) return "Multas";
+  if (c.includes("seguro") || c.includes("csv")) return "Seguro";
+  if (c.includes("ipva") || c.includes("licenc") || c.includes("taxa")) return "IPVA/Licenciamento";
+  return "Administrativo";
+}
+
+const soNum = (s?: string | null) => (s ?? "").replace(/\D+/g, "");
+const normTit = (s?: string | null) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+export interface BaixaDetranItem {
+  pendencia: PendenciaRow;
+  categoriaDespesa: string;
+  valor: number;
+  descricao: string;
+}
+
+/** Detecta débitos PAGOS = pendências financeiras abertas do veículo que NÃO
+ *  aparecem mais na consulta atual do Detran. Casa IPVA/Licenciamento/Taxas/Seguro
+ *  pelo título (ex.: "IPVA 2026 — cota 4") e multas pelo nº do auto. */
+export function reconciliarDetran(parsed: DetranParsed, pendenciasDoVeiculo: PendenciaRow[]): BaixaDetranItem[] {
+  const debitosAtuais = new Set(parsed.debitos.map((d) => normTit(d.titulo)));
+  const multasAtuais = new Set(parsed.multas.map((m) => soNum(m.documento)));
+  const CATS_FIN = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV"];
+  const out: BaixaDetranItem[] = [];
+  for (const p of pendenciasDoVeiculo) {
+    if (p.status !== "aberta" && p.status !== "em_andamento") continue;
+    const placa = p.vehicles?.placa ?? "";
+    if (p.categoria === "Multa") {
+      if (p.documento && !multasAtuais.has(soNum(p.documento)) && (p.valor ?? 0) > 0) {
+        out.push({ pendencia: p, categoriaDespesa: "Multas", valor: p.valor ?? 0, descricao: `Pagamento multa ${p.documento} (${placa})`.trim() });
+      }
+    } else if (CATS_FIN.includes(p.categoria)) {
+      if (!debitosAtuais.has(normTit(p.titulo)) && (p.valor ?? 0) > 0) {
+        out.push({ pendencia: p, categoriaDespesa: despesaCategoriaDe(p.categoria), valor: p.valor ?? 0, descricao: `Pagamento ${p.titulo} (${placa})`.trim() });
+      }
+    }
+  }
+  return out;
+}
+
+/** Aplica a baixa: resolve as pendências pagas e lança a despesa correspondente
+ *  (idempotente por pendencia_id — não duplica ao reprocessar). */
+export function useAplicarBaixaDetran() {
+  const qc = useQueryClient();
+  return useMutation<{ baixados: number; despesas: number }, Error, BaixaDetranItem[]>({
+    mutationFn: async (itens) => {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { data: prof } = await supabase.auth.getUser();
+      let baixados = 0, despesas = 0;
+      for (const it of itens) {
+        const p = it.pendencia;
+        await supabase.from("vehicle_pendencias").update({ status: "resolvida", resolvido_em: hoje, pago: true } as never).eq("id", p.id);
+        baixados++;
+        const { data: ja } = await supabase.from("finance_entries").select("id").eq("pendencia_id", p.id).limit(1);
+        if (!ja?.length) {
+          const { error } = await supabase.from("finance_entries").insert({
+            tipo: "despesa", data: hoje, vehicle_id: p.vehicle_id, categoria: it.categoriaDespesa,
+            descricao: it.descricao, valor: it.valor, pendencia_id: p.id, created_by: prof.user?.id ?? null,
+          } as never);
+          if (error) throw error;
+          despesas++;
+        }
+      }
+      return { baixados, despesas };
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
+      qc.invalidateQueries({ queryKey: ["finance_entries"] });
+      qc.invalidateQueries({ queryKey: ["finance"] });
+      toast.success(`${r.baixados} baixa(s) · ${r.despesas} despesa(s) lançada(s)`);
+    },
+    onError: (e: Error) => toast.error("Erro ao aplicar baixa: " + e.message),
+  });
+}
+
+export interface AnexoLoteResultado { anexados: number; semVeiculo: string[] }
+
+/** Anexa boletos/comprovantes em lote, casando pela placa no nome do arquivo, às
+ *  despesas de IPVA/Multas e às pendências resolvidas do veículo (bucket importacoes). */
+export function useAnexarLoteDetran() {
+  const qc = useQueryClient();
+  const slug = (s: string) => s.replace(/[^\w.\-]+/g, "_");
+  return useMutation<AnexoLoteResultado, Error, { arquivos: File[]; campo: "boleto_path" | "comprovante_path" }>({
+    mutationFn: async ({ arquivos, campo }) => {
+      const { data: veics } = await supabase.from("vehicles").select("id, placa");
+      const placaMap = new Map<string, string>();
+      for (const v of (veics ?? []) as { id: string; placa: string }[]) for (const k of placaVariantes(v.placa)) placaMap.set(k, v.id);
+      const res: AnexoLoteResultado = { anexados: 0, semVeiculo: [] };
+      for (const file of arquivos) {
+        const placa = extrairPlaca(file.name.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+        const vid = placa ? [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean) : undefined;
+        if (!vid) { res.semVeiculo.push(file.name); continue; }
+        const path = `detran/${vid}/${Date.now()}-${slug(file.name)}`;
+        const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
+        if (up.error) continue;
+        // Anexa às despesas do veículo vinculadas a pendências (IPVA/Multas) sem arquivo ainda.
+        await supabase.from("finance_entries").update({ [campo]: path } as never)
+          .eq("vehicle_id", vid).eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null);
+        // Anexa às pendências resolvidas do veículo sem arquivo ainda.
+        await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
+          .eq("vehicle_id", vid).eq("status", "resolvida").is(campo, null);
+        res.anexados++;
+      }
+      return res;
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
+      qc.invalidateQueries({ queryKey: ["finance_entries"] });
+      qc.invalidateQueries({ queryKey: ["finance"] });
+      toast.success(`${r.anexados} arquivo(s) anexado(s)` + (r.semVeiculo.length ? ` · ${r.semVeiculo.length} sem veículo` : ""));
+    },
+    onError: (e: Error) => toast.error("Erro ao anexar: " + e.message),
+  });
 }
 
 export function useImportDetran() {

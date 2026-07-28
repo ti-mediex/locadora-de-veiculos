@@ -1,14 +1,18 @@
 import { useMemo, useRef, useState } from "react";
-import { Upload, FileText, AlertTriangle, Loader2, X, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, AlertTriangle, Loader2, X, CheckCircle2, TrendingDown, Paperclip } from "lucide-react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { parseDetran, type DetranParsed } from "@/lib/detran-parse";
 import { extrairTextoPdf } from "@/lib/pdf-text";
-import { useImportDetranLote, type ImportDetranOpcoes } from "@/hooks/use-pendencias";
-import { formatCurrency } from "@/lib/format";
+import {
+  useImportDetranLote, usePendencias, reconciliarDetran, useAplicarBaixaDetran, useAnexarLoteDetran,
+  type ImportDetranOpcoes, type BaixaDetranItem, type PendenciaRow,
+} from "@/hooks/use-pendencias";
+import { formatCurrency, maskPlaca } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 
 const normPlaca = (p: string) => p.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
@@ -24,12 +28,21 @@ export function ImportarDetranDialog({
   vehicleIdInicial?: string;
 }) {
   const importar = useImportDetranLote();
+  const aplicarBaixa = useAplicarBaixaDetran();
+  const anexarLote = useAnexarLoteDetran();
+  const { data: pendencias = [] } = usePendencias();
   const inputRef = useRef<HTMLInputElement>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [lendo, setLendo] = useState(false);
   const [opcoes, setOpcoes] = useState<ImportDetranOpcoes>({ restricoes: true, debitos: true, multas: true, marcarAlienacao: true });
+  const [darBaixa, setDarBaixa] = useState(true);
 
   const placaMap = useMemo(() => new Map(vehicles.map((v) => [normPlaca(v.placa), v])), [vehicles]);
+  const pendPorVeic = useMemo(() => {
+    const m = new Map<string, PendenciaRow[]>();
+    for (const p of pendencias) { const a = m.get(p.vehicle_id) ?? []; a.push(p); m.set(p.vehicle_id, a); }
+    return m;
+  }, [pendencias]);
 
   function reset() { setItens([]); setLendo(false); }
 
@@ -62,11 +75,25 @@ export function ImportarDetranDialog({
   }), { r: 0, d: 0, m: 0, v: 0 }), [validos]);
   const semPlaca = itens.filter((i) => i.erro === "Placa não cadastrada na frota");
 
-  function fechar() { reset(); onOpenChange(false); }
+  // Débitos pagos detectados (some da consulta atual) → baixa + despesa.
+  const baixas = useMemo<BaixaDetranItem[]>(() => {
+    const out: BaixaDetranItem[] = [];
+    for (const it of validos) if (it.vehicleId) out.push(...reconciliarDetran(it.parsed, pendPorVeic.get(it.vehicleId) ?? []));
+    return out;
+  }, [validos, pendPorVeic]);
+  const totalBaixa = baixas.reduce((s, b) => s + b.valor, 0);
+
+  function fechar() { reset(); setDarBaixa(true); onOpenChange(false); }
   async function confirmar() {
     if (!validos.length) return;
     const r = await importar.mutateAsync({ itens: validos.map((i) => ({ parsed: i.parsed, vehicleId: i.vehicleId as string, placa: i.placa, file: i.file })), opcoes });
-    if (r) fechar();
+    if (r) {
+      if (darBaixa && baixas.length) await aplicarBaixa.mutateAsync(baixas);
+      fechar();
+    }
+  }
+  function onAnexos(files: FileList | null, campo: "boleto_path" | "comprovante_path") {
+    if (files && files.length) anexarLote.mutate({ arquivos: Array.from(files), campo });
   }
 
   const chk = (k: keyof ImportDetranOpcoes, label: string) => (
@@ -125,10 +152,40 @@ export function ImportarDetranDialog({
           </div>
         )}
 
+        {baixas.length > 0 && (
+          <div className="space-y-2 rounded-lg border border-success/40 bg-success/5 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" className="h-4 w-4" checked={darBaixa} onChange={(e) => setDarBaixa(e.target.checked)} />
+              <TrendingDown className="h-4 w-4 text-success" /> {baixas.length} débito(s) pago(s) detectado(s) — dar baixa e lançar despesa ({formatCurrency(totalBaixa)})
+            </label>
+            <div className="max-h-32 space-y-1 overflow-auto text-xs">
+              {baixas.map((b, i) => (
+                <div key={i} className="flex items-center justify-between gap-2">
+                  <span className="truncate"><span className="font-mono">{maskPlaca(b.pendencia.vehicles?.placa ?? "")}</span> · {b.pendencia.titulo} <span className="text-muted-foreground">({b.categoriaDespesa})</span></span>
+                  <span className="whitespace-nowrap tabular-nums text-destructive">{formatCurrency(b.valor)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2 rounded-lg border p-3">
+          <div className="flex items-center gap-2 text-sm font-medium"><Paperclip className="h-4 w-4 text-muted-foreground" /> Anexar por placa (opcional)</div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="space-y-1 text-xs text-muted-foreground">Boletos (nome com a placa)
+              <Input type="file" accept="application/pdf,image/*" multiple className="h-9 text-xs" onChange={(e) => onAnexos(e.target.files, "boleto_path")} disabled={anexarLote.isPending} />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">Comprovantes (nome com a placa)
+              <Input type="file" accept="application/pdf,image/*" multiple className="h-9 text-xs" onChange={(e) => onAnexos(e.target.files, "comprovante_path")} disabled={anexarLote.isPending} />
+            </label>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Casa pela placa no nome do arquivo e anexa às despesas/pendências pagas do veículo.</p>
+        </div>
+
         <DialogFooter>
-          <Button variant="outline" onClick={fechar} disabled={importar.isPending}>Cancelar</Button>
-          <Button onClick={confirmar} disabled={!validos.length || importar.isPending}>
-            {importar.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Importando...</> : `Importar ${validos.length || ""}`}
+          <Button variant="outline" onClick={fechar} disabled={importar.isPending || aplicarBaixa.isPending}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={!validos.length || importar.isPending || aplicarBaixa.isPending}>
+            {importar.isPending || aplicarBaixa.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando...</> : `Importar ${validos.length || ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

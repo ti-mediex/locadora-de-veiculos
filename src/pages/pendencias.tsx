@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, ReceiptText, X, FileUp, CarFront,
+  Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, Clock, Radio, ListTodo, ReceiptText, X, FileUp, CarFront, Paperclip,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { SelectVeiculo } from "@/components/shared/select-veiculo";
@@ -32,8 +32,10 @@ import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-di
 import {
   usePendencias, usePendenciasSummary,
   usePendenciaMultasItens, useSavePendenciaMultasItens, parseValor,
-  vencimentoStatus, restricaoEhJudicial, type PendenciaRow, type MultaLinha,
+  vencimentoStatus, restricaoEhJudicial, useAplicarBaixaDetran, despesaCategoriaDe,
+  type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
+import { abrirArquivoFinanceiro } from "@/hooks/use-recebimentos";
 import { soAlfa } from "@/lib/format";
 import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
 import {
@@ -110,6 +112,7 @@ export default function PendenciasPage() {
   const create = useCreate("vehicle_pendencias", "Pendência");
   const update = useUpdate("vehicle_pendencias", "Pendência");
   const remove = useDelete("vehicle_pendencias", "Pendência");
+  const aplicarBaixa = useAplicarBaixaDetran();
   const saveMultas = useSavePendenciaMultasItens();
   const canWrite = useCanWrite("pendencias");
 
@@ -364,7 +367,13 @@ export default function PendenciasPage() {
     }
   }
   function resolver(r: PendenciaRow) {
-    update.mutate({ id: r.id, status: "resolvida", resolvido_em: new Date().toISOString().slice(0, 10) });
+    const hoje = new Date().toISOString().slice(0, 10);
+    const financeira = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV", "Multa"].includes(r.categoria) && (r.valor ?? 0) > 0;
+    if (financeira && confirm(`Dar baixa em "${r.titulo}" e LANÇAR a despesa de ${formatCurrency(r.valor!)}?\n\n(OK = baixa + despesa · Cancelar = apenas resolver, sem despesa)`)) {
+      aplicarBaixa.mutate([{ pendencia: r, categoriaDespesa: despesaCategoriaDe(r.categoria), valor: r.valor!, descricao: `Pagamento ${r.titulo} (${r.vehicles?.placa ?? ""})`.trim() }]);
+    } else {
+      update.mutate({ id: r.id, status: "resolvida", resolvido_em: hoje });
+    }
   }
 
   const vehicleLabel = (id: string) => vehicles.find((v) => v.id === id)?.placa ?? "—";
@@ -560,6 +569,13 @@ export default function PendenciasPage() {
                           {r.documento && <span>Auto {r.documento}</span>}
                           {r.data_ocorrencia && <span>{r.documento ? " · " : ""}Infração {formatDate(r.data_ocorrencia)}</span>}
                           {r.local && <span className="block truncate max-w-[240px]">{r.local}</span>}
+                        </div>
+                      )}
+                      {(r.consulta_path || r.boleto_path || r.comprovante_path) && (
+                        <div className="mt-0.5 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {r.boleto_path && <button type="button" title="Ver boleto" onClick={() => abrirArquivoFinanceiro(r.boleto_path!)}><ReceiptText className="h-3.5 w-3.5 text-muted-foreground" /></button>}
+                          {r.comprovante_path && <button type="button" title="Ver comprovante" onClick={() => abrirArquivoFinanceiro(r.comprovante_path!)}><Paperclip className="h-3.5 w-3.5 text-primary" /></button>}
+                          {r.consulta_path && <button type="button" title="Ver consulta Detran" onClick={() => abrirArquivoFinanceiro(r.consulta_path!)}><FileUp className="h-3.5 w-3.5 text-muted-foreground" /></button>}
                         </div>
                       )}
                     </TableCell>

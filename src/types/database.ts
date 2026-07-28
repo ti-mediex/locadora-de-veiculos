@@ -187,6 +187,9 @@ export interface VehiclePendencia {
   data_ocorrencia: string | null;
   local: string | null;
   resolvido_em: string | null;
+  comprovante_path: string | null;
+  boleto_path: string | null;
+  consulta_path: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -205,6 +208,7 @@ export interface FinanceEntry {
   ocorrencia_id: string | null;
   ordem_servico_id: string | null;
   contrato_id: string | null;
+  pendencia_id: string | null;
   recebido: boolean;
   recebido_em: string | null;
   forma_recebimento: string | null;
