@@ -481,33 +481,57 @@ export function useAplicarBaixaDetran() {
 
 export interface AnexoLoteResultado { anexados: number; semVeiculo: string[] }
 
-/** Anexa boletos/comprovantes em lote, casando pela placa no nome do arquivo, às
- *  despesas de IPVA/Multas e às pendências resolvidas do veículo (bucket importacoes). */
+const CATS_FIN_ANEXO = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV", "Multa"];
+
+/** Expande arquivos .zip em seus PDFs internos (usa fflate sob demanda). */
+async function expandirArquivos(files: File[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const f of files) {
+    if (/\.zip$/i.test(f.name)) {
+      const { unzipSync } = await import("fflate");
+      const entries = unzipSync(new Uint8Array(await f.arrayBuffer()));
+      for (const [name, data] of Object.entries(entries)) {
+        if (/\.pdf$/i.test(name) && data.length) out.push(new File([data], name.split("/").pop() || name, { type: "application/pdf" }));
+      }
+    } else out.push(f);
+  }
+  return out;
+}
+
+/** Anexa boletos/comprovantes em lote: casa pela placa no nome do arquivo (ou
+ *  descompacta .zip) e anexa às pendências financeiras/despesas do veículo. Arquivos
+ *  SEM placa (ex.: comprovante de lote de vários IPVAs) são anexados aos veículos
+ *  baixados nesta importação (vehicleIdsLote). Bucket privado importacoes. */
 export function useAnexarLoteDetran() {
   const qc = useQueryClient();
   const slug = (s: string) => s.replace(/[^\w.\-]+/g, "_");
-  return useMutation<AnexoLoteResultado, Error, { arquivos: File[]; campo: "boleto_path" | "comprovante_path" }>({
-    mutationFn: async ({ arquivos, campo }) => {
+  return useMutation<AnexoLoteResultado, Error, { arquivos: File[]; campo: "boleto_path" | "comprovante_path"; vehicleIdsLote?: string[] }>({
+    mutationFn: async ({ arquivos, campo, vehicleIdsLote }) => {
+      const files = await expandirArquivos(arquivos);
       const { data: veics } = await supabase.from("vehicles").select("id, placa");
       const placaMap = new Map<string, string>();
       for (const v of (veics ?? []) as { id: string; placa: string }[]) for (const k of placaVariantes(v.placa)) placaMap.set(k, v.id);
       const res: AnexoLoteResultado = { anexados: 0, semVeiculo: [] };
-      const CATS_FIN = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV", "Multa"];
-      for (const file of arquivos) {
-        const placa = extrairPlaca(file.name);
-        const vid = placa ? [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean) : undefined;
-        if (!vid) { res.semVeiculo.push(file.name); continue; }
-        const path = `detran/${vid}/${Date.now()}-${slug(file.name)}`;
-        const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
-        if (up.error) { continue; }
-        // Anexa às despesas do veículo vinculadas a pendências (baixas) sem arquivo ainda.
+      const anexarNoVeiculo = async (vid: string, path: string) => {
         const d = await supabase.from("finance_entries").update({ [campo]: path } as never)
           .eq("vehicle_id", vid).eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null).select("id");
-        // Anexa às pendências financeiras do veículo (abertas ou baixadas) sem arquivo ainda.
         const q = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
-          .eq("vehicle_id", vid).in("categoria", CATS_FIN).is(campo, null).select("id");
-        if ((d.data?.length ?? 0) + (q.data?.length ?? 0) > 0) res.anexados++;
-        else res.semVeiculo.push(`${file.name} (veículo sem pendência/despesa p/ anexar)`);
+          .eq("vehicle_id", vid).in("categoria", CATS_FIN_ANEXO).is(campo, null).select("id");
+        return (d.data?.length ?? 0) + (q.data?.length ?? 0);
+      };
+      for (const file of files) {
+        const placa = extrairPlaca(file.name);
+        const vidPlaca = placa ? [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean) : undefined;
+        // Com placa → 1 veículo; sem placa → documento de lote → veículos baixados.
+        const vids = vidPlaca ? [vidPlaca] : (vehicleIdsLote && vehicleIdsLote.length ? [...new Set(vehicleIdsLote)] : []);
+        if (!vids.length) { res.semVeiculo.push(file.name); continue; }
+        const path = `detran/${vidPlaca ?? "lote"}/${Date.now()}-${slug(file.name)}`;
+        const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
+        if (up.error) { res.semVeiculo.push(`${file.name} (falha no upload)`); continue; }
+        let tocou = 0;
+        for (const vid of vids) tocou += await anexarNoVeiculo(vid, path);
+        if (tocou > 0) res.anexados++;
+        else res.semVeiculo.push(`${file.name} (sem pendência/despesa p/ anexar)`);
       }
       return res;
     },

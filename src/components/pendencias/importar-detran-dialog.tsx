@@ -94,8 +94,11 @@ export function ImportarDetranDialog({
       if (darBaixa && baixas.length) await aplicarBaixa.mutateAsync(baixas);
     }
     // Anexos por último, para casar com as despesas/pendências já baixadas.
-    if (boletoFiles.length) await anexarLote.mutateAsync({ arquivos: boletoFiles, campo: "boleto_path" });
-    if (comprovanteFiles.length) await anexarLote.mutateAsync({ arquivos: comprovanteFiles, campo: "comprovante_path" });
+    // Documentos de lote sem placa (ex.: comprovante único de vários IPVAs) vão
+    // para os veículos baixados nesta importação.
+    const vehicleIdsLote = [...new Set(baixas.map((b) => b.pendencia.vehicle_id))];
+    if (boletoFiles.length) await anexarLote.mutateAsync({ arquivos: boletoFiles, campo: "boleto_path", vehicleIdsLote });
+    if (comprovanteFiles.length) await anexarLote.mutateAsync({ arquivos: comprovanteFiles, campo: "comprovante_path", vehicleIdsLote });
     fechar();
   }
 
