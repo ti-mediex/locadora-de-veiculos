@@ -596,9 +596,19 @@ export function useUploadArquivoPendencia() {
       if (up.error) throw up.error;
       const { error } = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never).eq("id", pendenciaId);
       if (error) throw error;
+      // Espelha o comprovante/boleto na despesa vinculada a esta pendência
+      // (consulta_path não existe em finance_entries).
+      if (campo !== "consulta_path") {
+        await supabase.from("finance_entries").update({ [campo]: path } as never).eq("pendencia_id", pendenciaId);
+      }
       return path;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] }); toast.success("Anexo enviado"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
+      qc.invalidateQueries({ queryKey: ["finance_entries"] });
+      qc.invalidateQueries({ queryKey: ["finance"] });
+      toast.success("Anexo enviado");
+    },
     onError: (e: Error) => toast.error("Erro ao enviar anexo: " + e.message),
   });
 }
