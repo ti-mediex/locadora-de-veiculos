@@ -36,6 +36,8 @@ export function ImportarDetranDialog({
   const [lendo, setLendo] = useState(false);
   const [opcoes, setOpcoes] = useState<ImportDetranOpcoes>({ restricoes: true, debitos: true, multas: true, marcarAlienacao: true });
   const [darBaixa, setDarBaixa] = useState(true);
+  const [boletoFiles, setBoletoFiles] = useState<File[]>([]);
+  const [comprovanteFiles, setComprovanteFiles] = useState<File[]>([]);
 
   const placaMap = useMemo(() => new Map(vehicles.map((v) => [normPlaca(v.placa), v])), [vehicles]);
   const pendPorVeic = useMemo(() => {
@@ -83,17 +85,18 @@ export function ImportarDetranDialog({
   }, [validos, pendPorVeic]);
   const totalBaixa = baixas.reduce((s, b) => s + b.valor, 0);
 
-  function fechar() { reset(); setDarBaixa(true); onOpenChange(false); }
+  function fechar() { reset(); setDarBaixa(true); setBoletoFiles([]); setComprovanteFiles([]); onOpenChange(false); }
   async function confirmar() {
-    if (!validos.length) return;
-    const r = await importar.mutateAsync({ itens: validos.map((i) => ({ parsed: i.parsed, vehicleId: i.vehicleId as string, placa: i.placa, file: i.file })), opcoes });
-    if (r) {
+    if (!validos.length && !boletoFiles.length && !comprovanteFiles.length) return;
+    if (validos.length) {
+      await importar.mutateAsync({ itens: validos.map((i) => ({ parsed: i.parsed, vehicleId: i.vehicleId as string, placa: i.placa, file: i.file })), opcoes });
+      // Baixa APÓS a importação (as despesas/pendências resolvidas passam a existir).
       if (darBaixa && baixas.length) await aplicarBaixa.mutateAsync(baixas);
-      fechar();
     }
-  }
-  function onAnexos(files: FileList | null, campo: "boleto_path" | "comprovante_path") {
-    if (files && files.length) anexarLote.mutate({ arquivos: Array.from(files), campo });
+    // Anexos por último, para casar com as despesas/pendências já baixadas.
+    if (boletoFiles.length) await anexarLote.mutateAsync({ arquivos: boletoFiles, campo: "boleto_path" });
+    if (comprovanteFiles.length) await anexarLote.mutateAsync({ arquivos: comprovanteFiles, campo: "comprovante_path" });
+    fechar();
   }
 
   const chk = (k: keyof ImportDetranOpcoes, label: string) => (
@@ -172,20 +175,20 @@ export function ImportarDetranDialog({
         <div className="space-y-2 rounded-lg border p-3">
           <div className="flex items-center gap-2 text-sm font-medium"><Paperclip className="h-4 w-4 text-muted-foreground" /> Anexar por placa (opcional)</div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="space-y-1 text-xs text-muted-foreground">Boletos (nome com a placa)
-              <Input type="file" accept="application/pdf,image/*" multiple className="h-9 text-xs" onChange={(e) => onAnexos(e.target.files, "boleto_path")} disabled={anexarLote.isPending} />
+            <label className="space-y-1 text-xs text-muted-foreground">Boletos (nome com a placa){boletoFiles.length ? ` · ${boletoFiles.length} selecionado(s)` : ""}
+              <Input type="file" accept="application/pdf,image/*" multiple className="h-9 text-xs" onChange={(e) => setBoletoFiles(Array.from(e.target.files ?? []))} />
             </label>
-            <label className="space-y-1 text-xs text-muted-foreground">Comprovantes (nome com a placa)
-              <Input type="file" accept="application/pdf,image/*" multiple className="h-9 text-xs" onChange={(e) => onAnexos(e.target.files, "comprovante_path")} disabled={anexarLote.isPending} />
+            <label className="space-y-1 text-xs text-muted-foreground">Comprovantes (nome com a placa){comprovanteFiles.length ? ` · ${comprovanteFiles.length} selecionado(s)` : ""}
+              <Input type="file" accept="application/pdf,image/*" multiple className="h-9 text-xs" onChange={(e) => setComprovanteFiles(Array.from(e.target.files ?? []))} />
             </label>
           </div>
-          <p className="text-[11px] text-muted-foreground">Casa pela placa no nome do arquivo e anexa às despesas/pendências pagas do veículo.</p>
+          <p className="text-[11px] text-muted-foreground">Anexados ao confirmar, depois da baixa — casa pela placa no nome do arquivo e vincula às despesas/pendências pagas do veículo.</p>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={fechar} disabled={importar.isPending || aplicarBaixa.isPending}>Cancelar</Button>
-          <Button onClick={confirmar} disabled={!validos.length || importar.isPending || aplicarBaixa.isPending}>
-            {importar.isPending || aplicarBaixa.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando...</> : `Importar ${validos.length || ""}`}
+          <Button variant="outline" onClick={fechar} disabled={importar.isPending || aplicarBaixa.isPending || anexarLote.isPending}>Cancelar</Button>
+          <Button onClick={confirmar} disabled={(!validos.length && !boletoFiles.length && !comprovanteFiles.length) || importar.isPending || aplicarBaixa.isPending || anexarLote.isPending}>
+            {importar.isPending || aplicarBaixa.isPending || anexarLote.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processando...</> : `Importar ${validos.length || ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -492,20 +492,22 @@ export function useAnexarLoteDetran() {
       const placaMap = new Map<string, string>();
       for (const v of (veics ?? []) as { id: string; placa: string }[]) for (const k of placaVariantes(v.placa)) placaMap.set(k, v.id);
       const res: AnexoLoteResultado = { anexados: 0, semVeiculo: [] };
+      const CATS_FIN = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV", "Multa"];
       for (const file of arquivos) {
-        const placa = extrairPlaca(file.name.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+        const placa = extrairPlaca(file.name);
         const vid = placa ? [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean) : undefined;
         if (!vid) { res.semVeiculo.push(file.name); continue; }
         const path = `detran/${vid}/${Date.now()}-${slug(file.name)}`;
         const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
-        if (up.error) continue;
-        // Anexa às despesas do veículo vinculadas a pendências (IPVA/Multas) sem arquivo ainda.
-        await supabase.from("finance_entries").update({ [campo]: path } as never)
-          .eq("vehicle_id", vid).eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null);
-        // Anexa às pendências resolvidas do veículo sem arquivo ainda.
-        await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
-          .eq("vehicle_id", vid).eq("status", "resolvida").is(campo, null);
-        res.anexados++;
+        if (up.error) { continue; }
+        // Anexa às despesas do veículo vinculadas a pendências (baixas) sem arquivo ainda.
+        const d = await supabase.from("finance_entries").update({ [campo]: path } as never)
+          .eq("vehicle_id", vid).eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null).select("id");
+        // Anexa às pendências financeiras do veículo (abertas ou baixadas) sem arquivo ainda.
+        const q = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
+          .eq("vehicle_id", vid).in("categoria", CATS_FIN).is(campo, null).select("id");
+        if ((d.data?.length ?? 0) + (q.data?.length ?? 0) > 0) res.anexados++;
+        else res.semVeiculo.push(`${file.name} (veículo sem pendência/despesa p/ anexar)`);
       }
       return res;
     },
