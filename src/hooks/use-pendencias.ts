@@ -451,17 +451,17 @@ export function useAplicarBaixaDetran() {
   return useMutation<{ baixados: number; despesas: number }, Error, BaixaDetranItem[]>({
     mutationFn: async (itens) => {
       const hoje = new Date().toISOString().slice(0, 10);
-      const { data: prof } = await supabase.auth.getUser();
       let baixados = 0, despesas = 0;
       for (const it of itens) {
         const p = it.pendencia;
-        await supabase.from("vehicle_pendencias").update({ status: "resolvida", resolvido_em: hoje, pago: true } as never).eq("id", p.id);
+        const { error: upErr } = await supabase.from("vehicle_pendencias").update({ status: "resolvida", resolvido_em: hoje, pago: true } as never).eq("id", p.id);
+        if (upErr) throw upErr;
         baixados++;
         const { data: ja } = await supabase.from("finance_entries").select("id").eq("pendencia_id", p.id).limit(1);
         if (!ja?.length) {
           const { error } = await supabase.from("finance_entries").insert({
             tipo: "despesa", data: hoje, vehicle_id: p.vehicle_id, categoria: it.categoriaDespesa,
-            descricao: it.descricao, valor: it.valor, pendencia_id: p.id, created_by: prof.user?.id ?? null,
+            descricao: it.descricao, valor: it.valor, pendencia_id: p.id,
           } as never);
           if (error) throw error;
           despesas++;
