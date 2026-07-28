@@ -519,6 +519,27 @@ export function useAnexarLoteDetran() {
   });
 }
 
+type PendAnexoCampo = "comprovante_path" | "boleto_path" | "consulta_path";
+
+/** Envia um anexo (comprovante/boleto/consulta) de uma pendência e grava o caminho. */
+export function useUploadArquivoPendencia() {
+  const qc = useQueryClient();
+  const slug = (s: string) => s.replace(/[^\w.\-]+/g, "_");
+  return useMutation<string, Error, { pendenciaId: string; file: File; campo: PendAnexoCampo }>({
+    mutationFn: async ({ pendenciaId, file, campo }) => {
+      const pasta = campo === "comprovante_path" ? "comprovantes" : campo === "boleto_path" ? "boletos" : "consultas";
+      const path = `pendencias/${pasta}/${pendenciaId}/${Date.now()}-${slug(file.name)}`;
+      const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: true });
+      if (up.error) throw up.error;
+      const { error } = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never).eq("id", pendenciaId);
+      if (error) throw error;
+      return path;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] }); toast.success("Anexo enviado"); },
+    onError: (e: Error) => toast.error("Erro ao enviar anexo: " + e.message),
+  });
+}
+
 export function useImportDetran() {
   const qc = useQueryClient();
   return useMutation<ImportDetranResultado, Error, { vehicleId: string; parsed: DetranParsed; opcoes: ImportDetranOpcoes }>({

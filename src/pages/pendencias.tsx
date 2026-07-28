@@ -32,7 +32,7 @@ import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-di
 import {
   usePendencias, usePendenciasSummary,
   usePendenciaMultasItens, useSavePendenciaMultasItens, parseValor,
-  vencimentoStatus, restricaoEhJudicial, useAplicarBaixaDetran, despesaCategoriaDe,
+  vencimentoStatus, restricaoEhJudicial, useAplicarBaixaDetran, despesaCategoriaDe, useUploadArquivoPendencia,
   type PendenciaRow, type MultaLinha,
 } from "@/hooks/use-pendencias";
 import { abrirArquivoFinanceiro } from "@/hooks/use-recebimentos";
@@ -113,12 +113,18 @@ export default function PendenciasPage() {
   const update = useUpdate("vehicle_pendencias", "Pendência");
   const remove = useDelete("vehicle_pendencias", "Pendência");
   const aplicarBaixa = useAplicarBaixaDetran();
+  const uploadAnexo = useUploadArquivoPendencia();
   const saveMultas = useSavePendenciaMultasItens();
   const canWrite = useCanWrite("pendencias");
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PendenciaRow | null>(null);
+  async function enviarAnexo(campo: "comprovante_path" | "boleto_path" | "consulta_path", file: File) {
+    if (!editing) return;
+    const path = await uploadAnexo.mutateAsync({ pendenciaId: editing.id, file, campo });
+    setEditing({ ...editing, [campo]: path });
+  }
   const [search, setSearch] = useState(searchParams.get("veiculo") ?? "");
   const [fCategoria, setFCategoria] = useState("todas");
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
@@ -739,6 +745,27 @@ export default function PendenciasPage() {
             <Field label="Descrição / observações">
               <Textarea {...register("descricao")} />
             </Field>
+
+            {editing && (
+              <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+                <span className="text-sm font-medium">Anexos</span>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {([
+                    { campo: "comprovante_path", label: "Comprovante", icon: <Paperclip className="h-4 w-4 text-primary" /> },
+                    { campo: "boleto_path", label: "Boleto", icon: <ReceiptText className="h-4 w-4" /> },
+                    { campo: "consulta_path", label: "Consulta Detran", icon: <FileUp className="h-4 w-4" /> },
+                  ] as const).map((a) => (
+                    <div key={a.campo} className="space-y-1">
+                      <label className="text-xs text-muted-foreground">{a.label}</label>
+                      <div className="flex items-center gap-2">
+                        <Input type="file" accept="image/*,application/pdf" className="h-9 text-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarAnexo(a.campo, f); }} disabled={uploadAnexo.isPending} />
+                        {editing[a.campo] && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" title={`Ver ${a.label.toLowerCase()}`} onClick={() => abrirArquivoFinanceiro(editing[a.campo]!)}>{a.icon}</Button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
