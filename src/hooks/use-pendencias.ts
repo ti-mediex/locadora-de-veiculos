@@ -479,7 +479,7 @@ export function useAplicarBaixaDetran() {
   });
 }
 
-export interface AnexoLoteResultado { anexados: number; semVeiculo: string[] }
+export interface AnexoLoteResultado { anexados: number; jaAnexados: number; semVeiculo: string[] }
 
 const CATS_FIN_ANEXO = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV", "Multa"];
 
@@ -518,41 +518,52 @@ export function useAnexarLoteDetran() {
       const { data: veics } = await supabase.from("vehicles").select("id, placa");
       const placaMap = new Map<string, string>();
       for (const v of (veics ?? []) as { id: string; placa: string }[]) for (const k of placaVariantes(v.placa)) placaMap.set(k, v.id);
-      const res: AnexoLoteResultado = { anexados: 0, semVeiculo: [] };
+      const res: AnexoLoteResultado = { anexados: 0, jaAnexados: 0, semVeiculo: [] };
+      // Anexa no veículo e reporta { novos: recém-anexados, jaTinham: alvos que já
+      // tinham o arquivo } — para distinguir "já anexado" de "sem alvo".
       const anexarNoVeiculo = async (vid: string, path: string) => {
+        const jaFin = await supabase.from("finance_entries").select("id", { count: "exact", head: true })
+          .eq("vehicle_id", vid).eq("tipo", "despesa").not("pendencia_id", "is", null).not(campo, "is", null);
+        const jaPend = await supabase.from("vehicle_pendencias").select("id", { count: "exact", head: true })
+          .eq("vehicle_id", vid).in("categoria", CATS_FIN_ANEXO).not(campo, "is", null);
         const d = await supabase.from("finance_entries").update({ [campo]: path } as never)
           .eq("vehicle_id", vid).eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null).select("id");
         const q = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
           .eq("vehicle_id", vid).in("categoria", CATS_FIN_ANEXO).is(campo, null).select("id");
-        return (d.data?.length ?? 0) + (q.data?.length ?? 0);
+        return { novos: (d.data?.length ?? 0) + (q.data?.length ?? 0), jaTinham: (jaFin.count ?? 0) + (jaPend.count ?? 0) };
       };
       // Janela de "pago recentemente" para o comprovante de lote sem placa.
       const desde = new Date(); desde.setDate(desde.getDate() - 7);
       const desdeStr = desde.toISOString().slice(0, 10);
       const anexarLoteGlobal = async (path: string) => {
+        const jaFin = await supabase.from("finance_entries").select("id", { count: "exact", head: true })
+          .eq("tipo", "despesa").not("pendencia_id", "is", null).not(campo, "is", null).gte("data", desdeStr);
+        const jaPend = await supabase.from("vehicle_pendencias").select("id", { count: "exact", head: true })
+          .eq("status", "resolvida").in("categoria", CATS_FIN_ANEXO).not(campo, "is", null).gte("resolvido_em", desdeStr);
         const d = await supabase.from("finance_entries").update({ [campo]: path } as never)
           .eq("tipo", "despesa").not("pendencia_id", "is", null).is(campo, null).gte("data", desdeStr).select("id");
         const q = await supabase.from("vehicle_pendencias").update({ [campo]: path } as never)
           .eq("status", "resolvida").in("categoria", CATS_FIN_ANEXO).is(campo, null).gte("resolvido_em", desdeStr).select("id");
-        return (d.data?.length ?? 0) + (q.data?.length ?? 0);
+        return { novos: (d.data?.length ?? 0) + (q.data?.length ?? 0), jaTinham: (jaFin.count ?? 0) + (jaPend.count ?? 0) };
       };
       for (const file of files) {
         const placa = acharPlaca(file.name);
         const path = `detran/${placa ?? "lote"}/${Date.now()}-${slug(file.name)}`;
         const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
         if (up.error) { res.semVeiculo.push(`${file.name} (falha no upload)`); continue; }
-        let tocou = 0;
+        let novos = 0, jaTinham = 0;
         if (placa) {
           const vid = [...placaVariantes(placa)].map((k) => placaMap.get(k)).find(Boolean);
           if (!vid) { res.semVeiculo.push(`${file.name} (placa ${placa} não cadastrada)`); continue; }
-          tocou = await anexarNoVeiculo(vid, path);
+          const r = await anexarNoVeiculo(vid, path); novos = r.novos; jaTinham = r.jaTinham;
         } else if (vehicleIdsLote && vehicleIdsLote.length) {
-          for (const vid of [...new Set(vehicleIdsLote)]) tocou += await anexarNoVeiculo(vid, path);
+          for (const vid of [...new Set(vehicleIdsLote)]) { const r = await anexarNoVeiculo(vid, path); novos += r.novos; jaTinham += r.jaTinham; }
         } else {
           // Comprovante de lote sem placa e sem baixa nesta rodada → itens pagos recentes.
-          tocou = await anexarLoteGlobal(path);
+          const r = await anexarLoteGlobal(path); novos = r.novos; jaTinham = r.jaTinham;
         }
-        if (tocou > 0) res.anexados++;
+        if (novos > 0) res.anexados++;
+        else if (jaTinham > 0) res.jaAnexados++;
         else res.semVeiculo.push(`${file.name} (sem pendência/despesa paga recente p/ anexar)`);
       }
       return res;
@@ -561,7 +572,11 @@ export function useAnexarLoteDetran() {
       qc.invalidateQueries({ queryKey: ["vehicle_pendencias"] });
       qc.invalidateQueries({ queryKey: ["finance_entries"] });
       qc.invalidateQueries({ queryKey: ["finance"] });
-      toast.success(`${r.anexados} arquivo(s) anexado(s)` + (r.semVeiculo.length ? ` · ${r.semVeiculo.length} sem veículo` : ""));
+      toast.success(
+        `${r.anexados} arquivo(s) anexado(s)`
+        + (r.jaAnexados ? ` · ${r.jaAnexados} já anexado(s)` : "")
+        + (r.semVeiculo.length ? ` · ${r.semVeiculo.length} sem veículo` : "")
+      );
     },
     onError: (e: Error) => toast.error("Erro ao anexar: " + e.message),
   });
