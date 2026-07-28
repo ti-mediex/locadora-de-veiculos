@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { PENDENCIA_ITENS_PADRAO } from "@/lib/options";
 import { salvarImportacao } from "@/hooks/use-import-history";
-import { extrairPlaca, placaVariantes } from "@/lib/format";
+import { placaVariantes } from "@/lib/format";
 import type { VehiclePendencia } from "@/types/database";
 
 export type PendenciaRow = VehiclePendencia & { vehicles: { placa: string; modelo: string } | null };
@@ -483,6 +483,13 @@ export interface AnexoLoteResultado { anexados: number; semVeiculo: string[] }
 
 const CATS_FIN_ANEXO = ["IPVA", "Licenciamento", "Taxas Detran", "Seguro/CSV", "Multa"];
 
+/** Placa detectada no texto SÓ quando casa o padrão (null caso contrário) — ao
+ *  contrário de extrairPlaca, que devolve o texto cru quando não acha placa. */
+const acharPlaca = (s: string): string | null => {
+  const m = (s ?? "").toUpperCase().match(/[A-Z]{3}\d[A-Z0-9]\d{2}/);
+  return m ? m[0] : null;
+};
+
 /** Expande arquivos .zip em seus PDFs internos (usa fflate sob demanda). */
 async function expandirArquivos(files: File[]): Promise<File[]> {
   const out: File[] = [];
@@ -530,7 +537,7 @@ export function useAnexarLoteDetran() {
         return (d.data?.length ?? 0) + (q.data?.length ?? 0);
       };
       for (const file of files) {
-        const placa = extrairPlaca(file.name);
+        const placa = acharPlaca(file.name);
         const path = `detran/${placa ?? "lote"}/${Date.now()}-${slug(file.name)}`;
         const up = await supabase.storage.from("importacoes").upload(path, file, { contentType: file.type || "application/pdf", upsert: true });
         if (up.error) { res.semVeiculo.push(`${file.name} (falha no upload)`); continue; }
