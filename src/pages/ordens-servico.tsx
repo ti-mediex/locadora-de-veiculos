@@ -369,10 +369,6 @@ export default function OrdensServicoPage() {
               <Field label="Fim da paralisação" error={errors.fim?.message}><Input type="datetime-local" {...register("fim")} /></Field>
               <Field label="KM no momento"><Input type="number" {...register("km")} placeholder="odômetro" /></Field>
               <Field label="Oficina / fornecedor"><Input {...register("oficina")} /></Field>
-              <Field label="Responsável"><Input {...register("responsavel")} /></Field>
-              <Field label="Abertura"><Input type="date" {...register("data_abertura")} /></Field>
-              <Field label="Previsão"><Input type="date" {...register("previsao")} /></Field>
-              <Field label="Conclusão"><Input type="date" {...register("data_conclusao")} /></Field>
               <Field label="Descrição do serviço" className="space-y-1.5 sm:col-span-2"><Textarea {...register("descricao")} placeholder="Resumo do serviço realizado" /></Field>
 
               {/* Itens: peças substituídas e serviços realizados */}
