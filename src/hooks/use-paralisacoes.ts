@@ -84,7 +84,7 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
   const { data: entriesMes = [] } = useFinanceEntries(ini, fim);
   const { data: statuses = [] } = useVehicleStatuses();
   const { data: config } = useAppConfig();
-  const franquiaH = Number(config?.paralisacao_franquia_horas ?? 4) || 4;
+  const franquiaH = Number(config?.paralisacao_franquia_horas ?? 5) || 5;
 
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.value, s])), [statuses]);
 
