@@ -17,7 +17,8 @@ import { useSort } from "@/hooks/use-sort";
 import { useList } from "@/hooks/use-crud";
 import { useContratos } from "@/hooks/use-contratos";
 import { useOcorrencias, construirLinhaTempo } from "@/hooks/use-ocorrencias";
-import { useParalisacoes, type ParalVeiculo } from "@/hooks/use-paralisacoes";
+import { useParalisacoes, type ParalVeiculo, type ParalisacaoLinha } from "@/hooks/use-paralisacoes";
+import { MemoriaCalculoDialog } from "@/components/paralisacoes/memoria-calculo-desconto";
 import { OCORRENCIA_TIPO } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, formatDateTime, maskPlaca } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
@@ -43,6 +44,21 @@ export default function LinhaDoTempoPage() {
   const mesLabel = useMemo(() => { const s = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); return s.charAt(0).toUpperCase() + s.slice(1); }, []);
 
   const abrirVeiculo = (id: string) => { setVeic(id); setTab("veiculo"); };
+
+  // Memória de cálculo do desconto (clicável em qualquer valor de desconto).
+  const [memoria, setMemoria] = useState<{ linhas: ParalisacaoLinha[]; titulo: string } | null>(null);
+  const linhasComDesc = (fn: (l: ParalisacaoLinha) => boolean) => linhas.filter((l) => l.horasDesc > 0 && fn(l));
+  const descontoCell = (valor: number, linhasSel: ParalisacaoLinha[], titulo: string) =>
+    valor > 0 && linhasSel.length ? (
+      <button
+        type="button"
+        className="font-medium tabular-nums text-destructive underline decoration-dotted underline-offset-2 hover:opacity-80"
+        title="Ver memória de cálculo do desconto"
+        onClick={(e) => { e.stopPropagation(); setMemoria({ linhas: linhasSel, titulo }); }}
+      >
+        {formatCurrency(valor)}
+      </button>
+    ) : <span className="text-muted-foreground">—</span>;
 
   // Rankings (frota).
   const comOcorr = useMemo(() => porVeiculo.filter((p) => p.nOcorr > 0), [porVeiculo]);
@@ -166,7 +182,7 @@ export default function LinhaDoTempoPage() {
                           <TableCell className="text-right tabular-nums">{p.nOcorr || <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{p.horas > 0 ? h1(p.horas) : <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className={`text-right tabular-nums ${p.dispMes < 0.9 ? "font-semibold text-destructive" : ""}`}>{pct(p.dispMes)}</TableCell>
-                          <TableCell className="whitespace-nowrap text-right tabular-nums">{p.desconto > 0 ? formatCurrency(p.desconto) : <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right tabular-nums">{descontoCell(p.desconto, linhasComDesc((l) => l.vehicle_id === p.vehicle_id), maskPlaca(p.placa))}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{p.custo > 0 ? formatCurrency(p.custo) : <span className="text-muted-foreground">—</span>}</TableCell>
                           <TableCell className="whitespace-nowrap text-right tabular-nums">{p.perdaMes > 0 ? formatCurrency(p.perdaMes) : <span className="text-muted-foreground">—</span>}</TableCell>
                         </TableRow>
@@ -198,7 +214,7 @@ export default function LinhaDoTempoPage() {
                           <TableCell className="whitespace-nowrap font-medium">{formatDate(d.semanaIni)}</TableCell>
                           <TableCell className="whitespace-nowrap text-muted-foreground">{d.semanaLabel}</TableCell>
                           <TableCell className="text-right tabular-nums">{h1(d.horasDesc)}</TableCell>
-                          <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-destructive">{formatCurrency(d.desconto)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{descontoCell(d.desconto, linhasComDesc((l) => l.vehicle_id === d.vehicle_id && l.semanaIni === d.semanaIni), `${maskPlaca(d.placa)} · ${d.semanaLabel}`)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -242,7 +258,7 @@ export default function LinhaDoTempoPage() {
                                   <TableCell className="whitespace-nowrap">{l.fim ? formatDateTime(l.fim) : <Badge variant="warning" className="px-1.5 py-0 text-[10px]">em aberto</Badge>}</TableCell>
                                   <TableCell className="text-right tabular-nums">{h1(l.horas)}</TableCell>
                                   <TableCell className="text-right tabular-nums">{l.horasDesc > 0 ? h1(l.horasDesc) : "—"}</TableCell>
-                                  <TableCell className="whitespace-nowrap text-right tabular-nums text-destructive">{l.desconto > 0 ? formatCurrency(l.desconto) : "—"}</TableCell>
+                                  <TableCell className="whitespace-nowrap text-right tabular-nums">{descontoCell(l.desconto, [l], maskPlaca(veicSel.placa))}</TableCell>
                                   <TableCell className="text-right tabular-nums">{l.custo > 0 ? formatCurrency(l.custo) : "—"}</TableCell>
                                 </TableRow>
                               ))}
@@ -318,7 +334,7 @@ export default function LinhaDoTempoPage() {
                       <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(p.placa)}</TableCell>
                       <TableCell className="text-right tabular-nums">{h1(p.horas)}</TableCell>
                       <TableCell className="text-right tabular-nums">{p.nOcorr}</TableCell>
-                      <TableCell className="text-right tabular-nums text-destructive">{formatCurrency(p.desconto)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{descontoCell(p.desconto, linhasComDesc((l) => l.vehicle_id === p.vehicle_id), maskPlaca(p.placa))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -327,6 +343,14 @@ export default function LinhaDoTempoPage() {
           </CardContent>
         </Card>
       )}
+
+      <MemoriaCalculoDialog
+        open={!!memoria}
+        onOpenChange={(v) => !v && setMemoria(null)}
+        linhas={memoria?.linhas ?? []}
+        franquiaH={franquiaH}
+        titulo={memoria?.titulo}
+      />
     </div>
   );
 }

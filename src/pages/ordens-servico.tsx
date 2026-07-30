@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Wrench, ClipboardList, CheckCircle2, Clock, Camera, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Wrench, ClipboardList, CheckCircle2, Clock, Camera, X, Calculator } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -18,9 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useOcorrencias } from "@/hooks/use-ocorrencias";
+import { useParalisacoes, type ParalisacaoLinha } from "@/hooks/use-paralisacoes";
+import { MemoriaCalculoDesconto, MemoriaCalculoDialog } from "@/components/paralisacoes/memoria-calculo-desconto";
 import { useOrdensServico, useSalvarOrdemServico, useDeleteOrdemServico, useOsFotos, useSaveOsFotos, useDeleteOsFoto, type OrdemServicoRow } from "@/hooks/use-ordens-servico";
 import { OS_STATUS } from "@/lib/options";
-import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
+import { formatCurrency, formatDate, soAlfa, maskPlaca } from "@/lib/format";
 import type { Vehicle, OrdemServicoStatus } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -56,6 +58,7 @@ export default function OrdensServicoPage() {
   const { data: rows = [], isLoading } = useOrdensServico();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const { data: ocorrencias = [] } = useOcorrencias();
+  const { linhas: paralLinhas, franquiaH } = useParalisacoes();
   const salvar = useSalvarOrdemServico();
   const remove = useDeleteOrdemServico();
   const saveFotos = useSaveOsFotos();
@@ -68,6 +71,16 @@ export default function OrdensServicoPage() {
   const { data: fotos = [] } = useOsFotos(editing?.id);
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("ativas");
+  const [memoria, setMemoria] = useState<ParalisacaoLinha | null>(null);
+
+  // Paralisação (e desconto) vinculada a esta OS via a ocorrência de origem.
+  const paralPorOcorrencia = useMemo(() => {
+    const m = new Map<string, ParalisacaoLinha>();
+    for (const l of paralLinhas) if (l.ocorrencia?.id) m.set(l.ocorrencia.id, l);
+    return m;
+  }, [paralLinhas]);
+  const linhaDaOs = (os: OrdemServicoRow | null): ParalisacaoLinha | null =>
+    (os?.ocorrencia_id && paralPorOcorrencia.get(os.ocorrencia_id)) || null;
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
   const vMap = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
@@ -218,7 +231,17 @@ export default function OrdensServicoPage() {
                 <TableBody>
                   {sorted.map((r) => (
                     <TableRow key={r.id} className={canWrite ? "cursor-pointer" : undefined} onClick={canWrite ? () => openEdit(r) : undefined}>
-                      <TableCell className="whitespace-nowrap font-mono font-medium">{r.numero}</TableCell>
+                      <TableCell className="whitespace-nowrap font-mono font-medium">
+                        <span className="inline-flex items-center gap-1">
+                          {r.numero}
+                          {(linhaDaOs(r)?.desconto ?? 0) > 0 && (
+                            <button type="button" title="Ver memória de cálculo do desconto por paralisação"
+                              onClick={(e) => { e.stopPropagation(); setMemoria(linhaDaOs(r)); }}>
+                              <Calculator className="h-3.5 w-3.5 text-destructive" />
+                            </button>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell className="whitespace-nowrap font-mono">{r.vehicles?.placa ?? r.placa ?? "—"}</TableCell>
                       <TableCell><VehicleStatusBadge status={vMap.get(r.vehicle_id ?? "")?.status} /></TableCell>
                       <TableCell className="max-w-[140px] truncate">{r.oficina ?? "—"}</TableCell>
@@ -308,6 +331,13 @@ export default function OrdensServicoPage() {
                 )}
               </div>
             </div>
+            {editing && linhaDaOs(editing) && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center gap-2 text-sm font-medium"><Calculator className="h-4 w-4 text-destructive" /> Memória de cálculo do desconto por paralisação</div>
+                <p className="text-xs text-muted-foreground">Desconto no boleto do locatário gerado pela paralisação da ocorrência vinculada a esta OS.</p>
+                <MemoriaCalculoDesconto linhas={[linhaDaOs(editing)!]} franquiaH={franquiaH} />
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">Ao salvar como <b>Concluída</b> com total maior que zero, uma despesa é lançada/atualizada automaticamente no módulo Despesas.</p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
@@ -316,6 +346,14 @@ export default function OrdensServicoPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <MemoriaCalculoDialog
+        open={!!memoria}
+        onOpenChange={(v) => !v && setMemoria(null)}
+        linhas={memoria ? [memoria] : []}
+        franquiaH={franquiaH}
+        titulo={memoria ? maskPlaca(memoria.placa) : undefined}
+      />
     </div>
   );
 }
