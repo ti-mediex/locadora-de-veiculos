@@ -6,10 +6,11 @@ import { useFinanceEntries } from "@/hooks/use-finance";
 import { useVehicleStatuses, type VehicleStatus } from "@/hooks/use-vehicle-statuses";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { ehFrotaAtiva, grupoFrota, semanasNoMes } from "@/hooks/use-frota-ativa";
+import { OCORRENCIA_TIPOS_PARALISA } from "@/lib/options";
 import type { Vehicle } from "@/types/database";
 
 /** Tipos de ocorrência que paralisam o veículo (indisponibilizam para locação). */
-export const TIPOS_PARALISA = new Set(["manutencao", "sinistro", "avaria", "pane", "translado"]);
+export const TIPOS_PARALISA = new Set<string>(OCORRENCIA_TIPOS_PARALISA);
 
 const HORAS_SEMANA = 168; // 7 × 24
 

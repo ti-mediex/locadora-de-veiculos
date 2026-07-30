@@ -417,11 +417,14 @@ export interface Contrato {
   updated_at: string;
 }
 
-export type OcorrenciaTipo = "manutencao" | "sinistro" | "avaria" | "pane" | "carro_reserva" | "infracao" | "translado" | "outros";
+export type OcorrenciaTipo =
+  | "manutencao_preventiva" | "manutencao_corretiva" | "sinistro"
+  | "carro_reserva" | "infracao" | "translado" | "outros";
 export type OcorrenciaStatus = "aberta" | "em_andamento" | "resolvida" | "cancelada";
 
 export interface Ocorrencia {
   id: string;
+  numero: string;
   vehicle_id: string | null;
   placa: string | null;
   tipo: OcorrenciaTipo;
@@ -451,10 +454,17 @@ export interface OrdemServico {
   ocorrencia_id: string | null;
   vehicle_id: string | null;
   placa: string | null;
+  tipo: string | null;
   tipo_servico: string | null;
   oficina: string | null;
   responsavel: string | null;
   descricao: string | null;
+  observacao: string | null;
+  inicio: string | null;
+  fim: string | null;
+  km: number | null;
+  ituran_path: string | null;
+  status_veiculo_anterior: string | null;
   valor_mao_obra: number;
   valor_pecas: number;
   valor_total: number;
@@ -465,6 +475,18 @@ export interface OrdemServico {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type OsItemTipo = "peca" | "servico";
+export interface OsItem {
+  id: string;
+  ordem_servico_id: string;
+  tipo_item: OsItemTipo;
+  descricao: string | null;
+  quantidade: number;
+  custo_unitario: number;
+  custo_total: number;
+  created_at: string;
 }
 
 export interface ChecklistItem {

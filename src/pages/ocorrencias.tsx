@@ -21,7 +21,7 @@ import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useContratos } from "@/hooks/use-contratos";
 import { useOcorrencias, construirLinhaTempo, useOcorrenciaFotos, useSaveOcorrenciaFotos, useDeleteOcorrenciaFoto, type OcorrenciaRow } from "@/hooks/use-ocorrencias";
-import { useAbrirOSAuto } from "@/hooks/use-ordens-servico";
+import { useAbrirOSAuto, useOrdensServico } from "@/hooks/use-ordens-servico";
 import { OCORRENCIA_TIPO, OCORRENCIA_STATUS, OCORRENCIA_GRAVIDADE } from "@/lib/options";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
@@ -47,7 +47,7 @@ const fmtDataHora = (iso: string | null) => {
 
 const schema = z.object({
   vehicle_id: z.string().min(1, "Selecione o veículo"),
-  tipo: z.string().default("manutencao"),
+  tipo: z.string().default("manutencao_corretiva"),
   gravidade: z.string().default("media"),
   titulo: z.string().optional(),
   descricao: z.string().optional(),
@@ -74,6 +74,12 @@ export default function OcorrenciasPage() {
   const update = useUpdate("ocorrencias", "Ocorrência");
   const remove = useDelete("ocorrencias", "Ocorrência");
   const abrirOS = useAbrirOSAuto();
+  const { data: ordensServico = [] } = useOrdensServico();
+  const osPorOcorrencia = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const os of ordensServico) if (os.ocorrencia_id && !m.has(os.ocorrencia_id)) m.set(os.ocorrencia_id, os.numero);
+    return m;
+  }, [ordensServico]);
   const canWrite = useCanWrite("ocorrencias");
   const saveFotos = useSaveOcorrenciaFotos();
   const delFoto = useDeleteOcorrenciaFoto();
@@ -172,7 +178,7 @@ export default function OcorrenciasPage() {
   function openNew() {
     setEditing(null);
     setFotosNovas([]);
-    reset({ tipo: "manutencao", gravidade: "media", status: "aberta", inicio: nowLocal() });
+    reset({ tipo: "manutencao_corretiva", gravidade: "media", status: "aberta", inicio: nowLocal() });
     setOpen(true);
   }
   function openEdit(r: OcorrenciaRow) {
@@ -210,7 +216,7 @@ export default function OcorrenciasPage() {
           if (nova?.id && fotosNovas.length) saveFotos.mutate({ ocorrenciaId: nova.id, files: fotosNovas });
           setFotosNovas([]);
           // Abre OS automaticamente para tipos de serviço.
-          if (nova?.id && ehServico(data.tipo)) abrirOS.mutate({ id: nova.id, vehicle_id: data.vehicle_id, placa: v?.placa ?? null, tipo: data.tipo, titulo: data.titulo || null });
+          if (nova?.id && ehServico(data.tipo)) abrirOS.mutate({ id: nova.id, vehicle_id: data.vehicle_id, placa: v?.placa ?? null, tipo: data.tipo, titulo: data.titulo || null, inicio: payload.inicio, fim: payload.fim, km: payload.km });
         },
       });
     }
@@ -329,7 +335,9 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
                           <TableCell><VehicleStatusBadge status={vMap.get(r.vehicle_id ?? "")?.status} /></TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: tipoCor(r.tipo) }} />{tipoLabel(r.tipo)}</Badge>
-                            {r.titulo && <div className="text-[11px] text-muted-foreground">{r.titulo}</div>}
+                            <div className="text-[11px] text-muted-foreground">
+                              <span className="font-mono">{r.numero}</span>{osPorOcorrencia.get(r.id) ? ` · OS ${osPorOcorrencia.get(r.id)}` : ""}{r.titulo ? ` · ${r.titulo}` : ""}
+                            </div>
                           </TableCell>
                           <TableCell className="capitalize">{r.gravidade}</TableCell>
                           <TableCell className="whitespace-nowrap">{fmtDataHora(r.inicio)}</TableCell>
@@ -390,7 +398,7 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
                 <SelectVeiculo value={watch("vehicle_id") || ""} onChange={(v) => setValue("vehicle_id", v)} vehicles={vehicles} placeholder="Selecione" />
               </Field>
               <Field label="Tipo">
-                <Select value={tipoSel || "manutencao"} onValueChange={(v) => setValue("tipo", v)}>
+                <Select value={tipoSel || "manutencao_corretiva"} onValueChange={(v) => setValue("tipo", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{OCORRENCIA_TIPO.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                 </Select>

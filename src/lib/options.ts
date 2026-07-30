@@ -135,16 +135,22 @@ export const OCCURRENCE_STATUS = [
 ];
 
 // ===== Ocorrências (aba nova) =====
+// `servico`: abre Ordem de Serviço e é o vocabulário do campo "Tipo" da OS.
+// `paralisa`: gera desconto de paralisação (indisponibiliza o veículo).
 export const OCORRENCIA_TIPO = [
-  { value: "manutencao", label: "Manutenção", color: "hsl(38 92% 60%)", servico: true },
-  { value: "sinistro", label: "Sinistro / Colisão", color: "hsl(0 72% 55%)", servico: true },
-  { value: "avaria", label: "Avaria", color: "hsl(340 82% 60%)", servico: true },
-  { value: "pane", label: "Pane / Quebra", color: "hsl(24 90% 55%)", servico: true },
-  { value: "carro_reserva", label: "Carro reserva", color: "hsl(262 70% 66%)", servico: false },
-  { value: "infracao", label: "Infração / Multa", color: "hsl(48 90% 50%)", servico: false },
-  { value: "translado", label: "Translado", color: "hsl(180 50% 45%)", servico: false },
-  { value: "outros", label: "Outros", color: "hsl(215 16% 55%)", servico: false },
+  { value: "manutencao_preventiva", label: "Manutenção preventiva (programada)", color: "hsl(199 89% 48%)", servico: true, paralisa: true },
+  { value: "manutencao_corretiva", label: "Manutenção corretiva (Pane/Quebra)", color: "hsl(24 90% 55%)", servico: true, paralisa: true },
+  { value: "sinistro", label: "Sinistro / Colisão", color: "hsl(0 72% 55%)", servico: true, paralisa: true },
+  { value: "carro_reserva", label: "Carro reserva", color: "hsl(262 70% 66%)", servico: false, paralisa: false },
+  { value: "infracao", label: "Infração / Multa", color: "hsl(48 90% 50%)", servico: false, paralisa: false },
+  { value: "translado", label: "Translado", color: "hsl(180 50% 45%)", servico: false, paralisa: true },
+  { value: "outros", label: "Outros", color: "hsl(215 16% 55%)", servico: false, paralisa: false },
 ] as const;
+
+/** Tipos que abrem Ordem de Serviço (vocabulário do campo "Tipo" da OS). */
+export const OCORRENCIA_TIPO_SERVICO = OCORRENCIA_TIPO.filter((t) => t.servico);
+/** Conjunto de tipos que paralisam o veículo (gera desconto). */
+export const OCORRENCIA_TIPOS_PARALISA = OCORRENCIA_TIPO.filter((t) => t.paralisa).map((t) => t.value);
 
 export const OCORRENCIA_STATUS = [
   { value: "aberta", label: "Aberta" },
@@ -171,10 +177,9 @@ export const OS_STATUS = [
 
 /** Categoria de Despesa gerada quando a OS de uma ocorrência é concluída. */
 export const OCORRENCIA_DESPESA_CATEGORIA: Record<string, string> = {
-  manutencao: "Manutenção",
+  manutencao_preventiva: "Manutenção",
+  manutencao_corretiva: "Manutenção",
   sinistro: "Manutenção",
-  avaria: "Manutenção",
-  pane: "Manutenção",
   infracao: "Multas",
   translado: "Administrativo",
   carro_reserva: "Administrativo",
