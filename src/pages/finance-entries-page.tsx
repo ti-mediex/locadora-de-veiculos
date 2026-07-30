@@ -36,7 +36,12 @@ import { exportToCsv } from "@/lib/csv";
 import type { FinanceEntry, Vehicle } from "@/types/database";
 
 const ehAluguel = (cat?: string | null) => /alug|loca[çc]/i.test(cat ?? "");
-const addDias = (iso: string, n: number) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const addDias = (iso: string, n: number): string | null => {
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return null; // data inválida não pode derrubar a tela
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 const CONC_LABEL: Record<string, { label: string; variant: "success" | "muted" | "warning" | "destructive" }> = {
   match: { label: "Baixar", variant: "success" },
@@ -204,7 +209,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
       isReceita ? "receitas" : "despesas",
       filtered.map((r) => ({
         data: r.data,
-        semana: isReceita && ehAluguel(r.categoria) && r.data ? `${r.data} a ${addDias(r.data, 6)}` : "",
+        semana: isReceita && ehAluguel(r.categoria) && r.data && addDias(r.data, 6) ? `${r.data} a ${addDias(r.data, 6)}` : "",
         veiculo: vehicleLabel(r.vehicle_id), categoria: r.categoria ?? "",
         descricao: r.descricao, valor: r.valor,
         recebido: r.recebido ? "Sim" : "Não", recebido_em: r.recebido_em ?? "",
