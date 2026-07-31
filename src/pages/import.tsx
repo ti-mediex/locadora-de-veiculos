@@ -610,7 +610,7 @@ export default function ImportPage() {
 
             <div className="mt-6">
               <p className="mb-2 text-sm font-medium">Prévia ({rows.length} linha(s))</p>
-              <div className="rounded-lg border">
+              <div className="overflow-x-auto rounded-lg border">
                 <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
                   <TableHeader>
                     <TableRow>

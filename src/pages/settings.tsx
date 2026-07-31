@@ -80,6 +80,7 @@ export default function SettingsPage() {
           ) : profiles.length === 0 ? (
             <EmptyState message="Nenhum usuário encontrado" />
           ) : (
+            <div className="overflow-x-auto">
             <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
@@ -132,6 +133,7 @@ export default function SettingsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

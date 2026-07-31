@@ -384,6 +384,8 @@ export default function OrdensServicoPage() {
                   <p className="text-xs text-muted-foreground">Nenhum item. Adicione as peças substituídas e os serviços realizados.</p>
                 ) : (
                   <div className="space-y-1.5">
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[30rem] space-y-1.5">
                     {itens.map((it, i) => (
                       <div key={i} className="grid grid-cols-[5rem_1fr_3.5rem_5.5rem_5.5rem_1.75rem] items-center gap-1.5 text-xs">
                         <Select value={it.tipo_item} onValueChange={(v) => setItens((xs) => xs.map((x, idx) => idx === i ? { ...x, tipo_item: v as OsItemTipo } : x))}>
@@ -397,6 +399,8 @@ export default function OrdensServicoPage() {
                         <button type="button" title="Remover item" onClick={() => setItens((xs) => xs.filter((_, idx) => idx !== i))}><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
                       </div>
                     ))}
+                      </div>
+                    </div>
                     <div className="flex flex-wrap justify-end gap-x-4 gap-y-0.5 pt-1 text-xs tabular-nums">
                       <span className="text-muted-foreground">Peças: <b className="text-foreground">{formatCurrency(totalPecas)}</b></span>
                       <span className="text-muted-foreground">Serviços: <b className="text-foreground">{formatCurrency(totalServicos)}</b></span>

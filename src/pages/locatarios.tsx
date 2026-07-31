@@ -156,6 +156,7 @@ export default function LocatariosPage() {
           ) : filtered.length === 0 ? (
             <EmptyState message="Nenhum locatário cadastrado" icon={<Users className="h-6 w-6" />} action={canWrite ? <Button onClick={abrirNovo}><Plus className="h-4 w-4" /> Novo locatário</Button> : undefined} />
           ) : (
+            <div className="overflow-x-auto">
             <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
@@ -192,6 +193,7 @@ export default function LocatariosPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
