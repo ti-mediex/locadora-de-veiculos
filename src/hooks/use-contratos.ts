@@ -21,16 +21,16 @@ export function useLocatarioPorVeiculo() {
   }, [contratos]);
 }
 
-export interface ContratoAtivoVeic { numero: string; cliente: string }
+export interface ContratoAtivoVeic { id: string; numero: string; cliente: string; locatarioId: string | null; placa: string | null }
 
-/** Contrato ativo vigente de cada veículo (número + cliente), por vehicle_id. */
+/** Contrato ativo vigente de cada veículo (número + cliente + ids), por vehicle_id. */
 export function useContratoAtivoPorVeiculo() {
   const { data: contratos = [] } = useContratos();
   return useMemo(() => {
     const m = new Map<string, ContratoAtivoVeic>();
     for (const c of contratos) {
       if (c.status === "ativo" && c.vehicle_id && !m.has(c.vehicle_id)) {
-        m.set(c.vehicle_id, { numero: c.numero, cliente: c.cliente_nome ?? "" });
+        m.set(c.vehicle_id, { id: c.id, numero: c.numero, cliente: c.cliente_nome ?? "", locatarioId: c.locatario_id ?? null, placa: c.vehicles?.placa ?? c.placa ?? null });
       }
     }
     return m;

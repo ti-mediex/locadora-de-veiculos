@@ -360,6 +360,10 @@ export interface LocatarioDebito {
   pago: boolean;
   pago_em: string | null;
   documento: string | null;
+  semana_venc: string | null;   // sexta-alvo do boleto (parcelas)
+  parcela_num: number | null;
+  parcela_total: number | null;
+  grupo_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

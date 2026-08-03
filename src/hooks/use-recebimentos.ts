@@ -105,6 +105,41 @@ export function useMarcarRecebido() {
   });
 }
 
+/** Recebe as parcelas de KM excedente de uma semana/contrato: quita os débitos
+ *  do locatário e lança a receita correspondente no financeiro (idempotente). */
+export function useReceberKmExcedente() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ debitoIds, contrato_id, vehicle_id, data, valor, forma }: {
+      debitoIds: string[]; contrato_id: string | null; vehicle_id: string | null; data: string; valor: number; forma?: string;
+    }) => {
+      if (debitoIds.length) {
+        const { error } = await supabase.from("locatario_debitos")
+          .update({ pago: true, pago_em: data } as never).in("id", debitoIds);
+        if (error) throw error;
+      }
+      // Receita idempotente por (contrato_id, data, categoria).
+      let q = supabase.from("finance_entries").select("id").eq("data", data).eq("categoria", "KM excedente");
+      q = contrato_id ? q.eq("contrato_id", contrato_id) : q.eq("vehicle_id", vehicle_id ?? "");
+      const { data: existe } = await q.limit(1);
+      if (!existe?.length && valor > 0) {
+        const { error } = await supabase.from("finance_entries").insert({
+          tipo: "receita", categoria: "KM excedente", data, vehicle_id, contrato_id,
+          descricao: "KM excedente (boleto semanal)", valor,
+          recebido: true, recebido_em: data, forma_recebimento: forma ?? "boleto",
+        } as never);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["locatario_debitos"] });
+      qc.invalidateQueries({ queryKey: ["finance_entries"] });
+      qc.invalidateQueries({ queryKey: ["finance"] });
+    },
+    onError: (e: Error) => toast.error("Erro ao receber km excedente: " + e.message),
+  });
+}
+
 type ArqCampo = "comprovante_path" | "boleto_path";
 
 /** Envia um arquivo (comprovante de pagamento ou boleto emitido) e grava o caminho. */

@@ -13,6 +13,7 @@ export const CONFIG_DEFAULTS: AppConfig = {
   laudo_email_corpo: "Olá {nome},\n\nSegue em anexo o laudo da vistoria do veículo {placa} ({tipo}).\n\nAtenciosamente,\n{empresa}",
   // Apuração de KM (relatório de ociosidade Ituran)
   franquia_km_mensal: "6000",
+  km_valor_excedente: "0.42", // R$ por km rodado acima da franquia mensal
   endereco_manutencao: "General Góes Monteiro",
   km_teto_dia: "1000",
   // Gestão de paralisações: horas de tolerância antes de gerar desconto (regra: ≤5h sem desconto).

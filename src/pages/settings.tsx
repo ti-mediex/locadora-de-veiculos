@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Users, ShieldCheck, Info, Plus, Trash2, KeyRound, MessageSquare } from "lucide-react";
+import { Users, ShieldCheck, Info, Plus, Trash2, KeyRound, MessageSquare, Gauge } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Field } from "@/components/shared/field";
@@ -164,6 +164,27 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Parâmetros de apuração de KM */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Gauge className="h-5 w-5" /> Parâmetros de KM</CardTitle>
+            <CardDescription>Franquia mensal e valor cobrado por km rodado acima da franquia.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Franquia mensal (km/mês)"><Input type="number" value={msg.franquia_km_mensal ?? ""} onChange={(e) => setMsg((m) => ({ ...m, franquia_km_mensal: e.target.value }))} /></Field>
+              <Field label="Valor do km excedente (R$/km)"><Input type="number" step="0.01" value={msg.km_valor_excedente ?? ""} onChange={(e) => setMsg((m) => ({ ...m, km_valor_excedente: e.target.value }))} /></Field>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => updateConfig.mutate(msg)} disabled={updateConfig.isPending}>
+                {updateConfig.isPending ? "Salvando..." : "Salvar parâmetros"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Mensagens de envio do laudo */}
       {isAdmin && (

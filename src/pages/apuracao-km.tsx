@@ -17,13 +17,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatNumber, soAlfa } from "@/lib/format";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatNumber, formatCurrency, soAlfa, maskPlaca } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
+import { abrirRelatorioTabela } from "@/lib/relatorio-tabela";
 import { useKmDiario, type KmDiaRow } from "@/hooks/use-km";
 import { useAppConfig } from "@/hooks/use-app-config";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useList } from "@/hooks/use-crud";
-import { useLocatarioPorVeiculo } from "@/hooks/use-contratos";
+import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo } from "@/hooks/use-contratos";
+import { useGerarCobrancaKmExcedente } from "@/hooks/use-financeiro-locatario";
+import { consolidarCobrancasKmExcedente, distribuirParcelas, mesesLabel, type CobrancaKmExcedente } from "@/lib/km-excedente";
+import { MemoriaKmExcedente } from "@/components/km/memoria-km-excedente";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { ImportarIturanDialog } from "@/components/km/importar-ituran-dialog";
 import { abrirRelatorioKm } from "@/lib/relatorio-km";
@@ -57,6 +62,8 @@ export default function ApuracaoKmPage() {
   const { data: config } = useAppConfig();
   const { data: veiculos = [] } = useList<Vehicle>("vehicles");
   const locatarioMap = useLocatarioPorVeiculo();
+  const contratoAtivoMap = useContratoAtivoPorVeiculo();
+  const gerarCobranca = useGerarCobrancaKmExcedente();
 
   const [fVeiculo, setFVeiculo] = useState("todos");
   const [buscaVeic, setBuscaVeic] = useState("");
@@ -181,6 +188,32 @@ export default function ApuracaoKmPage() {
   }, [rows, franquia]);
   const excedenteTotal = useMemo(() => franquiaRows.reduce((s, r) => s + r.excedente, 0), [franquiaRows]);
   const mesesExcedidos = useMemo(() => franquiaRows.filter((r) => r.excedente > 0).length, [franquiaRows]);
+
+  // ---- Valor do km excedente (R$/km) e cobrança consolidada por contrato/locatário ----
+  const kmValor = Number(config?.km_valor_excedente ?? 0.42) || 0.42;
+  const valorExcedenteTotal = Math.round(excedenteTotal * kmValor * 100) / 100;
+  const cobrancas = useMemo(
+    () => consolidarCobrancasKmExcedente(franquiaRows, franquia, kmValor, contratoAtivoMap),
+    [franquiaRows, franquia, kmValor, contratoAtivoMap],
+  );
+  const [cobranca, setCobranca] = useState<CobrancaKmExcedente | null>(null);
+  const [parcelas, setParcelas] = useState(1);
+  const proximaSexta = useMemo(() => { const x = new Date(); x.setDate(x.getDate() + ((5 - x.getDay() + 7) % 7 || 7)); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; }, []);
+  function abrirCobranca(c: CobrancaKmExcedente) { setCobranca(c); setParcelas(1); }
+  function enviarMemoria(c: CobrancaKmExcedente) {
+    abrirRelatorioTabela({
+      empresa: config?.empresa_nome ?? "VIP CARS",
+      titulo: "Cobrança de KM excedente",
+      subtitulo: `${maskPlaca(c.placa)} · Contrato ${c.contratoNumero}${c.locatario ? ` · ${c.locatario}` : ""} · ${formatCurrency(kmValor)}/km`,
+      colunas: [{ label: "Mês" }, { label: "KM no mês", align: "right" }, { label: "Franquia", align: "right" }, { label: "Excedente", align: "right" }, { label: "Valor", align: "right" }],
+      linhas: c.meses.map((m) => [`${m.ym.slice(5)}/${m.ym.slice(0, 4)}`, km0(m.km), km0(m.franquia), km0(m.excedente), formatCurrency(m.valor)]),
+      rodape: ["Total", "", "", km0(c.excedenteTotal), formatCurrency(c.valorTotal)],
+    });
+  }
+  function confirmarCobranca() {
+    if (!cobranca) return;
+    gerarCobranca.mutate({ cobranca, parcelas, primeiraSexta: proximaSexta }, { onSuccess: () => setCobranca(null) });
+  }
 
   // ---- Manutenção / paralisação (desconto) por veículo ----
   const manutRows = useMemo(() => {
@@ -340,7 +373,7 @@ export default function ApuracaoKmPage() {
               <StatCard title="Dias parados (sem rodar)" value={formatNumber(kpi.diasParados)} hint="dias com leitura e KM zero" tone="warning" icon={<ParkingCircle className="h-5 w-5" />} />
             </button>
             <button type="button" onClick={() => setTab("franquia")} className="text-left">
-              <StatCard title="KM excedente da franquia" value={km0(excedenteTotal)} hint={`acima de ${formatNumber(franquia)} km/mês · ${mesesExcedidos} mês(es)`} tone={excedenteTotal > 0 ? "destructive" : "default"} icon={<AlertTriangle className="h-5 w-5" />} />
+              <StatCard title="KM excedente da franquia" value={km0(excedenteTotal)} hint={`${formatCurrency(valorExcedenteTotal)} a cobrar (${formatCurrency(kmValor)}/km) · ${mesesExcedidos} mês(es)`} tone={excedenteTotal > 0 ? "destructive" : "default"} icon={<AlertTriangle className="h-5 w-5" />} />
             </button>
             <button type="button" onClick={() => setTab("manutencao")} className="text-left">
               <StatCard title="Tempo em manutenção" value={`${formatNumber(Math.round(kpi.minManut / 60))} h`} hint={`${kpi.diasManut} dia(s) parado(s) na oficina`} tone="warning" icon={<Wrench className="h-5 w-5" />} />
@@ -356,6 +389,7 @@ export default function ApuracaoKmPage() {
               <TabsTrigger value="porveiculo">Por veículo</TabsTrigger>
               <TabsTrigger value="mesveiculo">KM mês × veículo</TabsTrigger>
               <TabsTrigger value="franquia">Franquia mensal</TabsTrigger>
+              <TabsTrigger value="cobranca">Cobrança km exced.</TabsTrigger>
               <TabsTrigger value="manutencao">Paralisação/Manutenção</TabsTrigger>
               <TabsTrigger value="diario">Detalhe diário</TabsTrigger>
             </TabsList>
@@ -515,6 +549,7 @@ export default function ApuracaoKmPage() {
                             <TableHead className="text-right">KM no mês</TableHead>
                             <TableHead className="text-right">Franquia</TableHead>
                             <TableHead className="text-right">Excedente</TableHead>
+                            <TableHead className="text-right">Valor ({formatCurrency(kmValor)}/km)</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -526,6 +561,51 @@ export default function ApuracaoKmPage() {
                               <TableCell className="text-right text-muted-foreground">{formatNumber(franquia)} km</TableCell>
                               <TableCell className="text-right">
                                 {r.excedente > 0 ? <Badge variant="outline" className="border-destructive font-semibold text-destructive">+{km0(r.excedente)}</Badge> : <span className="text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell className="text-right font-medium tabular-nums text-destructive">{r.excedente > 0 ? formatCurrency(r.excedente * kmValor) : "—"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Cobrança de KM excedente por contrato/locatário */}
+            <TabsContent value="cobranca" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Cobrança de KM excedente</CardTitle>
+                  <CardDescription>{formatCurrency(kmValor)} por km acima da franquia · consolidado por contrato/locatário · clique para memória e cobrança</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {cobrancas.length === 0 ? <EmptyState message="Nenhum veículo com km excedente no período" /> : (
+                    <div className="overflow-x-auto">
+                      <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Veículo</TableHead>
+                            <TableHead>Contrato</TableHead>
+                            <TableHead>Locatário</TableHead>
+                            <TableHead className="text-right">Meses</TableHead>
+                            <TableHead className="text-right">KM excedente</TableHead>
+                            <TableHead className="text-right">Valor</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {cobrancas.map((c) => (
+                            <TableRow key={c.vehicle_id} className="cursor-pointer" onClick={() => abrirCobranca(c)}>
+                              <TableCell className="font-mono font-medium">{maskPlaca(c.placa)}</TableCell>
+                              <TableCell className="font-mono">{c.contratoNumero}</TableCell>
+                              <TableCell className="max-w-[160px] truncate" title={c.locatario}>{c.locatario || <span className="text-muted-foreground">—</span>}</TableCell>
+                              <TableCell className="text-right tabular-nums">{c.meses.length}</TableCell>
+                              <TableCell className="text-right tabular-nums">{km0(c.excedenteTotal)}</TableCell>
+                              <TableCell className="text-right font-semibold tabular-nums text-destructive">{formatCurrency(c.valorTotal)}</TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+                                <Button variant="ghost" size="sm" onClick={() => enviarMemoria(c)}><FileText className="h-4 w-4" /> Enviar</Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -620,6 +700,46 @@ export default function ApuracaoKmPage() {
       )}
 
       <ImportarIturanDialog open={showImport} onOpenChange={setShowImport} />
+
+      {/* Memória de cálculo + cobrança (parcelamento) */}
+      <Dialog open={!!cobranca} onOpenChange={(o) => !o && setCobranca(null)}>
+        <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto">
+          <DialogHeader><DialogTitle>Cobrança de KM excedente</DialogTitle></DialogHeader>
+          {cobranca && (
+            <div className="space-y-4">
+              <MemoriaKmExcedente cobranca={cobranca} kmValor={kmValor} />
+
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">Forma de pagamento</span>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">Parcelas</label>
+                    <Select value={String(parcelas)} onValueChange={(v) => setParcelas(Number(v))}>
+                      <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">À vista (1×)</SelectItem>
+                        {[2, 3, 4, 5, 6, 8, 10, 12].map((n) => <SelectItem key={n} value={String(n)}>{n}×</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {parcelas > 1
+                    ? `${parcelas}× de ${formatCurrency(distribuirParcelas(cobranca.valorTotal, parcelas)[0])} (última ${formatCurrency(distribuirParcelas(cobranca.valorTotal, parcelas)[parcelas - 1])}), nos boletos a partir de ${proximaSexta.split("-").reverse().join("/")}.`
+                    : `À vista de ${formatCurrency(cobranca.valorTotal)} no boleto de ${proximaSexta.split("-").reverse().join("/")}.`}
+                </p>
+              </div>
+              {!cobranca.locatarioId && <p className="text-xs text-destructive">Contrato ativo sem locatário vinculado — vincule o locatário no contrato para poder cobrar.</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => cobranca && enviarMemoria(cobranca)}><FileText className="h-4 w-4" /> Baixar / Enviar</Button>
+            <Button type="button" onClick={confirmarCobranca} disabled={!cobranca?.locatarioId || gerarCobranca.isPending}>
+              {gerarCobranca.isPending ? "Gerando..." : "Gerar cobrança"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

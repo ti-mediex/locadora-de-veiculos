@@ -15,7 +15,8 @@ import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useContratos } from "@/hooks/use-contratos";
 import { useFinanceEntries } from "@/hooks/use-finance";
-import { useMarcarRecebido, useUploadArquivoFinanceiro, abrirArquivoFinanceiro } from "@/hooks/use-recebimentos";
+import { useMarcarRecebido, useUploadArquivoFinanceiro, abrirArquivoFinanceiro, useReceberKmExcedente } from "@/hooks/use-recebimentos";
+import { useDebitos } from "@/hooks/use-financeiro-locatario";
 import { useParalisacoes } from "@/hooks/use-paralisacoes";
 import { OCORRENCIA_TIPO } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca } from "@/lib/format";
@@ -32,8 +33,8 @@ function sextaDaSemana(base: Date) { const x = new Date(base); x.setDate(x.getDa
 
 interface Boleto {
   contratoId: string; vehicle_id: string; placa: string; modelo: string; categoria: string;
-  locatario: string; numero: string; original: number; desconto: number; liquido: number;
-  motivos: string[]; pago: boolean;
+  locatario: string; numero: string; original: number; desconto: number; acrescimo: number; liquido: number;
+  motivos: string[]; acrescimoMotivos: string[]; debitoIds: string[]; pago: boolean;
   entryId: string | null; recebidoEm: string | null; comprovantePath: string | null;
 }
 
@@ -45,7 +46,9 @@ export default function BoletosPage() {
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const canWrite = useCanWrite("finance");
   const marcarRecebido = useMarcarRecebido();
+  const receberKmExc = useReceberKmExcedente();
   const uploadArquivo = useUploadArquivoFinanceiro();
+  const { data: debitos = [] } = useDebitos();
 
   // Boleto da sexta F cobre o período [F, F+7) (pagamento antecipado).
   const sexta = useMemo(() => { const s = sextaDaSemana(new Date()); s.setDate(s.getDate() + offset * 7); return s; }, [offset]);
@@ -66,11 +69,24 @@ export default function BoletosPage() {
     const descPorVeic = new Map<string, { desconto: number }>();
     for (const d of descontosSemana) if (d.semanaIni === isoSex) descPorVeic.set(d.vehicle_id, { desconto: d.desconto });
 
+    // Acréscimos da semana: parcelas de KM excedente (débitos do locatário) com
+    // semana_venc = sexta do boleto, agrupadas por contrato.
+    const acrPorContrato = new Map<string, { valor: number; motivos: string[]; ids: string[] }>();
+    for (const d of debitos) {
+      if (d.categoria !== "km_excedente" || d.pago || d.semana_venc !== isoSex || !d.contrato_id) continue;
+      const cur = acrPorContrato.get(d.contrato_id) ?? { valor: 0, motivos: [], ids: [] };
+      cur.valor += Number(d.valor);
+      cur.motivos.push(`${d.descricao ?? "KM excedente"} = ${formatCurrency(Number(d.valor))}`);
+      cur.ids.push(d.id);
+      acrPorContrato.set(d.contrato_id, cur);
+    }
+
     return contratos.filter((c) => c.status === "ativo" && c.vehicle_id).map((c) => {
       const vid = c.vehicle_id!;
       const v = vMap.get(vid);
       const original = Number(c.valor_locacao ?? 0);
       const desconto = descPorVeic.get(vid)?.desconto ?? 0;
+      const acr = acrPorContrato.get(c.id) ?? { valor: 0, motivos: [], ids: [] };
       const motivos = linhas
         .filter((l) => l.vehicle_id === vid && l.semanaIni === isoSex && l.horasDesc > 0)
         .map((l) => `${tipoLabel(l.tipo)} em ${formatDate(l.inicio.slice(0, 10))} — ${h1(l.horas)} (${h1(l.horasDesc)} desc.) = ${formatCurrency(l.desconto)}`);
@@ -79,11 +95,12 @@ export default function BoletosPage() {
         contratoId: c.id, vehicle_id: vid, placa: c.vehicles?.placa ?? v?.placa ?? c.placa ?? "—",
         modelo: c.vehicles?.modelo ?? v?.modelo ?? "", categoria: v?.categoria ?? "—",
         locatario: c.cliente_nome ?? "", numero: c.numero,
-        original, desconto, liquido: Math.max(0, original - desconto), motivos, pago: !!ent?.recebido,
+        original, desconto, acrescimo: acr.valor, liquido: Math.max(0, original - desconto) + acr.valor,
+        motivos, acrescimoMotivos: acr.motivos, debitoIds: acr.ids, pago: !!ent?.recebido,
         entryId: ent?.id ?? null, recebidoEm: ent?.recebidoEm ?? null, comprovantePath: ent?.comprovante ?? null,
       };
     });
-  }, [contratos, vMap, linhas, descontosSemana, entriesSemana, isoSex]);
+  }, [contratos, vMap, linhas, descontosSemana, entriesSemana, debitos, isoSex]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<Boleto>("placa", "asc");
   const sorted = useSorted(boletos, (b, k) => {
@@ -94,6 +111,7 @@ export default function BoletosPage() {
       case "contrato": return b.numero;
       case "original": return b.original;
       case "desconto": return b.desconto;
+      case "acrescimo": return b.acrescimo;
       case "liquido": return b.liquido;
       case "status": return b.pago ? 1 : 0;
       default: return "";
@@ -101,24 +119,24 @@ export default function BoletosPage() {
   });
 
   const kpi = useMemo(() => {
-    let orig = 0, desc = 0, liq = 0, naoPagos = 0;
-    for (const b of boletos) { orig += b.original; desc += b.desconto; liq += b.liquido; if (!b.pago) naoPagos += 1; }
-    return { orig, desc, liq, naoPagos, total: boletos.length };
+    let orig = 0, desc = 0, acr = 0, liq = 0, naoPagos = 0;
+    for (const b of boletos) { orig += b.original; desc += b.desconto; acr += b.acrescimo; liq += b.liquido; if (!b.pago) naoPagos += 1; }
+    return { orig, desc, acr, liq, naoPagos, total: boletos.length };
   }, [boletos]);
 
   function buildRelatorio(): RelatorioTabelaData {
     const colunas: RelColuna[] = [
       { label: "Placa" }, { label: "Tipo" }, { label: "Locatário" }, { label: "Contrato" }, { label: "Vencimento" },
-      { label: "Valor original", align: "right" }, { label: "Desconto", align: "right" }, { label: "A emitir", align: "right" }, { label: "Status" },
+      { label: "Valor original", align: "right" }, { label: "Desconto", align: "right" }, { label: "Acréscimo km", align: "right" }, { label: "A emitir", align: "right" }, { label: "Status" },
     ];
     const linhasRel = sorted.map((b) => [
       maskPlaca(b.placa), b.modelo || b.categoria, b.locatario, b.numero, formatDate(isoSex),
-      formatCurrency(b.original), b.desconto > 0 ? formatCurrency(b.desconto) : "—", formatCurrency(b.liquido), b.pago ? "Pago" : "Não pago",
+      formatCurrency(b.original), b.desconto > 0 ? formatCurrency(b.desconto) : "—", b.acrescimo > 0 ? formatCurrency(b.acrescimo) : "—", formatCurrency(b.liquido), b.pago ? "Pago" : "Não pago",
     ]);
     return {
       titulo: "Boletos semanais", subtitulo: `Período ${semanaLabel} · vencimento ${formatDate(isoSex)} (sexta, antecipado) · descontos das paralisações do período anterior`,
       colunas, linhas: linhasRel,
-      rodape: ["", "", "", "", "Total", formatCurrency(kpi.orig), formatCurrency(kpi.desc), formatCurrency(kpi.liq), `${kpi.naoPagos} não pago(s)`],
+      rodape: ["", "", "", "", "Total", formatCurrency(kpi.orig), formatCurrency(kpi.desc), formatCurrency(kpi.acr), formatCurrency(kpi.liq), `${kpi.naoPagos} não pago(s)`],
     };
   }
 
@@ -157,6 +175,7 @@ export default function BoletosPage() {
                     <SortableHead sortKey="contrato" activeKey={sortKey} dir={sortDir} onSort={toggle}>Contrato</SortableHead>
                     <SortableHead sortKey="original" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Valor original</SortableHead>
                     <SortableHead sortKey="desconto" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Desconto</SortableHead>
+                    <SortableHead sortKey="acrescimo" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Acréscimo km</SortableHead>
                     <SortableHead sortKey="liquido" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">A emitir</SortableHead>
                     <SortableHead sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle}>Recebimento</SortableHead>
                     {canWrite && <TableHead className="w-16"></TableHead>}
@@ -173,6 +192,9 @@ export default function BoletosPage() {
                       <TableCell className="whitespace-nowrap text-right tabular-nums text-warning" title={b.motivos.join("\n") || undefined}>
                         {b.desconto > 0 ? `− ${formatCurrency(b.desconto)}` : <span className="text-muted-foreground">—</span>}
                       </TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums text-destructive" title={b.acrescimoMotivos.join("\n") || undefined}>
+                        {b.acrescimo > 0 ? `+ ${formatCurrency(b.acrescimo)}` : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatCurrency(b.liquido)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -187,7 +209,10 @@ export default function BoletosPage() {
                           <div className="flex justify-end gap-0.5">
                             {b.entryId && !b.pago && (
                               <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar como recebido" aria-label="Marcar recebido"
-                                onClick={() => marcarRecebido.mutate({ id: b.entryId!, recebido: true, forma: "boleto" })}><CheckCircle2 className="h-4 w-4 text-success" /></Button>
+                                onClick={() => {
+                                  marcarRecebido.mutate({ id: b.entryId!, recebido: true, forma: "boleto" });
+                                  if (b.acrescimo > 0) receberKmExc.mutate({ debitoIds: b.debitoIds, contrato_id: b.contratoId, vehicle_id: b.vehicle_id, data: isoSex, valor: b.acrescimo, forma: "boleto" });
+                                }}><CheckCircle2 className="h-4 w-4 text-success" /></Button>
                             )}
                             {b.entryId && (
                               <label className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md hover:bg-accent" title="Anexar comprovante">

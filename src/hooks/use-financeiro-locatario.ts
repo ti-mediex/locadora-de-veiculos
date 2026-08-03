@@ -2,6 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import type { LocatarioDebito, LocatarioCaucao } from "@/types/database";
+import { distribuirParcelas, mesesLabel, type CobrancaKmExcedente } from "@/lib/km-excedente";
+
+/** Retorna N sextas-feiras consecutivas (7 em 7 dias) a partir de uma sexta ISO. */
+function proximasSextas(primeiraSextaIso: string, n: number): string[] {
+  const base = new Date(primeiraSextaIso + "T00:00:00");
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(base); d.setDate(d.getDate() + i * 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+}
 
 export function useDebitos() {
   return useQuery<LocatarioDebito[]>({
@@ -45,6 +55,43 @@ export function useSaveDebito() {
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["locatario_debitos"] }); toast.success("Débito salvo"); },
     onError: (e: Error) => toast.error("Erro: " + e.message),
+  });
+}
+
+/** Gera a cobrança de KM excedente (à vista ou parcelada) como débitos do
+ *  locatário, distribuídos nas próximas N sextas (boletos semanais). */
+export function useGerarCobrancaKmExcedente() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ cobranca, parcelas, primeiraSexta }: { cobranca: CobrancaKmExcedente; parcelas: number; primeiraSexta: string }) => {
+      if (!cobranca.locatarioId) throw new Error("Contrato ativo sem locatário vinculado — não é possível cobrar.");
+      if (cobranca.valorTotal <= 0) throw new Error("Sem valor a cobrar.");
+      const N = Math.max(1, Math.floor(parcelas));
+      const valores = distribuirParcelas(cobranca.valorTotal, N);
+      const sextas = proximasSextas(primeiraSexta, N);
+      const grupo = crypto.randomUUID();
+      const ultimoMes = cobranca.meses[cobranca.meses.length - 1]?.ym;
+      const { data: prof } = await supabase.auth.getUser();
+      const rows = valores.map((v, i) => ({
+        locatario_id: cobranca.locatarioId,
+        contrato_id: cobranca.contratoId,
+        vehicle_id: cobranca.vehicle_id,
+        placa: cobranca.placa,
+        categoria: "km_excedente",
+        descricao: `KM excedente ${cobranca.placa} (${mesesLabel(cobranca)})${N > 1 ? ` — parcela ${i + 1}/${N}` : ""}`,
+        valor: v,
+        competencia: ultimoMes ? `${ultimoMes}-01` : null,
+        semana_venc: sextas[i],
+        parcela_num: i + 1,
+        parcela_total: N,
+        grupo_id: grupo,
+        created_by: prof.user?.id ?? null,
+      }));
+      const { error } = await supabase.from("locatario_debitos").insert(rows as never);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["locatario_debitos"] }); toast.success("Cobrança de KM excedente gerada"); },
+    onError: (e: Error) => toast.error("Erro ao gerar cobrança: " + e.message),
   });
 }
 
