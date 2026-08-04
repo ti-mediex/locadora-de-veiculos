@@ -34,6 +34,7 @@ import { RECEITA_CATEGORIA, DESPESA_CATEGORIA, FORMA_PAGAMENTO } from "@/lib/opt
 import { formatCurrency, formatDate, maskPlaca } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import { exportToCsv } from "@/lib/csv";
 import type { FinanceEntry, Vehicle } from "@/types/database";
 
@@ -99,6 +100,11 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
   const [search, setSearch] = useState("");
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
+  const [fCategoria, setFCategoria] = useState("todas");
+  const [fVeiculo, setFVeiculo] = useState("todos"); // todos | frota | <vehicle_id>
+  const [fRecebido, setFRecebido] = useState("todos"); // todos | recebido | a_receber
+  const [subtotais, setSubtotais] = useState(false);
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
 
   // Conciliação de boletos pagos (relatório do banco).
   const [concOpen, setConcOpen] = useState(false);
@@ -145,15 +151,27 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return rows.filter(
-      (r) =>
-        (r.descricao.toLowerCase().includes(q) ||
-        (r.categoria ?? "").toLowerCase().includes(q) ||
-        vehicleLabel(r.vehicle_id).toLowerCase().includes(q)) &&
-        noPeriodo(r.data, pIni, pFim)
-    );
+    return rows.filter((r) => {
+      const mQ = r.descricao.toLowerCase().includes(q) || (r.categoria ?? "").toLowerCase().includes(q) || vehicleLabel(r.vehicle_id).toLowerCase().includes(q);
+      const mCat = fCategoria === "todas" || r.categoria === fCategoria;
+      const mVeic = fVeiculo === "todos" ? true : fVeiculo === "frota" ? (!!r.vehicle_id && frotaVeicIds.has(r.vehicle_id)) : r.vehicle_id === fVeiculo;
+      const mReceb = !isReceita || fRecebido === "todos" || (fRecebido === "recebido" ? r.recebido : !r.recebido);
+      return mQ && mCat && mVeic && mReceb && noPeriodo(r.data, pIni, pFim);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, search, vehicles, pIni, pFim]);
+  }, [rows, search, vehicles, pIni, pFim, fCategoria, fVeiculo, fRecebido, frotaVeicIds, isReceita]);
+
+  // Subtotais por veículo do recorte atual (mês/período/filtros).
+  const subtotaisVeiculo = useMemo(() => {
+    const m = new Map<string, { label: string; valor: number; n: number }>();
+    for (const r of filtered) {
+      const key = r.vehicle_id ?? "__geral__";
+      const cur = m.get(key) ?? { label: r.vehicle_id ? (vehicles.find((v) => v.id === r.vehicle_id)?.placa ?? "—") : "Frota (geral)", valor: 0, n: 0 };
+      cur.valor += r.valor; cur.n += 1; m.set(key, cur);
+    }
+    return [...m.values()].sort((a, b) => b.valor - a.valor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, vehicles]);
 
   // Total do período selecionado; sem período, mês corrente.
   const totalPeriodo = useMemo(() => {
@@ -249,6 +267,57 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
             </div>
             <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
           </div>
+          {/* Filtros por coluna */}
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+            <Select value={fCategoria} onValueChange={setFCategoria}>
+              <SelectTrigger className="h-8 w-auto gap-1 text-xs"><span className="text-muted-foreground">Categoria:</span><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="todas">Todas</SelectItem>{categorias.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fVeiculo} onValueChange={setFVeiculo}>
+              <SelectTrigger className="h-8 w-auto max-w-[14rem] gap-1 text-xs"><span className="text-muted-foreground">Veículo:</span><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="frota">Frota ativa ({frotaVeicIds.size})</SelectItem>
+                {[...vehicles].sort((a, b) => (a.placa ?? "").localeCompare(b.placa ?? "")).map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {isReceita && (
+              <Select value={fRecebido} onValueChange={setFRecebido}>
+                <SelectTrigger className="h-8 w-auto gap-1 text-xs"><span className="text-muted-foreground">Receb.:</span><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="todos">Todos</SelectItem><SelectItem value="recebido">Recebidos</SelectItem><SelectItem value="a_receber">A receber</SelectItem></SelectContent>
+              </Select>
+            )}
+            <Button type="button" variant={subtotais ? "default" : "outline"} size="sm" onClick={() => setSubtotais((s) => !s)}>
+              Subtotais por veículo
+            </Button>
+            {(fCategoria !== "todas" || fVeiculo !== "todos" || fRecebido !== "todos") && (
+              <Button variant="ghost" size="sm" onClick={() => { setFCategoria("todas"); setFVeiculo("todos"); setFRecebido("todos"); }}>Limpar colunas</Button>
+            )}
+          </div>
+          {/* Subtotais por veículo do recorte atual */}
+          {subtotais && (
+            <div className="overflow-x-auto border-b bg-muted/20">
+              <Table className="text-xs [&_th]:h-8 [&_th]:px-3 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-1.5">
+                <TableHeader>
+                  <TableRow><TableHead>Veículo</TableHead><TableHead className="text-right">Lançamentos</TableHead><TableHead className="text-right">{label}s no recorte</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subtotaisVeiculo.map((s) => (
+                    <TableRow key={s.label}>
+                      <TableCell className="font-mono font-medium">{s.label}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{s.n}</TableCell>
+                      <TableCell className={`text-right font-semibold tabular-nums ${isReceita ? "text-success" : "text-destructive"}`}>{formatCurrency(s.valor)}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="border-t">
+                    <TableCell className="font-semibold">Total ({subtotaisVeiculo.length} veículo(s))</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{filtered.length}</TableCell>
+                    <TableCell className="text-right font-bold tabular-nums">{formatCurrency(filtered.reduce((s, r) => s + r.valor, 0))}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
           ) : filtered.length === 0 ? (
