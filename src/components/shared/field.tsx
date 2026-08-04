@@ -13,8 +13,8 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div className={className ?? "space-y-1.5"}>
-      <Label>{label}</Label>
+    <div className={`min-w-0 ${className ?? "space-y-1.5"}`}>
+      <Label className="block break-words">{label}</Label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

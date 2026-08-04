@@ -720,12 +720,12 @@ export default function VehiclesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar veículo" : "Novo veículo"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2 md:grid-cols-3">
               <Field label="Placa" error={errors.placa?.message}>
                 <Input {...register("placa")} placeholder="ABC1D23" />
               </Field>
@@ -787,7 +787,7 @@ export default function VehiclesPage() {
                 ))}
               </Field>
               {watch("status") === "carro_reserva" && (
-                <div className="sm:col-span-3 grid gap-4 rounded-lg border border-primary/40 bg-primary/5 p-3 sm:grid-cols-2">
+                <div className="col-span-full grid gap-4 rounded-lg border border-primary/40 bg-primary/5 p-3 sm:grid-cols-2">
                   <p className="text-xs font-medium text-primary sm:col-span-2">Carro reserva — indique o contrato/locatário que este veículo está atendendo:</p>
                   <Field label="Contrato (locação atendida)" error={errors.contrato_reserva_id?.message}>
                     <Select value={watch("contrato_reserva_id") || ""} onValueChange={(v) => {
