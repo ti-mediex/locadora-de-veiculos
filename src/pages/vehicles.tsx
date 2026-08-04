@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
+import { useConsorciosVeiculo, useSalvarConsorciosVeiculo, useConsorcioPorVeiculo, somarConsorcios, type ConsorcioInput } from "@/hooks/use-consorcios";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo, useContratos } from "@/hooks/use-contratos";
 import { useSyncCarroReserva, useReservaAtualPorVeiculo, useOcorrenciasAbertasPorVeiculo } from "@/hooks/use-ocorrencias";
@@ -165,6 +166,17 @@ export default function VehiclesPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [search, setSearch] = useState("");
   const [importPlacaOpen, setImportPlacaOpen] = useState(false);
+
+  // Consórcios (cotas) do veículo em edição.
+  const { data: consorciosSalvos = [] } = useConsorciosVeiculo(editing?.id);
+  const [consorcios, setConsorcios] = useState<ConsorcioInput[]>([]);
+  const salvarConsorcios = useSalvarConsorciosVeiculo();
+  const consorcioPorVeic = useConsorcioPorVeiculo();
+  const totConsorcio = somarConsorcios(consorcios.map((c) => ({ valor_parcela: Number(c.valor_parcela) || 0, valor_quitacao: Number(c.valor_quitacao) || 0, valor_atrasadas: Number(c.valor_atrasadas) || 0 })));
+  useEffect(() => {
+    if (editing) setConsorcios(consorciosSalvos.map((c) => ({ grupo: c.grupo, cota: c.cota, status: c.status, ultimo_pagamento: c.ultimo_pagamento, valor_parcela: Number(c.valor_parcela), valor_quitacao: Number(c.valor_quitacao), valor_atrasadas: Number(c.valor_atrasadas) })));
+  }, [editing, consorciosSalvos]);
+  const novaCota = (): ConsorcioInput => ({ grupo: "", cota: "", status: "ativa", ultimo_pagamento: null, valor_parcela: 0, valor_quitacao: 0, valor_atrasadas: 0 });
   // Filtros por coluna
   const [fMarca, setFMarca] = useState(TODOS);
   const [fAno, setFAno] = useState(TODOS);
@@ -241,6 +253,7 @@ export default function VehiclesPage() {
       case "kmmes": return kmMesMap[v.id]?.mesAtual ?? -1;
       case "kmmesant": return kmMesMap[v.id]?.mesAnterior ?? -1;
       case "fipe": return v.valor_fipe ?? 0;
+      case "consorcio": return consorcioPorVeic.get(v.id)?.parcela ?? 0;
       case "pendencias": { const p = pendMap[v.id]; return p ? p.vencidas * 100000 + p.abertas : -1; }
       case "restricoes": { const r = restrMap[v.id]; return r ? r.judicial * 100000 + r.total : -1; }
       case "ocorrencias": return ocorrMap[v.id] ?? -1;
@@ -359,6 +372,8 @@ export default function VehiclesPage() {
     // Campos auxiliares do carro reserva (não são colunas de vehicles).
     const { contrato_reserva_id, locatario_reserva_id, ...rest } = data;
     const placaNorm = data.placa.toUpperCase().replace(/\s/g, "");
+    // Ter ≥1 cota de consórcio implica alienação fiduciária ao Consórcio BB.
+    const temCota = consorcios.some((c) => (c.grupo ?? "").trim() || (c.cota ?? "").trim() || Number(c.valor_parcela) > 0 || Number(c.valor_quitacao) > 0);
     const payload = {
       ...rest,
       placa: placaNorm,
@@ -369,7 +384,8 @@ export default function VehiclesPage() {
       cilindrada: data.cilindrada === "" ? null : data.cilindrada,
       valor_aquisicao: data.valor_aquisicao || null,
       valor_fipe: data.valor_fipe || null,
-      alienante: data.alienacao_fiduciaria ? data.alienante || null : null,
+      alienacao_fiduciaria: data.alienacao_fiduciaria || temCota,
+      alienante: temCota ? "Consórcio BB" : (data.alienacao_fiduciaria ? data.alienante || null : null),
       valor_quitacao: data.valor_quitacao === "" ? null : data.valor_quitacao,
       data_quitacao: data.data_quitacao || null,
       busca_apreensao_solicitante: data.busca_apreensao ? data.busca_apreensao_solicitante || null : null,
@@ -388,13 +404,14 @@ export default function VehiclesPage() {
     if (editing) {
       update.mutate(
         { id: editing.id, ...payload },
-        { onSuccess: () => { setOpen(false); sincronizarReserva(editing.id); } }
+        { onSuccess: () => { setOpen(false); sincronizarReserva(editing.id); salvarConsorcios.mutate({ vehicleId: editing.id, placa: placaNorm, itens: consorcios }); } }
       );
     } else {
       create.mutate(payload, {
         onSuccess: (novo: Vehicle) => {
           setOpen(false);
           if (novo?.id) sincronizarReserva(novo.id);
+          if (novo?.id && temCota) salvarConsorcios.mutate({ vehicleId: novo.id, placa: placaNorm, itens: consorcios });
           // Busca a FIPE automaticamente só quando o valor não foi fixado manualmente.
           if (novo?.id && !data.fipe_manual && !data.valor_fipe) updateFipe.mutate({ vehicle_id: novo.id });
         },
@@ -494,6 +511,7 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="kmmes" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM {mesAtualLabel}</SortableHead>
                   <SortableHead sortKey="kmmesant" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">KM {mesAntLabel}</SortableHead>
                   <SortableHead sortKey="fipe" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">FIPE</SortableHead>
+                  <SortableHead sortKey="consorcio" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Consórcio</SortableHead>
                   <SortableHead sortKey="pendencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Pend.</SortableHead>
                   <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restr.</SortableHead>
                   <SortableHead sortKey="ocorrencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Ocorr.</SortableHead>
@@ -540,6 +558,11 @@ export default function VehiclesPage() {
                           {v.fipe_mes_referencia}
                         </div>
                       )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">
+                      {(() => { const cs = consorcioPorVeic.get(v.id); return cs ? (
+                        <span title={`Quitação ${formatCurrency(cs.quitacao)} · ${cs.n} cota(s) · atrasadas ${formatCurrency(cs.atrasadas)}`}>{formatCurrency(cs.parcela)}</span>
+                      ) : <span className="text-muted-foreground">—</span>; })()}
                     </TableCell>
                     <TableCell>
                       <button
@@ -843,6 +866,44 @@ export default function VehiclesPage() {
                   </datalist>
                 </Field>
               )}
+
+              {/* Consórcio (Banco do Brasil) — cotas somadas */}
+              <div className="space-y-2 rounded-md border bg-muted/20 p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Consórcio (Banco do Brasil) · alienação ao Consórcio BB</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setConsorcios((xs) => [...xs, novaCota()])}><Plus className="h-3.5 w-3.5" /> Cota</Button>
+                </div>
+                {consorcios.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma cota. Um veículo pode ter várias cotas — os valores são somados.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[44rem] space-y-1.5">
+                      <div className="grid grid-cols-[5rem_5rem_6rem_9rem_6rem_6rem_6rem_1.75rem] gap-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                        <span>Grupo</span><span>Cota</span><span>Status</span><span>Últ. pgto</span><span className="text-right">Parcela</span><span className="text-right">Quitação</span><span className="text-right">Atrasadas</span><span></span>
+                      </div>
+                      {consorcios.map((c, i) => (
+                        <div key={i} className="grid grid-cols-[5rem_5rem_6rem_9rem_6rem_6rem_6rem_1.75rem] items-center gap-1.5 text-xs">
+                          <Input className="h-8 px-1 text-xs" value={c.grupo ?? ""} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, grupo: e.target.value } : x))} />
+                          <Input className="h-8 px-1 text-xs" value={c.cota ?? ""} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, cota: e.target.value } : x))} />
+                          <Input className="h-8 px-1 text-xs" value={c.status} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, status: e.target.value } : x))} />
+                          <Input className="h-8 px-1 text-xs" type="date" value={c.ultimo_pagamento ?? ""} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, ultimo_pagamento: e.target.value || null } : x))} />
+                          <Input className="h-8 px-1 text-right text-xs" type="number" step="0.01" value={c.valor_parcela} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, valor_parcela: Number(e.target.value) } : x))} />
+                          <Input className="h-8 px-1 text-right text-xs" type="number" step="0.01" value={c.valor_quitacao} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, valor_quitacao: Number(e.target.value) } : x))} />
+                          <Input className="h-8 px-1 text-right text-xs" type="number" step="0.01" value={c.valor_atrasadas} onChange={(e) => setConsorcios((xs) => xs.map((x, idx) => idx === i ? { ...x, valor_atrasadas: Number(e.target.value) } : x))} />
+                          <button type="button" title="Remover cota" onClick={() => setConsorcios((xs) => xs.filter((_, idx) => idx !== i))}><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-[5rem_5rem_6rem_9rem_6rem_6rem_6rem_1.75rem] gap-1.5 border-t pt-1 text-xs font-semibold tabular-nums">
+                        <span className="col-span-4 text-muted-foreground">Total ({totConsorcio.n} cota(s))</span>
+                        <span className="text-right">{formatCurrency(totConsorcio.parcela)}</span>
+                        <span className="text-right">{formatCurrency(totConsorcio.quitacao)}</span>
+                        <span className="text-right">{formatCurrency(totConsorcio.atrasadas)}</span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <label className="flex items-center gap-2 text-sm font-medium">
                 <input type="checkbox" className="h-4 w-4" {...register("quitado")} />

@@ -317,6 +317,25 @@ export interface Alienante {
   created_at: string;
 }
 
+export interface VehicleConsorcio {
+  id: string;
+  vehicle_id: string | null;
+  placa: string | null;
+  banco: string;
+  grupo: string | null;
+  cota: string | null;
+  status: string;
+  ultimo_pagamento: string | null;
+  valor_parcela: number;
+  valor_quitacao: number;
+  valor_atrasadas: number;
+  alienante: string | null;
+  observacoes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Locatario {
   id: string;
   nome: string;
