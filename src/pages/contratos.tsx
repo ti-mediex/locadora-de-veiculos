@@ -208,7 +208,7 @@ export default function ContratosPage() {
     const total = sorted.reduce((s, c) => s + (c.valor_locacao ?? 0), 0);
     return {
       titulo: "Contratos de locação", subtitulo: `${sorted.length} contrato(s)`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }],
+      filtros: [{ label: "Período", valor: pIni || pFim ? `${pIni ? formatDate(pIni) : "…"} a ${pFim ? formatDate(pFim) : "…"}` : "" }, { label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "" }],
       colunas, linhas, rodape: ["", "", "", "", "", "Total semanal", formatCurrency(total), ""],
     };
   }

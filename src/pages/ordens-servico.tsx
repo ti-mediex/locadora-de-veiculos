@@ -183,7 +183,7 @@ export default function OrdensServicoPage() {
     const total = sorted.reduce((s, r) => s + Number(r.valor_total ?? 0), 0);
     return {
       titulo: "Ordens de serviço", subtitulo: `${sorted.length} OS`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Situação", valor: fStatus }],
+      filtros: [{ label: "Período", valor: pIni || pFim ? `${pIni ? formatDate(pIni) : "…"} a ${pFim ? formatDate(pFim) : "…"}` : "" }, { label: "Busca", valor: search }, { label: "Situação", valor: fStatus }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "" }],
       colunas, linhas, rodape: ["", "", "", "", "", "Total", formatCurrency(total)],
     };
   }

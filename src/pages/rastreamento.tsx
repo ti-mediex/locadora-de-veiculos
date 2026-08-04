@@ -153,7 +153,7 @@ export default function RastreamentoPage() {
     });
     return {
       titulo: "Rastreamento Ituran", subtitulo: `${ordenados.length} veículo(s)`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }, { label: "Grupo", valor: fGrupo === "todos" ? "Todos" : fGrupo }],
+      filtros: [{ label: "Busca", valor: search }, { label: "Status", valor: fStatus === "todos" ? "Todos" : fStatus }, { label: "Grupo", valor: fGrupo === "todos" ? "Todos" : fGrupo }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "" }],
       colunas, linhas,
     };
   }

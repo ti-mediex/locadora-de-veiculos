@@ -315,6 +315,7 @@ export default function VehiclesPage() {
         { label: "Status", valor: fStatus === TODOS ? "Todos" : (statusMap.get(fStatus)?.label ?? fStatus) },
         { label: "Proprietário", valor: f(fProprietario) }, { label: "Locatário", valor: f(fLocatario) },
         { label: "Restrição", valor: fRestricao === TODOS ? "Todas" : fRestricao === "com" ? "Com restrição" : "Sem restrição" },
+        { label: "Escopo", valor: fFrota ? "Frota ativa" : "" },
       ],
       colunas, linhas,
       rodape: ["", "", "", "", formatNumber(Math.round(kmAtualTotal)), formatNumber(Math.round(kmAntTotal)), formatCurrency(fipeTotal), "", "", "", "", "", "", "", ""],

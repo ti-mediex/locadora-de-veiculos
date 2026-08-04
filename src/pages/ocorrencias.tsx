@@ -178,7 +178,7 @@ export default function OcorrenciasPage() {
     const total = sorted.reduce((s, r) => s + (r.custo ?? 0), 0);
     return {
       titulo: "Ocorrências", subtitulo: `${sorted.length} registro(s)`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Tipo", valor: fTipo === "todos" ? "Todos" : tipoLabel(fTipo) }, { label: "Situação", valor: fStatus }],
+      filtros: [{ label: "Período", valor: pIni || pFim ? `${pIni ? formatDate(pIni) : "…"} a ${pFim ? formatDate(pFim) : "…"}` : "" }, { label: "Busca", valor: search }, { label: "Tipo", valor: fTipo === "todos" ? "Todos" : tipoLabel(fTipo) }, { label: "Situação", valor: fStatus }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "" }],
       colunas, linhas, rodape: ["", "", "", "", "", "", "Total", formatCurrency(total)],
     };
   }

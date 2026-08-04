@@ -320,7 +320,7 @@ export default function PendenciasPage() {
     const tituloRel = atalhoAtivo ? `${atalhoAtivo.label} por veículo` : "Pendências por veículo";
     return {
       titulo: tituloRel, subtitulo: `${gruposOrd.length} veículo(s) · ${sorted.length} pendência(s)`,
-      filtros: [{ label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "Todos os veículos" }],
+      filtros: [{ label: "Período", valor: pIni || pFim ? `${pIni ? formatDate(pIni) : "…"} a ${pFim ? formatDate(pFim) : "…"}` : "" }, { label: "Busca", valor: search }, { label: "Categoria", valor: catLabel }, { label: "Recorte", valor: restrLabel }, { label: "Situação", valor: statusLabel }, { label: "Escopo", valor: fFrota ? "Frota ativa" : "Todos os veículos" }],
       colunas, linhas, rodape: ["", "", "", "", `Total: ${formatCurrency(total)}`, "", "", "", ""],
     };
   }
