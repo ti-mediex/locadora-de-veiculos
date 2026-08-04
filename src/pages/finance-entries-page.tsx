@@ -32,6 +32,8 @@ import { parseBoletosBanco } from "@/lib/boletos-banco-parse";
 import { conciliarBoletos, useAplicarBaixa, useMarcarRecebido, useUploadArquivoFinanceiro, abrirArquivoFinanceiro, type ConciliacaoItem } from "@/hooks/use-recebimentos";
 import { RECEITA_CATEGORIA, DESPESA_CATEGORIA, FORMA_PAGAMENTO } from "@/lib/options";
 import { formatCurrency, formatDate, maskPlaca } from "@/lib/format";
+import { noPeriodo } from "@/lib/date";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import { exportToCsv } from "@/lib/csv";
 import type { FinanceEntry, Vehicle } from "@/types/database";
 
@@ -95,6 +97,8 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [search, setSearch] = useState("");
+  const [pIni, setPIni] = useState("");
+  const [pFim, setPFim] = useState("");
 
   // Conciliação de boletos pagos (relatório do banco).
   const [concOpen, setConcOpen] = useState(false);
@@ -143,22 +147,20 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
     const q = search.toLowerCase();
     return rows.filter(
       (r) =>
-        r.descricao.toLowerCase().includes(q) ||
+        (r.descricao.toLowerCase().includes(q) ||
         (r.categoria ?? "").toLowerCase().includes(q) ||
-        vehicleLabel(r.vehicle_id).toLowerCase().includes(q)
+        vehicleLabel(r.vehicle_id).toLowerCase().includes(q)) &&
+        noPeriodo(r.data, pIni, pFim)
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, search, vehicles]);
+  }, [rows, search, vehicles, pIni, pFim]);
 
-  const totalMes = useMemo(() => {
+  // Total do período selecionado; sem período, mês corrente.
+  const totalPeriodo = useMemo(() => {
+    if (pIni || pFim) return filtered.reduce((s, r) => s + r.valor, 0);
     const now = new Date();
-    return rows
-      .filter((r) => {
-        const d = new Date(r.data);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((s, r) => s + r.valor, 0);
-  }, [rows]);
+    return rows.filter((r) => { const d = new Date(r.data); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).reduce((s, r) => s + r.valor, 0);
+  }, [rows, filtered, pIni, pFim]);
   const total = useMemo(() => rows.reduce((s, r) => s + r.valor, 0), [rows]);
 
   function invalidate() {
@@ -233,16 +235,19 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title={`${label}s no mês`} value={formatCurrency(totalMes)} tone={isReceita ? "success" : "warning"} icon={isReceita ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />} />
+        <StatCard title={`${label}s ${pIni || pFim ? "no período" : "no mês"}`} value={formatCurrency(totalPeriodo)} tone={isReceita ? "success" : "warning"} icon={isReceita ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />} />
         <StatCard title={`Total de ${label.toLowerCase()}s`} value={formatCurrency(total)} />
-        <StatCard title="Lançamentos" value={rows.length} />
+        <StatCard title="Lançamentos" value={filtered.length} />
       </div>
 
       <Card>
         <CardContent className="p-0">
-          <div className="flex items-center gap-2 border-b p-4">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por descrição, categoria ou placa..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
+          <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="flex flex-1 items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar por descrição, categoria ou placa..." value={search} onChange={(e) => setSearch(e.target.value)} className="border-0 focus-visible:ring-0" />
+            </div>
+            <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
           </div>
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>

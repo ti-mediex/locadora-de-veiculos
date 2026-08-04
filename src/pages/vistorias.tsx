@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { VISTORIA_TIPO, VISTORIA_COMBUSTIVEL, VISTORIA_PARTES, VISTORIA_CHECKLIST_ITENS } from "@/lib/options";
 import { formatDate, soAlfa } from "@/lib/format";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import type { Vehicle, ChecklistItem } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -283,7 +284,7 @@ export default function VistoriasPage() {
                 placeholder="Buscar por placa (ex.: 8451), modelo ou locatário..."
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-end gap-2">
               <Select value={fTipo} onValueChange={setFTipo}>
                 <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -292,14 +293,7 @@ export default function VistoriasPage() {
                 </SelectContent>
               </Select>
               <Input placeholder="Vistoriador" value={fVistoriador} onChange={(e) => setFVistoriador(e.target.value)} className="w-full sm:w-44" />
-              <div className="flex items-center gap-1">
-                <label className="text-xs text-muted-foreground">De</label>
-                <Input type="date" value={fDataIni} onChange={(e) => setFDataIni(e.target.value)} className="w-[9.5rem]" />
-              </div>
-              <div className="flex items-center gap-1">
-                <label className="text-xs text-muted-foreground">Até</label>
-                <Input type="date" value={fDataFim} onChange={(e) => setFDataFim(e.target.value)} className="w-[9.5rem]" />
-              </div>
+              <PeriodoFilter ini={fDataIni} fim={fDataFim} onChange={(i, f) => { setFDataIni(i); setFDataFim(f); }} />
             </div>
           </div>
           {isLoading ? (

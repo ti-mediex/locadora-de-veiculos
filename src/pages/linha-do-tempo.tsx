@@ -21,6 +21,8 @@ import { useParalisacoes, type ParalVeiculo, type ParalisacaoLinha } from "@/hoo
 import { MemoriaCalculoDialog } from "@/components/paralisacoes/memoria-calculo-desconto";
 import { OCORRENCIA_TIPO } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, formatDateTime, maskPlaca } from "@/lib/format";
+import { ymAtual } from "@/lib/date";
+import { Input } from "@/components/ui/input";
 import type { Vehicle } from "@/types/database";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
@@ -33,7 +35,9 @@ const h1 = (n: number) => `${formatNumber(Math.round(n * 10) / 10)} h`;
 export default function LinhaDoTempoPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { linhas, porVeiculo, descontosSemana, totais, franquiaH, isLoading } = useParalisacoes();
+  const [ym, setYm] = useState(ymAtual());
+  const refMes = useMemo(() => { const [y, m] = ym.split("-").map(Number); return new Date(y, m - 1, 1); }, [ym]);
+  const { linhas, porVeiculo, descontosSemana, totais, franquiaH, isLoading } = useParalisacoes(refMes);
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const { data: contratos = [] } = useContratos();
   const { data: ocorrencias = [] } = useOcorrencias();
@@ -41,7 +45,7 @@ export default function LinhaDoTempoPage() {
   const [tab, setTab] = useState("frota");
   const [veic, setVeic] = useState<string>(params.get("veiculo") ?? "");
 
-  const mesLabel = useMemo(() => { const s = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); return s.charAt(0).toUpperCase() + s.slice(1); }, []);
+  const mesLabel = useMemo(() => { const s = refMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); return s.charAt(0).toUpperCase() + s.slice(1); }, [refMes]);
 
   const abrirVeiculo = (id: string) => { setVeic(id); setTab("veiculo"); };
 
@@ -121,7 +125,15 @@ export default function LinhaDoTempoPage() {
       <PageHeader
         title="Linha do Tempo por Veículo"
         description={`Disponibilidade, paralisações, descontos e perda de receita · ${mesLabel} · franquia de ${franquiaH}h`}
-        actions={<RelatorioExport build={tab === "frota" ? buildRelatorioFrota : buildRelatorioDescontos} nomeArquivo="linha-do-tempo" disabled={!porVeiculo.length} />}
+        actions={
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Mês</label>
+              <Input type="month" value={ym} onChange={(e) => setYm(e.target.value || ymAtual())} className="w-40" />
+            </div>
+            <RelatorioExport build={tab === "frota" ? buildRelatorioFrota : buildRelatorioDescontos} nomeArquivo="linha-do-tempo" disabled={!porVeiculo.length} />
+          </div>
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

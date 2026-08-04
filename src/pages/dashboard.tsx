@@ -17,6 +17,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCurrency, formatPercent } from "@/lib/format";
+import { noPeriodo } from "@/lib/date";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import { exportToCsv } from "@/lib/csv";
 import { useFinanceEntries } from "@/hooks/use-finance";
 import { usePendencias, vencimentoStatus, restricaoEhJudicial } from "@/hooks/use-pendencias";
@@ -30,6 +32,9 @@ export default function DashboardPage() {
   const [fVeiculo, setFVeiculo] = useState("todos");
   const [fSituacao, setFSituacao] = useState<"ativos" | "todos">("ativos");
   const [showFin, setShowFin] = useState(false);
+  const [pIni, setPIni] = useState("");
+  const [pFim, setPFim] = useState("");
+  const temPeriodo = !!(pIni || pFim);
 
   const { data: entries = [] } = useFinanceEntries();
   const { data: pendAll = [] } = usePendencias();
@@ -53,17 +58,18 @@ export default function DashboardPage() {
   const now = new Date();
   const ymAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const fin = useMemo(() => {
+    // "recMes" = período selecionado; sem período, o mês corrente.
     let recMes = 0, despMes = 0, recTot = 0, despTot = 0;
     for (const e of entriesF) {
-      const noMes = e.data.slice(0, 7) === ymAtual;
-      if (e.tipo === "receita") { recTot += e.valor; if (noMes) recMes += e.valor; }
-      else { despTot += e.valor; if (noMes) despMes += e.valor; }
+      const noRecorte = temPeriodo ? noPeriodo(e.data, pIni, pFim) : e.data.slice(0, 7) === ymAtual;
+      if (e.tipo === "receita") { recTot += e.valor; if (noRecorte) recMes += e.valor; }
+      else { despTot += e.valor; if (noRecorte) despMes += e.valor; }
     }
     return {
       recMes, despMes, lucroMes: recMes - despMes, margemMes: recMes > 0 ? (recMes - despMes) / recMes : 0,
       recTot, despTot, lucroTot: recTot - despTot,
     };
-  }, [entriesF, ymAtual]);
+  }, [entriesF, ymAtual, temPeriodo, pIni, pFim]);
 
   const monthly = useMemo(() => {
     const meses: { mes: string; ym: string; receita: number; despesa: number }[] = [];
@@ -222,6 +228,7 @@ export default function DashboardPage() {
             </SelectContent>
           </Select>
         </div>
+        <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
       </div>
 
       {/* Faixa de alertas de pendências */}
@@ -278,11 +285,11 @@ export default function DashboardPage() {
         </button>
       )}
 
-      {/* KPIs do mês */}
+      {/* KPIs do período (padrão: mês corrente) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Receita (mês)" value={formatCurrency(fin.recMes)} tone="success" icon={<TrendingUp className="h-5 w-5" />} onClick={() => navigate("/receitas")} />
-        <StatCard title="Despesa (mês)" value={formatCurrency(fin.despMes)} tone="destructive" icon={<TrendingDown className="h-5 w-5" />} onClick={() => navigate("/despesas")} />
-        <StatCard title="Lucro (mês)" value={formatCurrency(fin.lucroMes)} hint={`Margem: ${formatPercent(fin.margemMes)}`} tone={fin.lucroMes >= 0 ? "success" : "destructive"} icon={<PiggyBank className="h-5 w-5" />} onClick={() => navigate("/relatorios")} />
+        <StatCard title={`Receita ${temPeriodo ? "no período" : "(mês)"}`} value={formatCurrency(fin.recMes)} tone="success" icon={<TrendingUp className="h-5 w-5" />} onClick={() => navigate("/receitas")} />
+        <StatCard title={`Despesa ${temPeriodo ? "no período" : "(mês)"}`} value={formatCurrency(fin.despMes)} tone="destructive" icon={<TrendingDown className="h-5 w-5" />} onClick={() => navigate("/despesas")} />
+        <StatCard title={`Lucro ${temPeriodo ? "no período" : "(mês)"}`} value={formatCurrency(fin.lucroMes)} hint={`Margem: ${formatPercent(fin.margemMes)}`} tone={fin.lucroMes >= 0 ? "success" : "destructive"} icon={<PiggyBank className="h-5 w-5" />} onClick={() => navigate("/relatorios")} />
         <StatCard title="Veículos no escopo" value={veiculos.length} icon={<Car className="h-5 w-5" />} onClick={() => navigate("/frota-ativa")} />
       </div>
 

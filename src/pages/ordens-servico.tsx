@@ -25,6 +25,8 @@ import { useAppConfig } from "@/hooks/use-app-config";
 import { parseIturanChegadaSaida, type IturanChegadaSaida } from "@/lib/ituran-os-parse";
 import { OS_STATUS, OCORRENCIA_TIPO_SERVICO } from "@/lib/options";
 import { formatCurrency, formatDate, formatDateTime, soAlfa, maskPlaca } from "@/lib/format";
+import { noPeriodo } from "@/lib/date";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import type { Vehicle, OrdemServicoStatus, OsItemTipo } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -91,6 +93,8 @@ export default function OrdensServicoPage() {
   const [ituranFile, setIturanFile] = useState<File | null>(null);
   const [ituranInfo, setIturanInfo] = useState<IturanChegadaSaida | null>(null);
   const [search, setSearch] = useState("");
+  const [pIni, setPIni] = useState("");
+  const [pFim, setPFim] = useState("");
   const [fStatus, setFStatus] = useState("ativas");
   const [memoria, setMemoria] = useState<ParalisacaoLinha | null>(null);
 
@@ -133,9 +137,9 @@ export default function OrdensServicoPage() {
       const mQ = !q || placa.toLowerCase().includes(q) || r.numero.toLowerCase().includes(q) ||
         (r.oficina ?? "").toLowerCase().includes(q) || (qa !== "" && soAlfa(placa).includes(qa));
       const mS = fStatus === "todas" ? true : fStatus === "ativas" ? (r.status !== "concluida" && r.status !== "cancelada") : r.status === fStatus;
-      return mQ && mS;
+      return mQ && mS && noPeriodo(r.data_abertura, pIni, pFim);
     });
-  }, [rows, search, fStatus]);
+  }, [rows, search, fStatus, pIni, pFim]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<OrdemServicoRow>("created", "desc");
   const sorted = useSorted(filtered, (r, k) => {
@@ -255,7 +259,7 @@ export default function OrdensServicoPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:p-4">
+          <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
             <BuscaPlaca value={search} onChange={setSearch} vehicles={vehicles} placeholder="Buscar por placa, nº da OS ou oficina..." />
             <Select value={fStatus} onValueChange={setFStatus}>
               <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
@@ -265,6 +269,7 @@ export default function OrdensServicoPage() {
                 <SelectItem value="todas">Todas</SelectItem>
               </SelectContent>
             </Select>
+            <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
           </div>
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>

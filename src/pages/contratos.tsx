@@ -22,6 +22,8 @@ import {
 } from "@/hooks/use-contratos";
 import { gerarContratoHtml } from "@/lib/contrato-doc";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
+import { noPeriodo } from "@/lib/date";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -54,6 +56,8 @@ export default function ContratosPage() {
   const [editing, setEditing] = useState<ContratoRow | null>(null);
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("todos");
+  const [pIni, setPIni] = useState("");
+  const [pFim, setPFim] = useState("");
   const [form, setForm] = useState<Form>({});
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -168,9 +172,9 @@ export default function ContratosPage() {
       const placa = r.vehicles?.placa ?? r.placa ?? "";
       const mQ = !q || r.numero.toLowerCase().includes(q) || r.cliente_nome.toLowerCase().includes(q) ||
         placa.toLowerCase().includes(q) || (qa !== "" && soAlfa(placa).includes(qa));
-      return mS && mQ;
+      return mS && mQ && noPeriodo(r.data_entrega, pIni, pFim);
     });
-  }, [rows, search, fStatus]);
+  }, [rows, search, fStatus, pIni, pFim]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<ContratoRow>("numero", "asc");
   const sorted = useSorted(filtered, (c, k) => {
@@ -229,7 +233,7 @@ export default function ContratosPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:p-4">
+          <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-end sm:p-4">
             <BuscaPlaca
               value={search}
               onChange={setSearch}
@@ -246,6 +250,7 @@ export default function ContratosPage() {
                 <SelectItem value="cancelado">Cancelados</SelectItem>
               </SelectContent>
             </Select>
+            <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
           </div>
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>

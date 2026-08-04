@@ -24,6 +24,8 @@ import { useOcorrencias, construirLinhaTempo, useOcorrenciaFotos, useSaveOcorren
 import { useAbrirOSAuto, useOrdensServico } from "@/hooks/use-ordens-servico";
 import { OCORRENCIA_TIPO, OCORRENCIA_STATUS, OCORRENCIA_GRAVIDADE } from "@/lib/options";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
+import { noPeriodo } from "@/lib/date";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -93,6 +95,8 @@ export default function OcorrenciasPage() {
   const { data: fotos = [] } = useOcorrenciaFotos(editing?.id);
   const [fTipo, setFTipo] = useState("todos");
   const [fStatus, setFStatus] = useState("ativas");
+  const [pIni, setPIni] = useState("");
+  const [pFim, setPFim] = useState("");
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
   const tipoSel = watch("tipo");
@@ -116,9 +120,9 @@ export default function OcorrenciasPage() {
         (r.responsavel ?? "").toLowerCase().includes(q) || (qa !== "" && soAlfa(placa).includes(qa));
       const mT = fTipo === "todos" || r.tipo === fTipo;
       const mS = fStatus === "todas" ? true : fStatus === "ativas" ? (r.status === "aberta" || r.status === "em_andamento") : r.status === fStatus;
-      return mQ && mT && mS;
+      return mQ && mT && mS && noPeriodo(r.inicio, pIni, pFim);
     });
-  }, [rows, search, fTipo, fStatus]);
+  }, [rows, search, fTipo, fStatus, pIni, pFim]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<OcorrenciaRow>("inicio", "desc");
   const sorted = useSorted(filtered, (r, k) => {
@@ -290,7 +294,7 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
 
           {aba === "lista" ? (
             <>
-              <div className="flex flex-wrap gap-2 border-b p-3">
+              <div className="flex flex-wrap items-end gap-2 border-b p-3">
                 <Select value={fTipo} onValueChange={setFTipo}>
                   <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -307,6 +311,7 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
                     <SelectItem value="todas">Todas</SelectItem>
                   </SelectContent>
                 </Select>
+                <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
               </div>
               {isLoading ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>

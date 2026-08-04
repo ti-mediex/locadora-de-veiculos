@@ -42,6 +42,8 @@ import {
   PENDENCIA_CATEGORIA, PENDENCIA_STATUS, PENDENCIA_PRIORIDADE,
 } from "@/lib/options";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { noPeriodo } from "@/lib/date";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -128,6 +130,8 @@ export default function PendenciasPage() {
   const [search, setSearch] = useState(searchParams.get("veiculo") ?? "");
   const [fCategoria, setFCategoria] = useState("todas");
   const [fStatus, setFStatus] = useState(searchParams.get("veiculo") ? "todas" : "ativas");
+  const [pIni, setPIni] = useState("");
+  const [pFim, setPFim] = useState("");
   // Atalho de restrições: "off" (sem recorte) ou um dos tipos em RESTR_ATALHOS.
   const [fRestricao, setFRestricao] = useState<RestrKey>("off");
   const [fFrota, setFFrota] = useState(false); // só pendências de veículos da frota ativa
@@ -226,9 +230,10 @@ export default function PendenciasPage() {
         fStatus === "atrasadas" ? vencimentoStatus(r.vencimento, r.status) === "vencida" :
         r.status === fStatus;
       const matchFrota = !fFrota || frotaVeicIds.has(r.vehicle_id);
-      return matchSearch && matchCat && matchRestr && matchStatus && matchFrota;
+      const matchPeriodo = noPeriodo(r.vencimento ?? r.data_ocorrencia, pIni, pFim);
+      return matchSearch && matchCat && matchRestr && matchStatus && matchFrota && matchPeriodo;
     });
-  }, [rows, search, fCategoria, fRestricao, fStatus, fFrota, frotaVeicIds, vehicles]);
+  }, [rows, search, fCategoria, fRestricao, fStatus, fFrota, frotaVeicIds, vehicles, pIni, pFim]);
 
   // Nº de veículos afetados por cada atalho de restrição (badge dos botões).
   const restrCount = useMemo(() => {
@@ -435,7 +440,7 @@ export default function PendenciasPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="relative flex flex-1 items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -479,6 +484,7 @@ export default function PendenciasPage() {
                 <SelectItem value="todas">Todas</SelectItem>
               </SelectContent>
             </Select>
+            <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
           </div>
           {/* Atalhos rápidos por tipo de restrição */}
           <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm">

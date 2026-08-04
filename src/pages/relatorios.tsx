@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { FileDown, TrendingUp, TrendingDown, Scale, ListChecks, Car, ShieldCheck, FileSpreadsheet, FileText, FileType, ChevronDown } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { PeriodoFilter } from "@/components/shared/period-filter";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -211,14 +212,7 @@ export default function RelatoriosPage() {
       <PageHeader title="Relatórios" description="Gestão operacional, financeira e auditoria da frota" />
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3 sm:p-4">
-        <div className="w-[calc(50%-0.375rem)] sm:w-auto">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Início</label>
-          <Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="w-full sm:w-44" />
-        </div>
-        <div className="w-[calc(50%-0.375rem)] sm:w-auto">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Fim</label>
-          <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="w-full sm:w-44" />
-        </div>
+        <PeriodoFilter ini={inicio} fim={fim} onChange={(i, f) => { setInicio(i); setFim(f); }} />
         <div className="w-full sm:w-auto">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Veículo</label>
           <Select value={fVeiculo} onValueChange={setFVeiculo}>
