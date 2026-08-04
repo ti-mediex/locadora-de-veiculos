@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Search, FileDown, TrendingUp, TrendingDown, Upload, FileText, CheckCircle2, CircleDollarSign, Paperclip, Landmark } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, TrendingUp, TrendingDown, Upload, FileText, CheckCircle2, CircleDollarSign, Paperclip, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { SelectVeiculo } from "@/components/shared/select-veiculo";
@@ -37,7 +37,8 @@ import { PeriodoFilter } from "@/components/shared/period-filter";
 import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
-import { exportToCsv } from "@/lib/csv";
+import { RelatorioExport } from "@/components/shared/relatorio-export";
+import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 import type { FinanceEntry, Vehicle } from "@/types/database";
 
 const ehAluguel = (cat?: string | null) => /alug|loca[çc]/i.test(cat ?? "");
@@ -231,26 +232,38 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
     if (confirm(`Remover ${label.toLowerCase()} "${r.descricao}"?`))
       remove.mutate(r.id, { onSuccess: invalidate });
   }
-  function exportCsv() {
-    type Col = { key: "data" | "semana" | "veiculo" | "categoria" | "descricao" | "valor" | "recebido" | "recebido_em"; label: string };
-    const cols: Col[] = [
-      { key: "data", label: isReceita ? "Vencimento" : "Data" },
-      ...(isReceita ? [{ key: "semana", label: "Semana de locação" } as Col] : []),
-      { key: "veiculo", label: "Veículo" },
-      { key: "categoria", label: "Categoria" }, { key: "descricao", label: "Descrição" }, { key: "valor", label: "Valor" },
-      ...(isReceita ? [{ key: "recebido", label: "Recebido" } as Col, { key: "recebido_em", label: "Recebido em" } as Col] : []),
+  function buildRelatorio(): RelatorioTabelaData {
+    const colunas: RelColuna[] = [
+      { label: isReceita ? "Vencimento" : "Data" },
+      ...(isReceita ? [{ label: "Semana de locação" } as RelColuna] : []),
+      { label: "Veículo" }, { label: "Categoria" }, { label: "Descrição" },
+      { label: "Valor", align: "right" },
+      ...(isReceita ? [{ label: "Recebimento" } as RelColuna] : []),
     ];
-    exportToCsv(
-      isReceita ? "receitas" : "despesas",
-      filtered.map((r) => ({
-        data: r.data,
-        semana: isReceita && ehAluguel(r.categoria) && r.data && addDias(r.data, 6) ? `${r.data} a ${addDias(r.data, 6)}` : "",
-        veiculo: vehicleLabel(r.vehicle_id), categoria: r.categoria ?? "",
-        descricao: r.descricao, valor: r.valor,
-        recebido: r.recebido ? "Sim" : "Não", recebido_em: r.recebido_em ?? "",
-      })),
-      cols
-    );
+    const linhas = sorted.map((r) => [
+      formatDate(r.data),
+      ...(isReceita ? [ehAluguel(r.categoria) && r.data && addDias(r.data, 6) ? `${formatDate(r.data)} – ${formatDate(addDias(r.data, 6))}` : "—"] : []),
+      r.vehicles?.placa ?? vehicleLabel(r.vehicle_id), r.categoria ?? "—", r.descricao,
+      formatCurrency(r.valor),
+      ...(isReceita ? [r.recebido ? `Recebido${r.recebido_em ? ` ${formatDate(r.recebido_em)}` : ""}` : "A receber"] : []),
+    ]);
+    const somaFiltrada = sorted.reduce((s, r) => s + r.valor, 0);
+    const rodape = [
+      "", ...(isReceita ? [""] : []), "", "", "Total", formatCurrency(somaFiltrada), ...(isReceita ? [""] : []),
+    ];
+    const filtroPeriodo = pIni || pFim ? `${pIni ? formatDate(pIni) : "…"} a ${pFim ? formatDate(pFim) : "…"}` : "";
+    return {
+      titulo: isReceita ? "Receitas" : "Despesas",
+      subtitulo: `${sorted.length} lançamento(s) · total ${formatCurrency(somaFiltrada)}`,
+      filtros: [
+        { label: "Período", valor: filtroPeriodo },
+        { label: "Busca", valor: search },
+        { label: "Categoria", valor: fCategoria === "todas" ? "" : fCategoria },
+        { label: "Veículo", valor: fVeiculo === "todos" ? "" : fVeiculo === "frota" ? "Frota ativa" : (vehicles.find((v) => v.id === fVeiculo)?.placa ?? "") },
+        ...(isReceita ? [{ label: "Recebimento", valor: fRecebido === "todos" ? "" : fRecebido === "recebido" ? "Recebidos" : "A receber" }] : []),
+      ],
+      colunas, linhas, rodape,
+    };
   }
 
   return (
@@ -260,7 +273,7 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
         description={isReceita ? "Entradas da frota, por veículo" : "Saídas da frota, por veículo"}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4" /> CSV</Button>
+            <RelatorioExport build={buildRelatorio} nomeArquivo={isReceita ? "receitas" : "despesas"} disabled={!sorted.length} />
             {isReceita && canWrite && <Button variant="outline" onClick={() => { setConcItens(null); setConcArquivo(""); setConcOpen(true); }}><Landmark className="h-4 w-4" /> Conciliar boletos (banco)</Button>}
             {canWrite && <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova {label.toLowerCase()}</Button>}
           </div>
