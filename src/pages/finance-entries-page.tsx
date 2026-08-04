@@ -35,6 +35,8 @@ import { formatCurrency, formatDate, maskPlaca } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
 import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useSort } from "@/hooks/use-sort";
+import { SortableHead } from "@/components/shared/sortable-head";
 import { exportToCsv } from "@/lib/csv";
 import type { FinanceEntry, Vehicle } from "@/types/database";
 
@@ -172,6 +174,19 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
     return [...m.values()].sort((a, b) => b.valor - a.valor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, vehicles]);
+
+  const { sortKey, sortDir, toggle, useSorted } = useSort<Row>("data", "desc");
+  const sorted = useSorted(filtered, (r, k) => {
+    switch (k) {
+      case "data": case "semana": return r.data;
+      case "veiculo": return r.vehicles?.placa ?? vehicleLabel(r.vehicle_id);
+      case "categoria": return r.categoria ?? "";
+      case "descricao": return r.descricao.toLowerCase();
+      case "valor": return r.valor;
+      case "receb": return r.recebido ? 1 : 0;
+      default: return "";
+    }
+  });
 
   // Total do período selecionado; sem período, mês corrente.
   const totalPeriodo = useMemo(() => {
@@ -327,18 +342,18 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
             <Table className="text-xs [&_th]:h-9 [&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-2">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{isReceita ? "Vencimento" : "Data"}</TableHead>
-                  {isReceita && <TableHead>Semana de locação</TableHead>}
-                  <TableHead>Veículo</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  {isReceita && <TableHead>Receb.</TableHead>}
+                  <SortableHead sortKey="data" activeKey={sortKey} dir={sortDir} onSort={toggle}>{isReceita ? "Vencimento" : "Data"}</SortableHead>
+                  {isReceita && <SortableHead sortKey="semana" activeKey={sortKey} dir={sortDir} onSort={toggle}>Semana de locação</SortableHead>}
+                  <SortableHead sortKey="veiculo" activeKey={sortKey} dir={sortDir} onSort={toggle}>Veículo</SortableHead>
+                  <SortableHead sortKey="categoria" activeKey={sortKey} dir={sortDir} onSort={toggle}>Categoria</SortableHead>
+                  <SortableHead sortKey="descricao" activeKey={sortKey} dir={sortDir} onSort={toggle}>Descrição</SortableHead>
+                  <SortableHead sortKey="valor" activeKey={sortKey} dir={sortDir} onSort={toggle} align="right">Valor</SortableHead>
+                  {isReceita && <SortableHead sortKey="receb" activeKey={sortKey} dir={sortDir} onSort={toggle}>Receb.</SortableHead>}
                   {canWrite && <TableHead className="w-20"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {sorted.map((r) => (
                   <TableRow
                     key={r.id}
                     className={canWrite ? "cursor-pointer" : undefined}
