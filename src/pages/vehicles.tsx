@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useConsorciosVeiculo, useSalvarConsorciosVeiculo, useConsorcioPorVeiculo, somarConsorcios, type ConsorcioInput } from "@/hooks/use-consorcios";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo, useContratos } from "@/hooks/use-contratos";
 import { useSyncCarroReserva, useReservaAtualPorVeiculo, useOcorrenciasAbertasPorVeiculo } from "@/hooks/use-ocorrencias";
@@ -185,6 +187,8 @@ export default function VehiclesPage() {
   const [fLocatario, setFLocatario] = useState(TODOS);
   const [fRestricao, setFRestricao] = useState(TODOS); // todos | com | sem
   const [fLocadoSemLoc, setFLocadoSemLoc] = useState(false); // status locado sem locatário designado
+  const [fFrota, setFFrota] = useState(false);
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
   const { sortKey, sortDir, toggle, useSorted } = useSort<Vehicle>("placa", "asc");
 
   // Veículos locados sem contrato ativo (locatário não designado).
@@ -239,10 +243,11 @@ export default function VehiclesPage() {
       const mLoc = fLocatario === TODOS || loc === fLocatario;
       const mRestr = fRestricao === TODOS || (fRestricao === "com" ? temRestr : !temRestr);
       const mLocadoSemLoc = !fLocadoSemLoc || locadoSemLocatario(v);
-      return mSearch && mMarca && mAno && mStatus && mProp && mLoc && mRestr && mLocadoSemLoc;
+      const mFrota = !fFrota || ehFrotaAtiva(v.status);
+      return mSearch && mMarca && mAno && mStatus && mProp && mLoc && mRestr && mLocadoSemLoc && mFrota;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, fLocadoSemLoc, locatarioMap, restrMap]);
+  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, fLocadoSemLoc, fFrota, locatarioMap, restrMap]);
 
   const sorted = useSorted(filtered, (v, k) => {
     switch (k) {
@@ -266,9 +271,9 @@ export default function VehiclesPage() {
     }
   });
 
-  const filtrosAtivos = [fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao].some((f) => f !== TODOS) || !!search || fLocadoSemLoc;
+  const filtrosAtivos = [fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao].some((f) => f !== TODOS) || !!search || fLocadoSemLoc || fFrota;
   function limparFiltros() {
-    setSearch(""); setFMarca(TODOS); setFAno(TODOS); setFStatus(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); setFRestricao(TODOS); setFLocadoSemLoc(false);
+    setSearch(""); setFMarca(TODOS); setFAno(TODOS); setFStatus(TODOS); setFProprietario(TODOS); setFLocatario(TODOS); setFRestricao(TODOS); setFLocadoSemLoc(false); setFFrota(false);
   }
 
   function buildRelatorio(): RelatorioTabelaData {
@@ -480,6 +485,7 @@ export default function VehiclesPage() {
               <AlertTriangle className="h-4 w-4" /> Locado s/ locatário
               <Badge variant="secondary" className="ml-1">{nLocadoSemLoc}</Badge>
             </Button>
+            <FrotaAtivaToggle ativo={fFrota} onToggle={() => setFFrota((s) => !s)} count={frotaVeicIds.size} />
             {filtrosAtivos && (
               <Button variant="ghost" size="sm" onClick={limparFiltros}><X className="h-4 w-4" /> Limpar</Button>
             )}

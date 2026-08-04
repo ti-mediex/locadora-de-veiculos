@@ -24,6 +24,8 @@ import { gerarContratoHtml } from "@/lib/contrato-doc";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
+import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -58,6 +60,8 @@ export default function ContratosPage() {
   const [fStatus, setFStatus] = useState("todos");
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
+  const [fFrota, setFFrota] = useState(false);
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
   const [form, setForm] = useState<Form>({});
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -172,9 +176,9 @@ export default function ContratosPage() {
       const placa = r.vehicles?.placa ?? r.placa ?? "";
       const mQ = !q || r.numero.toLowerCase().includes(q) || r.cliente_nome.toLowerCase().includes(q) ||
         placa.toLowerCase().includes(q) || (qa !== "" && soAlfa(placa).includes(qa));
-      return mS && mQ && noPeriodo(r.data_entrega, pIni, pFim);
+      return mS && mQ && noPeriodo(r.data_entrega, pIni, pFim) && (!fFrota || (!!r.vehicle_id && frotaVeicIds.has(r.vehicle_id)));
     });
-  }, [rows, search, fStatus, pIni, pFim]);
+  }, [rows, search, fStatus, pIni, pFim, fFrota, frotaVeicIds]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<ContratoRow>("numero", "asc");
   const sorted = useSorted(filtered, (c, k) => {
@@ -251,6 +255,7 @@ export default function ContratosPage() {
               </SelectContent>
             </Select>
             <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
+            <FrotaAtivaToggle ativo={fFrota} onToggle={() => setFFrota((s) => !s)} count={frotaVeicIds.size} />
           </div>
           {isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>

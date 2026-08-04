@@ -29,6 +29,8 @@ import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo } from "@/hooks/use-
 import { useGerarCobrancaKmExcedente } from "@/hooks/use-financeiro-locatario";
 import { consolidarCobrancasKmExcedente, distribuirParcelas, mesesLabel, type CobrancaKmExcedente } from "@/lib/km-excedente";
 import { MemoriaKmExcedente } from "@/components/km/memoria-km-excedente";
+import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { ImportarIturanDialog } from "@/components/km/importar-ituran-dialog";
 import { abrirRelatorioKm } from "@/lib/relatorio-km";
@@ -90,7 +92,10 @@ export default function ApuracaoKmPage() {
   }
 
   const vehicleId = fVeiculo === "todos" ? undefined : fVeiculo;
-  const { data: rows = [], isLoading } = useKmDiario(ini || undefined, fim || undefined, vehicleId);
+  const { data: rowsRaw = [], isLoading } = useKmDiario(ini || undefined, fim || undefined, vehicleId);
+  const [fFrota, setFFrota] = useState(false);
+  const frotaVeicIds = useMemo(() => new Set(veiculos.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [veiculos]);
+  const rows = useMemo(() => (fFrota ? rowsRaw.filter((r) => r.vehicle_id && frotaVeicIds.has(r.vehicle_id)) : rowsRaw), [rowsRaw, fFrota, frotaVeicIds]);
 
   const franquia = Number(config?.franquia_km_mensal ?? 6000) || 6000;
   const vMap = useMemo(() => new Map(veiculos.map((v) => [v.id, v])), [veiculos]);
@@ -346,8 +351,12 @@ export default function ApuracaoKmPage() {
             </SelectContent>
           </Select>
         </div>
-        {(ini || fim || mes || fVeiculo !== "todos") && (
-          <Button variant="ghost" size="sm" onClick={() => { setIni(""); setFim(""); setMes(""); setFVeiculo("todos"); }}>Limpar</Button>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Escopo</label>
+          <FrotaAtivaToggle ativo={fFrota} onToggle={() => setFFrota((s) => !s)} count={frotaVeicIds.size} />
+        </div>
+        {(ini || fim || mes || fVeiculo !== "todos" || fFrota) && (
+          <Button variant="ghost" size="sm" onClick={() => { setIni(""); setFim(""); setMes(""); setFVeiculo("todos"); setFFrota(false); }}>Limpar</Button>
         )}
       </div>
 

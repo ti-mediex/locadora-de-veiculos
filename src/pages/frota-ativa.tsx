@@ -10,6 +10,7 @@ import { RelatorioExport } from "@/components/shared/relatorio-export";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -18,6 +19,7 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { useGerarReceitaAluguel } from "@/hooks/use-finance";
 import { useFrotaAtiva, GRUPO_LABEL, type FrotaVeiculo } from "@/hooks/use-frota-ativa";
 import { formatCurrency, formatNumber, maskPlaca, soAlfa } from "@/lib/format";
+import { ymAtual } from "@/lib/date";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
 const TODOS = "__todos__";
@@ -64,7 +66,9 @@ function StatusBadge({ label, cor, title }: { label: string; cor: string | null;
 
 export default function FrotaAtivaPage() {
   const navigate = useNavigate();
-  const { linhas, totais, statusMap, isLoading } = useFrotaAtiva();
+  const [ym, setYm] = useState(ymAtual());
+  const refMes = useMemo(() => { const [y, m] = ym.split("-").map(Number); return new Date(y, m - 1, 1); }, [ym]);
+  const { linhas, totais, statusMap, isLoading } = useFrotaAtiva(refMes);
   const canWriteFin = useCanWrite("finance");
   const gerarReceita = useGerarReceitaAluguel();
 
@@ -76,9 +80,9 @@ export default function FrotaAtivaPage() {
   const { sortKey, sortDir, toggle, useSorted } = useSort<FrotaVeiculo>("placa", "asc");
 
   const mesLabel = useMemo(() => {
-    const s = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const s = refMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     return s.charAt(0).toUpperCase() + s.slice(1);
-  }, []);
+  }, [refMes]);
 
   const opcoes = useMemo(() => {
     const status = new Set<string>(), props = new Set<string>(), locs = new Set<string>();
@@ -182,7 +186,11 @@ export default function FrotaAtivaPage() {
         title="Frota Ativa"
         description={`Gestão dos veículos operacionais (locado, carro reserva, disponível, manutenção) · ${mesLabel}`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Mês</label>
+              <Input type="month" value={ym} onChange={(e) => setYm(e.target.value || ymAtual())} className="w-40" />
+            </div>
             {canWriteFin && (
               <Button
                 variant="outline"
@@ -190,7 +198,7 @@ export default function FrotaAtivaPage() {
                 disabled={gerarReceita.isPending}
                 onClick={() => {
                   if (confirm(`Gerar os lançamentos de receita de aluguel dos contratos ativos para ${mesLabel}?\n\nUma semana por contrato (valor semanal), apenas para semanas já ocorridas. Não duplica lançamentos já existentes.`))
-                    gerarReceita.mutate({ refMes: new Date() });
+                    gerarReceita.mutate({ refMes });
                 }}
                 title="Lança a receita de aluguel semanal dos contratos ativos no mês (idempotente)"
               >

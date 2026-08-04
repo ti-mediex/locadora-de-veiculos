@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import { exportToCsv } from "@/lib/csv";
 import { useFinanceEntries } from "@/hooks/use-finance";
 import { usePendencias, vencimentoStatus, restricaoEhJudicial } from "@/hooks/use-pendencias";
@@ -30,7 +31,7 @@ import type { Vehicle } from "@/types/database";
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [fVeiculo, setFVeiculo] = useState("todos");
-  const [fSituacao, setFSituacao] = useState<"ativos" | "todos">("ativos");
+  const [fSituacao, setFSituacao] = useState<"ativos" | "frota_ativa" | "todos">("ativos");
   const [showFin, setShowFin] = useState(false);
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
@@ -43,16 +44,18 @@ export default function DashboardPage() {
   const { data: ocorrMap = {} } = useOcorrenciasAbertasPorVeiculo();
 
   const ativosSet = useMemo(() => new Set(veiculosAll.filter((v) => v.status !== "inativo").map((v) => v.id)), [veiculosAll]);
+  const frotaAtivaSet = useMemo(() => new Set(veiculosAll.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [veiculosAll]);
   const vMap = useMemo(() => new Map(veiculosAll.map((v) => [v.id, v])), [veiculosAll]);
   const incluiVeiculo = (vehicleId: string | null) => {
     if (fVeiculo !== "todos") return vehicleId === fVeiculo;
+    if (fSituacao === "frota_ativa") return vehicleId !== null && frotaAtivaSet.has(vehicleId);
     if (fSituacao === "ativos") return vehicleId === null || ativosSet.has(vehicleId);
     return true;
   };
 
   const entriesF = useMemo(() => entries.filter((e) => incluiVeiculo(e.vehicle_id)), [entries, fVeiculo, fSituacao, ativosSet]);
   const pendF = useMemo(() => pendAll.filter((p) => incluiVeiculo(p.vehicle_id)), [pendAll, fVeiculo, fSituacao, ativosSet]);
-  const veiculos = useMemo(() => veiculosAll.filter((v) => (fVeiculo !== "todos" ? v.id === fVeiculo : fSituacao === "ativos" ? v.status !== "inativo" : true)), [veiculosAll, fVeiculo, fSituacao]);
+  const veiculos = useMemo(() => veiculosAll.filter((v) => (fVeiculo !== "todos" ? v.id === fVeiculo : fSituacao === "frota_ativa" ? ehFrotaAtiva(v.status) : fSituacao === "ativos" ? v.status !== "inativo" : true)), [veiculosAll, fVeiculo, fSituacao]);
 
   // ---- KPIs financeiros ----
   const now = new Date();
@@ -220,10 +223,11 @@ export default function DashboardPage() {
         </div>
         <div className="w-full sm:w-auto">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Situação</label>
-          <Select value={fSituacao} onValueChange={(v) => setFSituacao(v as "ativos" | "todos")} disabled={fVeiculo !== "todos"}>
-            <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+          <Select value={fSituacao} onValueChange={(v) => setFSituacao(v as "ativos" | "frota_ativa" | "todos")} disabled={fVeiculo !== "todos"}>
+            <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ativos">Somente ativos</SelectItem>
+              <SelectItem value="frota_ativa">Frota ativa</SelectItem>
               <SelectItem value="todos">Todos os veículos</SelectItem>
             </SelectContent>
           </Select>

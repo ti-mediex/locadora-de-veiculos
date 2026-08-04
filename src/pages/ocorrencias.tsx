@@ -26,6 +26,8 @@ import { OCORRENCIA_TIPO, OCORRENCIA_STATUS, OCORRENCIA_GRAVIDADE } from "@/lib/
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
+import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
+import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -97,6 +99,8 @@ export default function OcorrenciasPage() {
   const [fStatus, setFStatus] = useState("ativas");
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
+  const [fFrota, setFFrota] = useState(false);
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
   const tipoSel = watch("tipo");
@@ -120,9 +124,9 @@ export default function OcorrenciasPage() {
         (r.responsavel ?? "").toLowerCase().includes(q) || (qa !== "" && soAlfa(placa).includes(qa));
       const mT = fTipo === "todos" || r.tipo === fTipo;
       const mS = fStatus === "todas" ? true : fStatus === "ativas" ? (r.status === "aberta" || r.status === "em_andamento") : r.status === fStatus;
-      return mQ && mT && mS && noPeriodo(r.inicio, pIni, pFim);
+      return mQ && mT && mS && noPeriodo(r.inicio, pIni, pFim) && (!fFrota || (!!r.vehicle_id && frotaVeicIds.has(r.vehicle_id)));
     });
-  }, [rows, search, fTipo, fStatus, pIni, pFim]);
+  }, [rows, search, fTipo, fStatus, pIni, pFim, fFrota, frotaVeicIds]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<OcorrenciaRow>("inicio", "desc");
   const sorted = useSorted(filtered, (r, k) => {
@@ -312,6 +316,7 @@ ${fotosHtml ? `<h3 style="font-size:14px">Fotos</h3><div class="fotos">${fotosHt
                   </SelectContent>
                 </Select>
                 <PeriodoFilter ini={pIni} fim={pFim} onChange={(i, f) => { setPIni(i); setPFim(f); }} />
+                <FrotaAtivaToggle ativo={fFrota} onToggle={() => setFFrota((s) => !s)} count={frotaVeicIds.size} />
               </div>
               {isLoading ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
