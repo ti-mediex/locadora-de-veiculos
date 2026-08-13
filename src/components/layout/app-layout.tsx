@@ -12,11 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/auth-context";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { profile, user, signOut } = useAuth();
   const location = useLocation();
+  useFrotaClassifier(); // hidrata a parametrização de frota ativa para toda a árvore
   // Vistoriador tem acesso apenas ao módulo de Vistorias.
   if (profile?.role === "vistoriador" && !location.pathname.startsWith("/vistorias")) {
     return <Navigate to="/vistorias" replace />;

@@ -27,7 +27,7 @@ import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
 import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import type { Vehicle } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -100,7 +100,8 @@ export default function OcorrenciasPage() {
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
   const [fFrota, setFFrota] = useState(false);
-  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
+  const { ehFrotaAtiva } = useFrotaClassifier();
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles, ehFrotaAtiva]);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
   const tipoSel = watch("tipo");

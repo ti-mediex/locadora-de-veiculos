@@ -20,7 +20,7 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { useLocatarios } from "@/hooks/use-locatarios";
 import { useContratos } from "@/hooks/use-contratos";
 import { useList } from "@/hooks/use-crud";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import type { Vehicle } from "@/types/database";
 import { useAppConfig } from "@/hooks/use-app-config";
 import {
@@ -58,12 +58,13 @@ export default function ResumoLocatariosPage() {
 
   // Locatários que constam da frota ativa: têm contrato ATIVO num veículo em
   // status operacional (locado, carro reserva, disponível, manutenção).
+  const { ehFrotaAtiva } = useFrotaClassifier();
   const locFrotaAtiva = useMemo(() => {
     const frotaVeic = new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id));
     const s = new Set<string>();
     for (const c of contratos) if (c.status === "ativo" && c.locatario_id && c.vehicle_id && frotaVeic.has(c.vehicle_id)) s.add(c.locatario_id);
     return s;
-  }, [vehicles, contratos]);
+  }, [vehicles, contratos, ehFrotaAtiva]);
   const [sel, setSel] = useState<Locatario | null>(null);
   const [tab, setTab] = useState("resumo");
   const [formDeb, setFormDeb] = useState<Record<string, string>>({});

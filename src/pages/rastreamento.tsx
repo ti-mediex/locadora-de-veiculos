@@ -25,7 +25,7 @@ import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
 import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
 
@@ -99,7 +99,8 @@ export default function RastreamentoPage() {
     return { veic, judicial };
   }, [dados, restrMap]);
 
-  const frotaCount = useMemo(() => new Set(dados.filter(({ r }) => r.vehicle_id && ehFrotaAtiva(r.vehicles?.status)).map(({ r }) => r.vehicle_id)).size, [dados]);
+  const { ehFrotaAtiva } = useFrotaClassifier();
+  const frotaCount = useMemo(() => new Set(dados.filter(({ r }) => r.vehicle_id && ehFrotaAtiva(r.vehicles?.status)).map(({ r }) => r.vehicle_id)).size, [dados, ehFrotaAtiva]);
   const filtrados = useMemo(() => {
     const q = search.toLowerCase();
     return dados.filter(({ r, c }) => {
@@ -116,7 +117,7 @@ export default function RastreamentoPage() {
       const mFrota = !fFrota || ehFrotaAtiva(r.vehicles?.status);
       return mG && mQ && mS && mFrota;
     });
-  }, [dados, search, fStatus, fGrupo, fFrota]);
+  }, [dados, search, fStatus, fGrupo, fFrota, ehFrotaAtiva]);
 
   const { sortKey, sortDir, toggle, useSorted } = useSort<(typeof dados)[number]>("ultima", "asc");
   const ordenados = useSorted(filtrados, ({ r, c }, k) => {

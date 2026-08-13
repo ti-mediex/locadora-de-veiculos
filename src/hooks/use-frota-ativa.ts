@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useList } from "@/hooks/use-crud";
 import { useVehicleStatuses, type VehicleStatus } from "@/hooks/use-vehicle-statuses";
 import { useContratos, useLocatarioPorVeiculo, type ContratoRow } from "@/hooks/use-contratos";
@@ -27,10 +27,26 @@ export const GRUPO_LABEL: Record<GrupoFrota, string> = {
   manutencao: "Em manutenção",
 };
 
-/** Agrupa o status em uma das 4 categorias operacionais, dobrando os legados
- *  `disponivel`→disponível e `manutencao`→manutenção. Retorna null se o veículo
- *  não pertence à frota ativa. */
+/** Registro (parametrizável) status → grupo de frota, hidratado do banco
+ *  (`vehicle_statuses.grupo_frota`). Só contém entradas com grupo definido;
+ *  o `switch` abaixo é o fallback para os status internos antes do carregamento. */
+let OVERRIDES: Record<string, GrupoFrota> = {};
+
+/** Hidrata o registro a partir dos status configurados. Chamado no topo do app
+ *  (AppLayout) e por `useFrotaClassifier`, para que os chamadores estáticos
+ *  (`grupoFrota`/`ehFrotaAtiva`) também reflitam a parametrização. */
+export function setFrotaOverrides(statuses: Pick<VehicleStatus, "value" | "grupo_frota">[]) {
+  const next: Record<string, GrupoFrota> = {};
+  for (const s of statuses) if (s.grupo_frota) next[s.value] = s.grupo_frota;
+  OVERRIDES = next;
+}
+
+/** Agrupa o status em uma das 4 categorias operacionais. Consulta primeiro a
+ *  parametrização do banco (status personalizados) e, na ausência, dobra os
+ *  legados `disponivel`→disponível e `manutencao`→manutenção. Retorna null se o
+ *  veículo não pertence à frota ativa. */
 export function grupoFrota(status?: string | null): GrupoFrota | null {
+  if (status && OVERRIDES[status]) return OVERRIDES[status];
   switch (status) {
     case "locado": return "locado";
     case "carro_reserva": return "carro_reserva";
@@ -43,8 +59,24 @@ export function grupoFrota(status?: string | null): GrupoFrota | null {
   }
 }
 
-/** Veículo está em um dos status operacionais (5 novos + 2 legados dobrados). */
+/** Veículo está em um dos status operacionais (internos + personalizados parametrizados). */
 export const ehFrotaAtiva = (status?: string | null) => grupoFrota(status) !== null;
+
+/** Hook reativo: retorna `grupoFrota`/`ehFrotaAtiva` já considerando a
+ *  parametrização carregada do banco. As funções mudam de identidade quando os
+ *  status carregam, disparando o recálculo dos memos que as usam nas deps. */
+export function useFrotaClassifier() {
+  const { data: statuses = [] } = useVehicleStatuses();
+  useEffect(() => { setFrotaOverrides(statuses); }, [statuses]);
+  return useMemo(() => {
+    setFrotaOverrides(statuses);
+    return {
+      grupoFrota: (status?: string | null) => grupoFrota(status),
+      ehFrotaAtiva: (status?: string | null) => grupoFrota(status) !== null,
+      statuses,
+    };
+  }, [statuses]);
+}
 
 /** Nº de semanas no mês de referência (dias/7 ≈ 4,3). */
 export function semanasNoMes(ref: Date) {
@@ -131,6 +163,7 @@ export function useFrotaAtiva(refMes: Date = new Date()): FrotaAtivaResult {
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.value, s])), [statuses]);
 
   return useMemo(() => {
+    setFrotaOverrides(statuses); // garante a parametrização antes de classificar
     const semanas = semanasNoMes(refMes);
 
     // Contrato ativo vigente por veículo (com valores).

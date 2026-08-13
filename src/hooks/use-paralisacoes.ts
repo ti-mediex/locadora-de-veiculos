@@ -5,7 +5,7 @@ import { useContratos } from "@/hooks/use-contratos";
 import { useFinanceEntries } from "@/hooks/use-finance";
 import { useVehicleStatuses, type VehicleStatus } from "@/hooks/use-vehicle-statuses";
 import { useAppConfig } from "@/hooks/use-app-config";
-import { ehFrotaAtiva, grupoFrota, semanasNoMes } from "@/hooks/use-frota-ativa";
+import { ehFrotaAtiva, grupoFrota, semanasNoMes, setFrotaOverrides } from "@/hooks/use-frota-ativa";
 import { OCORRENCIA_TIPOS_PARALISA } from "@/lib/options";
 import type { Vehicle } from "@/types/database";
 
@@ -90,6 +90,7 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.value, s])), [statuses]);
 
   return useMemo(() => {
+    setFrotaOverrides(statuses); // parametrização da frota ativa antes de classificar
     const now = Date.now();
     const mesIni = new Date(refMes.getFullYear(), refMes.getMonth(), 1).getTime();
     const mesFim = new Date(refMes.getFullYear(), refMes.getMonth() + 1, 0, 23, 59, 59).getTime();

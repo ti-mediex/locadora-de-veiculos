@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
 import { useConsorciosVeiculo, useSalvarConsorciosVeiculo, useConsorcioPorVeiculo, somarConsorcios, type ConsorcioInput } from "@/hooks/use-consorcios";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
 import { usePendenciasPorVeiculo, useRestricoesPorVeiculo } from "@/hooks/use-pendencias";
 import { useLocatarioPorVeiculo, useContratoAtivoPorVeiculo, useContratos } from "@/hooks/use-contratos";
@@ -45,7 +45,7 @@ import { useKmMesPorVeiculo } from "@/hooks/use-km";
 import { useRastreamentoStatusPorVeiculo } from "@/hooks/use-rastreamento";
 import { useUpdateFipe } from "@/hooks/use-fipe";
 import { useCanWrite } from "@/hooks/use-can-write";
-import { useVehicleStatuses, useCreateVehicleStatus } from "@/hooks/use-vehicle-statuses";
+import { useVehicleStatuses, useCreateVehicleStatus, useSetStatusGrupoFrota, type GrupoFrotaValor } from "@/hooks/use-vehicle-statuses";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { BuscaPlaca } from "@/components/shared/busca-placa";
@@ -55,6 +55,14 @@ import { ImportarConsultaPlacaDialog } from "@/components/vehicles/importar-cons
 import { VEHICLE_STATUS, VEHICLE_CATEGORIA } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, maskPlaca, soAlfa } from "@/lib/format";
 import type { Vehicle, Alienante } from "@/types/database";
+
+/** Grupos operacionais para parametrizar se um status compõe a frota ativa. */
+const GRUPOS_FROTA: { value: GrupoFrotaValor; label: string }[] = [
+  { value: "locado", label: "Locado" },
+  { value: "carro_reserva", label: "Carro reserva" },
+  { value: "disponivel", label: "Disponível p/ locar" },
+  { value: "manutencao", label: "Em manutenção" },
+];
 
 const schema = z.object({
   placa: z.string().min(7, "Placa inválida").max(8),
@@ -152,15 +160,17 @@ export default function VehiclesPage() {
   const canWrite = useCanWrite("vehicles");
   const { data: statuses = [] } = useVehicleStatuses();
   const criarStatus = useCreateVehicleStatus();
+  const setStatusGrupo = useSetStatusGrupoFrota();
   const [novoStatusAberto, setNovoStatusAberto] = useState(false);
   const [novoStatus, setNovoStatus] = useState("");
+  const [novoStatusGrupo, setNovoStatusGrupo] = useState<GrupoFrotaValor | "nao">("nao");
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.value, s])), [statuses]);
   async function criarNovoStatus() {
     if (!novoStatus.trim()) return;
     try {
-      const value = await criarStatus.mutateAsync({ label: novoStatus });
+      const value = await criarStatus.mutateAsync({ label: novoStatus, grupo_frota: novoStatusGrupo === "nao" ? null : novoStatusGrupo });
       setValue("status", value);
-      setNovoStatus(""); setNovoStatusAberto(false);
+      setNovoStatus(""); setNovoStatusGrupo("nao"); setNovoStatusAberto(false);
     } catch { /* toast no hook */ }
   }
 
@@ -188,7 +198,8 @@ export default function VehiclesPage() {
   const [fRestricao, setFRestricao] = useState(TODOS); // todos | com | sem
   const [fLocadoSemLoc, setFLocadoSemLoc] = useState(false); // status locado sem locatário designado
   const [fFrota, setFFrota] = useState(false);
-  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
+  const { ehFrotaAtiva } = useFrotaClassifier();
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles, ehFrotaAtiva]);
   const { sortKey, sortDir, toggle, useSorted } = useSort<Vehicle>("placa", "asc");
 
   // Veículos locados sem contrato ativo (locatário não designado).
@@ -247,7 +258,7 @@ export default function VehiclesPage() {
       return mSearch && mMarca && mAno && mStatus && mProp && mLoc && mRestr && mLocadoSemLoc && mFrota;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, fLocadoSemLoc, fFrota, locatarioMap, restrMap]);
+  }, [vehicles, search, fMarca, fAno, fStatus, fProprietario, fLocatario, fRestricao, fLocadoSemLoc, fFrota, locatarioMap, restrMap, ehFrotaAtiva]);
 
   const sorted = useSorted(filtered, (v, k) => {
     switch (k) {
@@ -774,17 +785,41 @@ export default function VehiclesPage() {
                   </SelectContent>
                 </Select>
                 {canWrite && (novoStatusAberto ? (
-                  <div className="mt-1.5 flex items-center gap-1">
-                    <Input value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)} placeholder="Nome do novo status" className="h-8"
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); criarNovoStatus(); } }} />
-                    <Button type="button" size="sm" className="h-8 shrink-0" disabled={!novoStatus.trim() || criarStatus.isPending} onClick={criarNovoStatus}>Criar</Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2" onClick={() => { setNovoStatusAberto(false); setNovoStatus(""); }}>✕</Button>
+                  <div className="mt-1.5 space-y-1.5">
+                    <div className="flex items-center gap-1">
+                      <Input value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)} placeholder="Nome do novo status" className="h-8"
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); criarNovoStatus(); } }} />
+                      <Button type="button" size="sm" className="h-8 shrink-0" disabled={!novoStatus.trim() || criarStatus.isPending} onClick={criarNovoStatus}>Criar</Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2" onClick={() => { setNovoStatusAberto(false); setNovoStatus(""); setNovoStatusGrupo("nao"); }}>✕</Button>
+                    </div>
+                    <Select value={novoStatusGrupo} onValueChange={(v) => setNovoStatusGrupo(v as GrupoFrotaValor | "nao")}>
+                      <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao">Não conta na frota ativa</SelectItem>
+                        {GRUPOS_FROTA.map((g) => <SelectItem key={g.value} value={g.value}>Frota ativa · {g.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setNovoStatusAberto(true)} className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     <Plus className="h-3 w-3" /> Criar novo status
                   </button>
                 ))}
+                {canWrite && !novoStatusAberto && watch("status") && statuses.some((s) => s.value === watch("status")) && (
+                  <div className="mt-1.5 flex items-center gap-1">
+                    <span className="shrink-0 text-[11px] text-muted-foreground">Frota ativa:</span>
+                    <Select
+                      value={statusMap.get(watch("status"))?.grupo_frota ?? "nao"}
+                      onValueChange={(v) => setStatusGrupo.mutate({ value: watch("status"), grupo_frota: v === "nao" ? null : (v as GrupoFrotaValor) })}
+                    >
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao">Não conta</SelectItem>
+                        {GRUPOS_FROTA.map((g) => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </Field>
               {watch("status") === "carro_reserva" && (
                 <div className="col-span-full grid gap-4 rounded-lg border border-primary/40 bg-primary/5 p-3 sm:grid-cols-2">

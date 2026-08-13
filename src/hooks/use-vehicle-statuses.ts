@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
+/** Grupo operacional da frota ao qual o status pertence (null = fora da frota ativa). */
+export type GrupoFrotaValor = "locado" | "carro_reserva" | "disponivel" | "manutencao";
+
 export interface VehicleStatus {
   id: string;
   value: string;
@@ -9,6 +12,7 @@ export interface VehicleStatus {
   cor: string | null;
   ordem: number;
   ativo: boolean;
+  grupo_frota: GrupoFrotaValor | null;
 }
 
 /** Status de veículo cadastrados (configuráveis). */
@@ -30,22 +34,36 @@ export function slugStatus(label: string): string {
 
 const CORES = ["hsl(160 65% 45%)", "hsl(262 70% 62%)", "hsl(24 90% 55%)", "hsl(190 80% 45%)", "hsl(320 70% 55%)", "hsl(90 60% 45%)"];
 
-/** Cria um novo status de veículo e retorna seu valor técnico. */
+/** Cria um novo status de veículo e retorna seu valor técnico.
+ *  `grupo_frota` define se (e como) o status compõe a Frota Ativa. */
 export function useCreateVehicleStatus() {
   const qc = useQueryClient();
-  return useMutation<string, Error, { label: string }>({
-    mutationFn: async ({ label }) => {
+  return useMutation<string, Error, { label: string; grupo_frota?: GrupoFrotaValor | null }>({
+    mutationFn: async ({ label, grupo_frota = null }) => {
       const nome = label.trim();
       if (!nome) throw new Error("Informe o nome do status");
       const value = slugStatus(nome);
       const { data: prof } = await supabase.auth.getUser();
       const cor = CORES[Math.abs([...value].reduce((a, c) => a + c.charCodeAt(0), 0)) % CORES.length];
       const { error } = await supabase.from("vehicle_statuses")
-        .upsert({ value, label: nome, cor, ordem: 200, created_by: prof.user?.id ?? null } as never, { onConflict: "value" });
+        .upsert({ value, label: nome, cor, ordem: 200, grupo_frota, created_by: prof.user?.id ?? null } as never, { onConflict: "value" });
       if (error) throw error;
       return value;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["vehicle_statuses"] }); toast.success("Status criado"); },
     onError: (e: Error) => toast.error("Erro ao criar status: " + e.message),
+  });
+}
+
+/** Reclassifica o grupo de frota de um status existente (parametrização da frota ativa). */
+export function useSetStatusGrupoFrota() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { value: string; grupo_frota: GrupoFrotaValor | null }>({
+    mutationFn: async ({ value, grupo_frota }) => {
+      const { error } = await supabase.from("vehicle_statuses").update({ grupo_frota } as never).eq("value", value);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["vehicle_statuses"] }); toast.success("Frota ativa do status atualizada"); },
+    onError: (e: Error) => toast.error("Erro ao atualizar status: " + e.message),
   });
 }

@@ -26,7 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useList, useCreate, useUpdate, useDelete } from "@/hooks/use-crud";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { ImportarDetranDialog } from "@/components/pendencias/importar-detran-dialog";
 import {
@@ -137,7 +137,8 @@ export default function PendenciasPage() {
   const [fFrota, setFFrota] = useState(false); // só pendências de veículos da frota ativa
 
   // Veículos que estão na frota ativa (status operacional).
-  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
+  const { ehFrotaAtiva } = useFrotaClassifier();
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles, ehFrotaAtiva]);
 
   const [importOpen, setImportOpen] = useState(false);
   const [sugAberta, setSugAberta] = useState(false);

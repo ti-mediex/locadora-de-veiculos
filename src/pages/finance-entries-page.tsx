@@ -34,7 +34,7 @@ import { RECEITA_CATEGORIA, DESPESA_CATEGORIA, FORMA_PAGAMENTO } from "@/lib/opt
 import { formatCurrency, formatDate, maskPlaca } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
 import { RelatorioExport } from "@/components/shared/relatorio-export";
@@ -107,7 +107,8 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
   const [fVeiculo, setFVeiculo] = useState("todos"); // todos | frota | <vehicle_id>
   const [fRecebido, setFRecebido] = useState("todos"); // todos | recebido | a_receber
   const [subtotais, setSubtotais] = useState(false);
-  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
+  const { ehFrotaAtiva } = useFrotaClassifier();
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles, ehFrotaAtiva]);
 
   // Conciliação de boletos pagos (relatório do banco).
   const [concOpen, setConcOpen] = useState(false);

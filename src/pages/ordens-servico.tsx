@@ -28,7 +28,7 @@ import { formatCurrency, formatDate, formatDateTime, soAlfa, maskPlaca } from "@
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
 import { FrotaAtivaToggle } from "@/components/shared/frota-ativa-toggle";
-import { ehFrotaAtiva } from "@/hooks/use-frota-ativa";
+import { useFrotaClassifier } from "@/hooks/use-frota-ativa";
 import type { Vehicle, OrdemServicoStatus, OsItemTipo } from "@/types/database";
 import { useSort } from "@/hooks/use-sort";
 import { SortableHead } from "@/components/shared/sortable-head";
@@ -98,7 +98,8 @@ export default function OrdensServicoPage() {
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
   const [fFrota, setFFrota] = useState(false);
-  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles]);
+  const { ehFrotaAtiva } = useFrotaClassifier();
+  const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles, ehFrotaAtiva]);
   const [fStatus, setFStatus] = useState("ativas");
   const [memoria, setMemoria] = useState<ParalisacaoLinha | null>(null);
 
