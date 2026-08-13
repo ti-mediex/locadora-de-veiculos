@@ -23,6 +23,8 @@ import {
   useTrocas, useCreateTroca, useUpdateTroca, useEncerrarTroca, useDeleteTroca,
   TROCA_MOTIVO, motivoLabel, type TrocaRow,
 } from "@/hooks/use-trocas";
+import { EnviarAditivoDialog, type AditivoContexto } from "@/components/aditivos/enviar-aditivo-dialog";
+import { FileSignature } from "lucide-react";
 import { formatDate, maskPlaca } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { useSort } from "@/hooks/use-sort";
@@ -52,6 +54,20 @@ export default function TrocasVeiculoPage() {
   const [fStatus, setFStatus] = useState("ativa");
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
+
+  const [aditivoCtx, setAditivoCtx] = useState<AditivoContexto | null>(null);
+  function abrirAditivo(t: TrocaRow) {
+    const c = contratos.find((x) => x.id === t.contrato_id);
+    setAditivoCtx({
+      contratoId: t.contrato_id ?? "",
+      contratoNumero: t.contratos?.numero ?? c?.numero ?? "—",
+      locatarioId: t.locatario_id,
+      clienteNome: t.locatario_nome ?? c?.cliente_nome,
+      clienteCpf: c?.cliente_cpf, clienteTelefone: c?.cliente_telefone, clienteEmail: c?.cliente_email,
+      vehicleId: t.veiculo_reserva_id, placa: t.placa_reserva, veiculoDesc: veicById.get(t.veiculo_reserva_id ?? "")?.modelo ?? null,
+      placaAnterior: t.placa_origem, motivo: motivoLabel(t.motivo).toLowerCase(), trocaId: t.id,
+    });
+  }
 
   const [encAlvo, setEncAlvo] = useState<TrocaRow | null>(null);
   const [encData, setEncData] = useState(hojeStr());
@@ -242,6 +258,12 @@ export default function TrocasVeiculoPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {canWrite && t.contrato_id && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Aditivo de troca p/ assinatura"
+                              onClick={() => abrirAditivo(t)}>
+                              <FileSignature className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
                           {canWrite && t.status === "ativa" && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" title="Encerrar troca (veículo retornou)"
                               onClick={() => { setEncAlvo(t); setEncData(hojeStr()); setEncKm(""); }}>
@@ -348,6 +370,10 @@ export default function TrocasVeiculoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {aditivoCtx && (
+        <EnviarAditivoDialog open={!!aditivoCtx} onOpenChange={(v) => !v && setAditivoCtx(null)} contexto={aditivoCtx} tipoInicial="troca_veiculo" />
+      )}
     </div>
   );
 }

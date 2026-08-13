@@ -21,6 +21,7 @@ import {
   useContratos, useCreateContrato, useUpdateContrato, useRenovarContrato, useDeleteContrato, type ContratoRow,
 } from "@/hooks/use-contratos";
 import { gerarContratoHtml } from "@/lib/contrato-doc";
+import { EnviarAditivoDialog, type AditivoContexto } from "@/components/aditivos/enviar-aditivo-dialog";
 import { formatCurrency, formatDate, soAlfa } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
 import { PeriodoFilter } from "@/components/shared/period-filter";
@@ -65,6 +66,12 @@ export default function ContratosPage() {
   const frotaVeicIds = useMemo(() => new Set(vehicles.filter((v) => ehFrotaAtiva(v.status)).map((v) => v.id)), [vehicles, ehFrotaAtiva]);
   const [form, setForm] = useState<Form>({});
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [aditivoCtx, setAditivoCtx] = useState<AditivoContexto | null>(null);
+  const abrirAditivo = (c: ContratoRow) => setAditivoCtx({
+    contratoId: c.id, contratoNumero: c.numero, locatarioId: c.locatario_id,
+    clienteNome: c.cliente_nome, clienteCpf: c.cliente_cpf, clienteTelefone: c.cliente_telefone, clienteEmail: c.cliente_email,
+    vehicleId: c.vehicle_id, placa: c.vehicles?.placa ?? c.placa, veiculoDesc: c.vehicles?.modelo ?? null,
+  });
 
   const empresa = {
     nome: config?.empresa_nome ?? "VIP CARS",
@@ -294,6 +301,7 @@ export default function ContratosPage() {
                         <div className="flex justify-end gap-0.5">
                           <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" aria-label={`Editar contrato ${c.numero}`} onClick={() => abrirEditar(c)}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" title="Emitir/imprimir" aria-label="Emitir contrato" onClick={() => emitir(c)}><FileText className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Aditivo p/ assinatura" aria-label="Enviar aditivo" onClick={() => abrirAditivo(c)}><FileSignature className="h-4 w-4 text-primary" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" title="Renovar" aria-label="Renovar contrato" onClick={() => confirm(`Renovar o contrato ${c.numero}?`) && renovar.mutate(c)}><RefreshCw className="h-4 w-4 text-primary" /></Button>
                           {c.status === "ativo" && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" title="Encerrar" aria-label="Encerrar contrato" onClick={() => update.mutate({ id: c.id, status: "encerrado", data_encerramento: new Date().toISOString().slice(0, 10) })}><XCircle className="h-4 w-4 text-warning" /></Button>
@@ -392,6 +400,10 @@ export default function ContratosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {aditivoCtx && (
+        <EnviarAditivoDialog open={!!aditivoCtx} onOpenChange={(v) => !v && setAditivoCtx(null)} contexto={aditivoCtx} />
+      )}
     </div>
   );
 }

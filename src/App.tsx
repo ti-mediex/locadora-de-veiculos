@@ -31,6 +31,7 @@ const LinhaDoTempoPage = lazy(() => import("@/pages/linha-do-tempo"));
 const BoletosPage = lazy(() => import("@/pages/boletos"));
 const ImportPage = lazy(() => import("@/pages/import"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
+const AssinarAditivoPage = lazy(() => import("@/pages/assinar-aditivo"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +51,7 @@ export default function App() {
           <Suspense fallback={<div className="flex h-screen items-center justify-center text-sm text-muted-foreground">Carregando…</div>}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/assinar/:token" element={<AssinarAditivoPage />} />
             <Route
               element={
                 <ProtectedRoute>
