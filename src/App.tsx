@@ -18,6 +18,7 @@ const OrdensServicoPage = lazy(() => import("@/pages/ordens-servico"));
 const RelatoriosPage = lazy(() => import("@/pages/relatorios"));
 const VistoriasPage = lazy(() => import("@/pages/vistorias"));
 const ContratosPage = lazy(() => import("@/pages/contratos"));
+const TrocasVeiculoPage = lazy(() => import("@/pages/trocas-veiculo"));
 const LocatariosPage = lazy(() => import("@/pages/locatarios"));
 const ResumoLocatariosPage = lazy(() => import("@/pages/resumo-locatarios"));
 const ApuracaoKmPage = lazy(() => import("@/pages/apuracao-km"));
@@ -72,6 +73,7 @@ export default function App() {
               <Route path="/locatarios" element={<LocatariosPage />} />
               <Route path="/resumo-locatarios" element={<ResumoLocatariosPage />} />
               <Route path="/contratos" element={<ContratosPage />} />
+              <Route path="/trocas-veiculo" element={<TrocasVeiculoPage />} />
               <Route path="/apuracao-km" element={<ApuracaoKmPage />} />
               <Route path="/rastreamento" element={<RastreamentoPage />} />
               <Route path="/importacoes" element={<ImportacoesPage />} />

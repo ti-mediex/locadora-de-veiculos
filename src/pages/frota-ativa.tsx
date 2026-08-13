@@ -18,6 +18,7 @@ import { useSort } from "@/hooks/use-sort";
 import { useCanWrite } from "@/hooks/use-can-write";
 import { useGerarReceitaAluguel } from "@/hooks/use-finance";
 import { useFrotaAtiva, GRUPO_LABEL, type FrotaVeiculo } from "@/hooks/use-frota-ativa";
+import { useTrocasAtivasPorVeiculo } from "@/hooks/use-trocas";
 import { formatCurrency, formatNumber, maskPlaca, soAlfa } from "@/lib/format";
 import { ymAtual } from "@/lib/date";
 import type { RelatorioTabelaData, RelColuna } from "@/lib/relatorio-tabela";
@@ -69,6 +70,7 @@ export default function FrotaAtivaPage() {
   const [ym, setYm] = useState(ymAtual());
   const refMes = useMemo(() => { const [y, m] = ym.split("-").map(Number); return new Date(y, m - 1, 1); }, [ym]);
   const { linhas, totais, statusMap, isLoading } = useFrotaAtiva(refMes);
+  const trocasMap = useTrocasAtivasPorVeiculo();
   const canWriteFin = useCanWrite("finance");
   const gerarReceita = useGerarReceitaAluguel();
 
@@ -300,7 +302,12 @@ export default function FrotaAtivaPage() {
                     <TableBody>
                       {sorted.map((l) => (
                         <TableRow key={l.vehicle.id} className="cursor-pointer" onClick={() => navigate(`/frota-ativa/${l.vehicle.id}`)}>
-                          <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(l.vehicle.placa)}</TableCell>
+                          <TableCell className="whitespace-nowrap font-mono font-medium">
+                            {maskPlaca(l.vehicle.placa)}
+                            {(() => { const t = trocasMap.get(l.vehicle.id); return t ? (
+                              <Badge variant={t.papel === "reserva" ? "secondary" : "warning"} className="ml-1 px-1 py-0 text-[9px]" title={t.papel === "reserva" ? `Reserva de ${t.troca.locatario_nome ?? ""} (troca do veículo ${t.troca.placa_origem ?? ""})` : `Em troca — locatário ${t.troca.locatario_nome ?? ""} com reserva ${t.troca.placa_reserva ?? ""}`}>{t.papel === "reserva" ? "reserva" : "troca"}</Badge>
+                            ) : null; })()}
+                          </TableCell>
                           <TableCell className="max-w-[104px] truncate" title={`${l.vehicle.marca} ${l.vehicle.modelo}`}>{l.vehicle.marca} {l.vehicle.modelo}</TableCell>
                           <TableCell><StatusBadge label={STATUS_CURTO[l.status] ?? l.statusLabel} cor={l.statusCor} title={l.statusLabel} /></TableCell>
                           <TableCell className="max-w-[96px] truncate" title={l.locatario ?? undefined}>{l.locatario ?? <span className="text-muted-foreground">—</span>}</TableCell>

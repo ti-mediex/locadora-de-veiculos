@@ -20,6 +20,7 @@ import {
   CarFront,
   CalendarClock,
   Receipt,
+  ArrowLeftRight,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ const NAV: {
   { to: "/locatarios", label: "Locatários", icon: Users, roles: ["admin", "financeiro", "operador"] },
   { to: "/resumo-locatarios", label: "Resumo por Locatário", icon: Wallet, roles: ["admin", "financeiro", "operador"] },
   { to: "/contratos", label: "Contratos", icon: FileSignature, roles: ["admin", "financeiro", "operador"] },
+  { to: "/trocas-veiculo", label: "Trocas de Veículo", icon: ArrowLeftRight, roles: ["admin", "financeiro", "operador"] },
   { to: "/apuracao-km", label: "Apuração de KM", icon: Gauge, roles: ["admin", "financeiro", "operador"] },
   { to: "/rastreamento", label: "Rastreamento Ituran", icon: Satellite, roles: ["admin", "financeiro", "operador"] },
   { to: "/importacoes", label: "Importações", icon: FolderDown, roles: ["admin", "financeiro", "operador"] },

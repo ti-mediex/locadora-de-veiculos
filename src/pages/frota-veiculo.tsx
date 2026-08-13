@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Wallet, Wrench, Gauge, AlertTriangle, Satellite, FileSignature, CalendarClock, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, TrendingUp, Wallet, Wrench, Gauge, AlertTriangle, Satellite, FileSignature, CalendarClock, Wifi, WifiOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -19,6 +19,7 @@ import { useOcorrencias, construirLinhaTempo } from "@/hooks/use-ocorrencias";
 import { useOrdensServico } from "@/hooks/use-ordens-servico";
 import { useVehicleStatuses } from "@/hooks/use-vehicle-statuses";
 import { semanasNoMes, grupoFrota } from "@/hooks/use-frota-ativa";
+import { useTrocasAtivasPorVeiculo, motivoLabel } from "@/hooks/use-trocas";
 import { OCORRENCIA_TIPO, OS_STATUS } from "@/lib/options";
 import { formatCurrency, formatNumber, formatDate, formatDateTime, maskPlaca } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
@@ -50,6 +51,9 @@ export default function FrotaVeiculoPage() {
   const { data: ocorrencias = [] } = useOcorrencias();
   const { data: ordens = [] } = useOrdensServico();
   const { data: statuses = [] } = useVehicleStatuses();
+
+  const trocasMap = useTrocasAtivasPorVeiculo();
+  const avisoTroca = trocasMap.get(vehicleId);
 
   const v = useMemo(() => vehicles.find((x) => x.id === vehicleId), [vehicles, vehicleId]);
   const statusLabel = useMemo(() => statuses.find((s) => s.value === v?.status)?.label ?? v?.status ?? "—", [statuses, v]);
@@ -116,6 +120,31 @@ export default function FrotaVeiculoPage() {
         <Card className="border-warning/40"><CardContent className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
           <AlertTriangle className="h-4 w-4 text-warning" /> Este veículo está com status <b className="mx-1">{statusLabel}</b>, fora da frota ativa. As informações abaixo continuam disponíveis.
         </CardContent></Card>
+      )}
+
+      {avisoTroca && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center gap-2 p-3 text-sm">
+            <ArrowLeftRight className="h-4 w-4 shrink-0 text-primary" />
+            {avisoTroca.papel === "origem" ? (
+              <span>
+                Veículo em <b>troca por {motivoLabel(avisoTroca.troca.motivo).toLowerCase()}</b>: o locatário{" "}
+                <b>{avisoTroca.troca.locatario_nome ?? "—"}</b>
+                {avisoTroca.troca.contratos?.numero ? ` (contrato ${avisoTroca.troca.contratos.numero})` : ""} está com o veículo reserva{" "}
+                <button className="font-mono font-semibold text-primary hover:underline" onClick={() => avisoTroca.troca.veiculo_reserva_id && navigate(`/frota-ativa/${avisoTroca.troca.veiculo_reserva_id}`)}>{maskPlaca(avisoTroca.troca.placa_reserva ?? "")}</button>{" "}
+                desde {formatDate(avisoTroca.troca.data_troca)}.
+              </span>
+            ) : (
+              <span>
+                Este veículo está <b>em uso como reserva</b> pelo locatário <b>{avisoTroca.troca.locatario_nome ?? "—"}</b>
+                {avisoTroca.troca.contratos?.numero ? ` (contrato ${avisoTroca.troca.contratos.numero})` : ""}, no lugar do veículo{" "}
+                <button className="font-mono font-semibold text-primary hover:underline" onClick={() => avisoTroca.troca.veiculo_origem_id && navigate(`/frota-ativa/${avisoTroca.troca.veiculo_origem_id}`)}>{maskPlaca(avisoTroca.troca.placa_origem ?? "")}</button>{" "}
+                desde {formatDate(avisoTroca.troca.data_troca)}.
+              </span>
+            )}
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => navigate("/trocas-veiculo")}>Ver trocas</Button>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
