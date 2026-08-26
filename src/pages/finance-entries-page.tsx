@@ -30,6 +30,7 @@ import { useCanWrite } from "@/hooks/use-can-write";
 import { useContratos } from "@/hooks/use-contratos";
 import { parseBoletosBanco } from "@/lib/boletos-banco-parse";
 import { conciliarBoletos, useAplicarBaixa, useMarcarRecebido, useUploadArquivoFinanceiro, abrirArquivoFinanceiro, type ConciliacaoItem } from "@/hooks/use-recebimentos";
+import { DropFile } from "@/components/shared/drop-file";
 import { RECEITA_CATEGORIA, DESPESA_CATEGORIA, FORMA_PAGAMENTO } from "@/lib/options";
 import { formatCurrency, formatDate, maskPlaca } from "@/lib/format";
 import { noPeriodo } from "@/lib/date";
@@ -100,6 +101,9 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  // Anexos escolhidos ao lançar um novo registro (enviados após criar o id).
+  const [novoComprovante, setNovoComprovante] = useState<File | null>(null);
+  const [novoBoleto, setNovoBoleto] = useState<File | null>(null);
   const [search, setSearch] = useState("");
   const [pIni, setPIni] = useState("");
   const [pFim, setPFim] = useState("");
@@ -205,11 +209,13 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
 
   function openNew() {
     setEditing(null);
+    setNovoComprovante(null); setNovoBoleto(null);
     reset({ data: new Date().toISOString().slice(0, 10), categoria: categorias[0].value });
     setOpen(true);
   }
   function openEdit(r: Row) {
     setEditing(r);
+    setNovoComprovante(null); setNovoBoleto(null);
     reset({
       data: r.data,
       vehicle_id: r.vehicle_id ?? "",
@@ -226,7 +232,20 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
     if (editing) {
       update.mutate({ id: editing.id, ...payload }, { onSuccess: () => { setOpen(false); invalidate(); } });
     } else {
-      create.mutate(payload, { onSuccess: () => { setOpen(false); invalidate(); } });
+      create.mutate(payload, {
+        onSuccess: async (novo) => {
+          // Envia os anexos escolhidos, agora que o lançamento já tem id.
+          const id = (Array.isArray(novo) ? novo[0]?.id : (novo as { id?: string })?.id) as string | undefined;
+          if (id) {
+            try {
+              if (novoComprovante) await uploadArquivo.mutateAsync({ entryId: id, file: novoComprovante, campo: "comprovante_path" });
+              if (novoBoleto) await uploadArquivo.mutateAsync({ entryId: id, file: novoBoleto, campo: "boleto_path" });
+            } catch { /* toast no hook */ }
+          }
+          setNovoComprovante(null); setNovoBoleto(null);
+          setOpen(false); invalidate();
+        },
+      });
     }
   }
   function del(r: Row) {
@@ -515,10 +534,27 @@ export function FinanceEntriesPage({ tipo }: { tipo: "receita" | "despesa" }) {
               </div>
             )}
 
+            {!editing && (
+              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                <span className="text-sm font-medium">Anexos (opcional)</span>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">{isReceita ? "Comprovante (pix/boleto)" : "Comprovante de pagamento"}</label>
+                    <DropFile file={novoComprovante} onFile={setNovoComprovante} disabled={uploadArquivo.isPending} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">{isReceita ? "Boleto emitido" : "Boleto"}</label>
+                    <DropFile file={novoBoleto} onFile={setNovoBoleto} disabled={uploadArquivo.isPending} />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Os arquivos são enviados automaticamente ao lançar.</p>
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={create.isPending || update.isPending}>
-                {editing ? "Salvar" : "Lançar"}
+              <Button type="submit" disabled={create.isPending || update.isPending || uploadArquivo.isPending}>
+                {editing ? "Salvar" : (create.isPending || uploadArquivo.isPending) ? "Lançando…" : "Lançar"}
               </Button>
             </DialogFooter>
           </form>
