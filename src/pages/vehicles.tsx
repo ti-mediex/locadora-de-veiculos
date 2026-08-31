@@ -275,6 +275,7 @@ export default function VehiclesPage() {
       case "ocorrencias": return ocorrMap[v.id] ?? -1;
       case "rastreamento": { const rs = rastMap.get(v.id); return rs ? (rs.comunicando ? 0 : 1) : 2; }
       case "proprietario": return (v.proprietario_nome ?? "").toLowerCase();
+      case "alienante": return (v.alienante ?? "").toLowerCase();
       case "locatario": return (locatarioMap.get(v.id) ?? "").toLowerCase();
       case "contrato": return contratoMap.get(v.id)?.numero ?? "";
       case "status": return statusMap.get(v.status)?.label ?? v.status ?? "";
@@ -292,7 +293,7 @@ export default function VehiclesPage() {
       { label: "Placa" }, { label: "Veículo" }, { label: "Ano" },
       { label: "KM", align: "right" }, { label: `KM ${mesAtualLabel}`, align: "right" }, { label: `KM ${mesAntLabel}`, align: "right" },
       { label: "FIPE", align: "right" }, { label: "Pendências", align: "right" },
-      { label: "Restrições", align: "right" }, { label: "Ocorrências", align: "right" }, { label: "Proprietário" }, { label: "Locatário" }, { label: "Contrato" }, { label: "Rastreamento" }, { label: "Status" },
+      { label: "Restrições", align: "right" }, { label: "Ocorrências", align: "right" }, { label: "Proprietário" }, { label: "Alienante" }, { label: "Locatário" }, { label: "Contrato" }, { label: "Rastreamento" }, { label: "Status" },
     ];
     const linhas = sorted.map((v) => {
       const p = pendMap[v.id];
@@ -309,7 +310,7 @@ export default function VehiclesPage() {
         p ? `${p.abertas} aberta(s)${p.vencidas ? ` · ${p.vencidas} vencida(s)` : ""}` : "—",
         r ? `${r.total}${r.judicial ? ` · ${r.judicial} judicial(is)` : ""}` : "—",
         ocorrMap[v.id] ? `${ocorrMap[v.id]} aberta(s)` : "—",
-        v.proprietario_nome ?? "—", locatarioMap.get(v.id) ?? "—",
+        v.proprietario_nome ?? "—", v.alienante ?? "—", locatarioMap.get(v.id) ?? "—",
         contratoMap.get(v.id)?.numero ?? (v.status === "locado" ? "sem contrato" : "—"),
         rs ? (rs.comunicando ? "Comunicando" : "Sem comunicação") : "—",
         statusMap.get(v.status)?.label ?? v.status,
@@ -534,6 +535,7 @@ export default function VehiclesPage() {
                   <SortableHead sortKey="restricoes" activeKey={sortKey} dir={sortDir} onSort={toggle}>Restr.</SortableHead>
                   <SortableHead sortKey="ocorrencias" activeKey={sortKey} dir={sortDir} onSort={toggle}>Ocorr.</SortableHead>
                   <SortableHead sortKey="proprietario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Propriet.</SortableHead>
+                  <SortableHead sortKey="alienante" activeKey={sortKey} dir={sortDir} onSort={toggle}>Alienante</SortableHead>
                   <SortableHead sortKey="locatario" activeKey={sortKey} dir={sortDir} onSort={toggle}>Locatário</SortableHead>
                   <SortableHead sortKey="contrato" activeKey={sortKey} dir={sortDir} onSort={toggle}>Contrato</SortableHead>
                   <SortableHead sortKey="rastreamento" activeKey={sortKey} dir={sortDir} onSort={toggle}>Rastr.</SortableHead>
@@ -551,7 +553,7 @@ export default function VehiclesPage() {
                     onClick={() => (canWrite ? openEdit(v) : navigate(`/pendencias?veiculo=${encodeURIComponent(v.placa)}`))}
                   >
                     <TableCell className="whitespace-nowrap font-mono font-medium">{maskPlaca(v.placa)}</TableCell>
-                    <TableCell className="max-w-[116px]">
+                    <TableCell className="max-w-[96px]">
                       <div className="truncate font-medium" title={`${v.marca} ${v.modelo}`}>{v.marca} {v.modelo}</div>
                       <div className="truncate text-[10px] text-muted-foreground">{v.cor} · {v.categoria}</div>
                       <div className="mt-0.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
@@ -625,12 +627,17 @@ export default function VehiclesPage() {
                         </button>
                       ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="max-w-[84px]">
+                    <TableCell className="max-w-[72px]">
                       {v.proprietario_nome
                         ? <span className="block truncate" title={`${v.proprietario_nome}${v.proprietario_documento ? ` · ${v.proprietario_documento}` : ""}`}>{v.proprietario_nome}</span>
                         : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="max-w-[84px]">
+                    <TableCell className="max-w-[80px]">
+                      {v.alienante
+                        ? <span className="block truncate text-[11px]" title={`Alienado a: ${v.alienante}`}>{v.alienante}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="max-w-[72px]">
                       {(() => {
                         const loc = locatarioMap.get(v.id);
                         if (!loc) return <span className="text-muted-foreground">—</span>;
