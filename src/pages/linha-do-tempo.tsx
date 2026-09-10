@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSort } from "@/hooks/use-sort";
 import { useList } from "@/hooks/use-crud";
 import { useContratos } from "@/hooks/use-contratos";
-import { useOcorrencias, construirLinhaTempo } from "@/hooks/use-ocorrencias";
+import { useOcorrencias, useSetOcorrenciaDescontoSemana, construirLinhaTempo } from "@/hooks/use-ocorrencias";
 import { useParalisacoes, type ParalVeiculo, type ParalisacaoLinha } from "@/hooks/use-paralisacoes";
 import { MemoriaCalculoDialog } from "@/components/paralisacoes/memoria-calculo-desconto";
 import { OCORRENCIA_TIPO } from "@/lib/options";
@@ -41,6 +41,7 @@ export default function LinhaDoTempoPage() {
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const { data: contratos = [] } = useContratos();
   const { data: ocorrencias = [] } = useOcorrencias();
+  const setDescontoSemana = useSetOcorrenciaDescontoSemana();
 
   const [tab, setTab] = useState("frota");
   const [veic, setVeic] = useState<string>(params.get("veiculo") ?? "");
@@ -362,6 +363,8 @@ export default function LinhaDoTempoPage() {
         linhas={memoria?.linhas ?? []}
         franquiaH={franquiaH}
         titulo={memoria?.titulo}
+        editavelSemana
+        onChangeSemana={(id, semana) => setDescontoSemana.mutate({ id, semana })}
       />
     </div>
   );

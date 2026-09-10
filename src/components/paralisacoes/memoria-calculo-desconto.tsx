@@ -130,10 +130,12 @@ export function MemoriaCalculoDesconto({ linhas, franquiaH, editavelSemana, onCh
 
 /** Diálogo com a memória de cálculo do desconto por paralisação. */
 export function MemoriaCalculoDialog({
-  open, onOpenChange, linhas, franquiaH, titulo,
+  open, onOpenChange, linhas, franquiaH, titulo, editavelSemana, onChangeSemana,
 }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   linhas: ParalisacaoLinha[]; franquiaH: number; titulo?: string;
+  editavelSemana?: boolean;
+  onChangeSemana?: (ocorrenciaId: string, isoSexta: string | null) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -145,7 +147,7 @@ export function MemoriaCalculoDialog({
           Regra: paralisações acima da franquia de {h1(franquiaH)} geram desconto proporcional ao valor semanal
           da locação (valor semanal ÷ {HORAS_SEMANA}h por hora excedente), abatido no próximo boleto.
         </p>
-        <MemoriaCalculoDesconto linhas={linhas} franquiaH={franquiaH} />
+        <MemoriaCalculoDesconto linhas={linhas} franquiaH={franquiaH} editavelSemana={editavelSemana} onChangeSemana={onChangeSemana} />
       </DialogContent>
     </Dialog>
   );
