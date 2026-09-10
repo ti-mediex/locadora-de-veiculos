@@ -33,6 +33,8 @@ export interface ParalisacaoLinha {
   contrato: ContratoAlvo | null;
   semanaIni: string;     // YYYY-MM-DD (sexta de vencimento do boleto que recebe o desconto)
   semanaLabel: string;   // período do boleto: dd/mm a dd/mm
+  semanaAuto: string;    // YYYY-MM-DD (sexta calculada automaticamente, sem override)
+  semanaOverride: boolean; // true quando a semana foi escolhida manualmente
 }
 
 export interface ParalVeiculo {
@@ -132,9 +134,12 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
       const alvo = (o.contrato_id && contratoPorId.get(o.contrato_id)) || contratoAtivo.get(o.vehicle_id) || null;
       const valorHora = alvo ? alvo.valorHora : 0;
       // Pagamento antecipado: o desconto entra no PRÓXIMO boleto (a sexta seguinte
-      // ao início do período em que ocorreu a paralisação).
+      // ao início do período em que ocorreu a paralisação). Pode ser sobrescrito
+      // manualmente (ocorrencia.desconto_semana_venc) para outra semana.
       const periodoIni = sextaDoPeriodo(new Date(o.inicio));
-      const boletoVenc = new Date(periodoIni); boletoVenc.setDate(boletoVenc.getDate() + 7);
+      const autoVenc = new Date(periodoIni); autoVenc.setDate(autoVenc.getDate() + 7);
+      const override = o.desconto_semana_venc ? sextaDoPeriodo(new Date(`${o.desconto_semana_venc}T00:00:00`)) : null;
+      const boletoVenc = override ?? autoVenc;
       const boletoFim = new Date(boletoVenc); boletoFim.setDate(boletoFim.getDate() + 6);
       const v = vMap.get(o.vehicle_id);
       linhas.push({
@@ -142,6 +147,7 @@ export function useParalisacoes(refMes: Date = new Date()): ParalisacoesResult {
         modelo: o.vehicles?.modelo ?? v?.modelo ?? "", tipo: o.tipo, inicio: o.inicio, fim: o.fim, emAberto: !o.fim,
         horas, horasDesc, valorHora, desconto: horasDesc * valorHora, custo: Number(o.custo ?? 0),
         contrato: alvo, semanaIni: iso(boletoVenc), semanaLabel: `${fmtDia(boletoVenc)} a ${fmtDia(boletoFim)}`,
+        semanaAuto: iso(autoVenc), semanaOverride: !!override,
       });
     }
 

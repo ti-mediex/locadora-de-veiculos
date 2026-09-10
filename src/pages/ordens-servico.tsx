@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useList } from "@/hooks/use-crud";
 import { useCanWrite } from "@/hooks/use-can-write";
-import { useOcorrencias } from "@/hooks/use-ocorrencias";
+import { useOcorrencias, useSetOcorrenciaDescontoSemana } from "@/hooks/use-ocorrencias";
 import { useParalisacoes, type ParalisacaoLinha } from "@/hooks/use-paralisacoes";
 import { MemoriaCalculoDesconto, MemoriaCalculoDialog } from "@/components/paralisacoes/memoria-calculo-desconto";
 import { useOrdensServico, useSalvarOrdemServico, useDeleteOrdemServico, useOsFotos, useSaveOsFotos, useDeleteOsFoto, useOsItens, useUploadIturanOS, abrirArquivoOS, type OrdemServicoRow, type OsItemInput } from "@/hooks/use-ordens-servico";
@@ -77,6 +77,7 @@ export default function OrdensServicoPage() {
   const { data: rows = [], isLoading } = useOrdensServico();
   const { data: vehicles = [] } = useList<Vehicle>("vehicles");
   const { data: ocorrencias = [] } = useOcorrencias();
+  const setDescontoSemana = useSetOcorrenciaDescontoSemana();
   const { linhas: paralLinhas, franquiaH } = useParalisacoes();
   const { data: config } = useAppConfig();
   const salvar = useSalvarOrdemServico();
@@ -477,8 +478,13 @@ export default function OrdensServicoPage() {
             {editing && linhaDaOs(editing) && (
               <div className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center gap-2 text-sm font-medium"><Calculator className="h-4 w-4 text-destructive" /> Memória de cálculo do desconto por paralisação</div>
-                <p className="text-xs text-muted-foreground">Desconto no boleto do locatário gerado pela paralisação da ocorrência vinculada a esta OS.</p>
-                <MemoriaCalculoDesconto linhas={[linhaDaOs(editing)!]} franquiaH={franquiaH} />
+                <p className="text-xs text-muted-foreground">Desconto no boleto do locatário gerado pela paralisação da ocorrência vinculada a esta OS. Você pode escolher em qual semana (boleto) o desconto será abatido.</p>
+                <MemoriaCalculoDesconto
+                  linhas={[linhaDaOs(editing)!]}
+                  franquiaH={franquiaH}
+                  editavelSemana
+                  onChangeSemana={(id, semana) => setDescontoSemana.mutate({ id, semana })}
+                />
               </div>
             )}
             <p className="text-xs text-muted-foreground">Ao salvar como <b>Concluída</b> com total maior que zero, uma despesa é lançada/atualizada automaticamente no módulo Despesas.</p>

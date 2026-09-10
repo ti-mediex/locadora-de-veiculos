@@ -1,10 +1,30 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency, formatDate, formatDateTime, formatNumber, maskPlaca } from "@/lib/format";
 import type { ParalisacaoLinha } from "@/hooks/use-paralisacoes";
 
 const HORAS_SEMANA = 168;
 const h1 = (n: number) => `${formatNumber(Math.round(n * 10) / 10)} h`;
+const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const ddmm = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+/** Sextas candidatas em torno da semana automática (para escolher o boleto). */
+function opcoesSemana(autoIso: string, atualIso: string) {
+  const base = new Date(`${autoIso}T00:00:00`);
+  const opts: { iso: string; label: string }[] = [];
+  for (let k = -4; k <= 8; k++) {
+    const ini = new Date(base); ini.setDate(ini.getDate() + k * 7);
+    const fim = new Date(ini); fim.setDate(fim.getDate() + 6);
+    opts.push({ iso: isoLocal(ini), label: `${ddmm(ini)} a ${ddmm(fim)}` });
+  }
+  if (!opts.some((o) => o.iso === atualIso)) {
+    const ini = new Date(`${atualIso}T00:00:00`); const fim = new Date(ini); fim.setDate(fim.getDate() + 6);
+    opts.push({ iso: atualIso, label: `${ddmm(ini)} a ${ddmm(fim)}` });
+    opts.sort((a, b) => a.iso.localeCompare(b.iso));
+  }
+  return opts;
+}
 
 function Linha({ label, valor, forte }: { label: string; valor: React.ReactNode; forte?: boolean }) {
   return (
@@ -16,7 +36,11 @@ function Linha({ label, valor, forte }: { label: string; valor: React.ReactNode;
 }
 
 /** Memória de cálculo do desconto de UMA paralisação (passo a passo auditável). */
-function MemoriaLinha({ l, franquiaH }: { l: ParalisacaoLinha; franquiaH: number }) {
+function MemoriaLinha({ l, franquiaH, editavelSemana, onChangeSemana }: {
+  l: ParalisacaoLinha; franquiaH: number;
+  editavelSemana?: boolean;
+  onChangeSemana?: (ocorrenciaId: string, isoSexta: string | null) => void;
+}) {
   const semDesconto = l.horasDesc <= 0 || l.desconto <= 0;
   const motivoSem = !l.contrato
     ? "Sem contrato-alvo ativo no período → valor/hora R$ 0 → sem desconto."
@@ -46,7 +70,28 @@ function MemoriaLinha({ l, franquiaH }: { l: ParalisacaoLinha; franquiaH: number
         <Linha label="④ Valor semanal da locação" valor={l.contrato ? formatCurrency(l.contrato.valor_locacao) : "—"} />
         <Linha label={`⑤ Valor por hora = ④ ÷ ${HORAS_SEMANA}h`} valor={formatCurrency(l.valorHora)} />
         <Linha label="⑥ Desconto = ③ × ⑤" valor={<span className="text-destructive">{formatCurrency(l.desconto)}</span>} forte />
-        <Linha label="Boleto que recebe o desconto" valor={`${formatDate(l.semanaIni)} · ${l.semanaLabel}`} />
+        {editavelSemana && onChangeSemana && l.ocorrencia?.id ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-xs text-muted-foreground">Boleto que recebe o desconto</span>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={l.semanaOverride ? l.semanaIni : "auto"}
+                onValueChange={(v) => onChangeSemana(l.ocorrencia.id, v === "auto" ? null : v)}
+              >
+                <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="auto">Automático — {(() => { const d = new Date(`${l.semanaAuto}T00:00:00`); const f = new Date(d); f.setDate(f.getDate() + 6); return `${ddmm(d)} a ${ddmm(f)}`; })()}</SelectItem>
+                  {opcoesSemana(l.semanaAuto, l.semanaIni).map((o) => (
+                    <SelectItem key={o.iso} value={o.iso}>{formatDate(o.iso)} · {o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {l.semanaOverride && <Badge variant="warning" className="px-1.5 py-0 text-[10px]">manual</Badge>}
+            </div>
+          </div>
+        ) : (
+          <Linha label="Boleto que recebe o desconto" valor={`${formatDate(l.semanaIni)} · ${l.semanaLabel}${l.semanaOverride ? " (manual)" : ""}`} />
+        )}
       </div>
 
       {semDesconto ? (
@@ -61,14 +106,18 @@ function MemoriaLinha({ l, franquiaH }: { l: ParalisacaoLinha; franquiaH: number
 }
 
 /** Bloco com a memória de cálculo de uma ou mais paralisações (com total quando &gt;1). */
-export function MemoriaCalculoDesconto({ linhas, franquiaH }: { linhas: ParalisacaoLinha[]; franquiaH: number }) {
+export function MemoriaCalculoDesconto({ linhas, franquiaH, editavelSemana, onChangeSemana }: {
+  linhas: ParalisacaoLinha[]; franquiaH: number;
+  editavelSemana?: boolean;
+  onChangeSemana?: (ocorrenciaId: string, isoSexta: string | null) => void;
+}) {
   if (!linhas.length) {
     return <p className="text-sm text-muted-foreground">Sem paralisação vinculada para calcular desconto.</p>;
   }
   const total = linhas.reduce((s, l) => s + l.desconto, 0);
   return (
     <div className="space-y-3">
-      {linhas.map((l, i) => <MemoriaLinha key={l.ocorrencia?.id ?? i} l={l} franquiaH={franquiaH} />)}
+      {linhas.map((l, i) => <MemoriaLinha key={l.ocorrencia?.id ?? i} l={l} franquiaH={franquiaH} editavelSemana={editavelSemana} onChangeSemana={onChangeSemana} />)}
       {linhas.length > 1 && (
         <div className="flex items-baseline justify-between rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2">
           <span className="text-sm font-medium">Total do desconto</span>

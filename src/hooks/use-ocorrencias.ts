@@ -89,6 +89,19 @@ export function useOcorrencias() {
   });
 }
 
+/** Define (ou limpa) a semana do boleto que recebe o desconto por paralisação. */
+export function useSetOcorrenciaDescontoSemana() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, semana }: { id: string; semana: string | null }) => {
+      const { error } = await supabase.from("ocorrencias").update({ desconto_semana_venc: semana } as never).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["ocorrencias"] }); toast.success("Boleto do desconto atualizado"); },
+    onError: (e: Error) => toast.error("Erro ao atualizar: " + e.message),
+  });
+}
+
 /** Carro reserva aberto por veículo (contrato_id/locatario_id), para pré-preencher o form. */
 export function useReservaAtualPorVeiculo() {
   return useQuery<Record<string, { contrato_id: string | null; locatario_id: string | null }>>({

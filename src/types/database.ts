@@ -464,6 +464,7 @@ export interface Ocorrencia {
   contrato_id: string | null;
   locatario_id: string | null;
   muda_status_veiculo: string | null;
+  desconto_semana_venc: string | null; // sexta do boleto que recebe o desconto (override manual)
   created_by: string | null;
   created_at: string;
   updated_at: string;
